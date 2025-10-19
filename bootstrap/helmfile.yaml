@@ -1,0 +1,11 @@
+bases:
+  - bases/helmDefaults.yaml
+  - bases/envs.yaml.gotmpl
+
+helmfiles:
+  - releases/cilium/helmfile.gotmpl
+  - releases/gpu-operator/helmfile.gotmpl
+  - releases/argocd/helmfile.gotmpl
+  - releases/infisical/helmfile.gotmpl
+
+missingFileHandler: Error

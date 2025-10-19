@@ -1,0 +1,23 @@
+toolkit:
+  enabled: true
+
+devicePlugin:
+  enabled: true
+
+dcgmExporter:
+  enabled: true
+
+node-feature-discovery:
+  enabled: true
+
+mig:
+  strategy: none 
+
+nfd:
+  worker:
+    config:
+      sources:
+        pci:
+          deviceLabelFields: ["vendor", "device", "class"]
+  master:
+    nodeSelector: {}

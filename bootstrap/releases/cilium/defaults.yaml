@@ -1,0 +1,13 @@
+# =========================
+# Cilium Helm Values (Defaults)
+# =========================
+
+hubble:
+  enabled: true  
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+
+operator:
+  replicas: 1

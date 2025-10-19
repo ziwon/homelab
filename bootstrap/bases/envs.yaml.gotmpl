@@ -1,0 +1,10 @@
+{{- $envValuesDir := print (regexReplaceAll "/releases/[^/]+$" (env "PWD") "") "/bases/envs" }}
+
+environments:
+  home:
+    values:
+      - {{ $envValuesDir }}/home.yaml
+
+  ocp:
+    values:
+      - {{ $envValuesDir }}/ocp.yaml

@@ -1,0 +1,18 @@
+driver:
+  enabled: false
+  version: "{{ requiredEnv "NVIDIA_DRIVER_VERSION" }}"
+
+operator:
+  defaultRuntime: containerd
+  initContainer: {}
+  validator:
+    repository: nvcr.io/nvidia/cloud-native
+    image: gpu-operator-validator
+    version: "{{ requiredEnv "NVIDIA_GPU_OPERATOR_VERSION" }}"
+
+runtime:
+  toolkit:
+    repository: nvcr.io/nvidia/k8s
+    image: container-toolkit
+    version: "{{ requiredEnv "NVIDIA_CONTAINER_TOOLKIT_VERSION" }}"
+ 

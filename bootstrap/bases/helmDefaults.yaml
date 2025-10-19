@@ -1,0 +1,8 @@
+---
+helmDefaults:
+  atomic: true
+  wait: true
+  timeout: 900
+  force: true
+  cleanupOnFail: false
+  recreatePods: false

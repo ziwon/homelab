@@ -1,0 +1,111 @@
+# =========================
+# Cilium Helm Values (for K3s)
+# =========================
+# Version: v1.18.2
+# Compatible with K3s + kube-proxy replacement + eBPF
+
+k8sServiceHost: "127.0.0.1"        # K3s API server host
+k8sServicePort: "6443"             # K3s API server port
+
+kubeProxyReplacement: true         # Enable eBPF kube-proxy replacement
+kubeProxyReplacementHealthzBindAddr: ""  # Disable legacy healthz port
+
+# =========================
+# Networking
+# =========================
+ipam:
+  mode: cluster-pool
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - {{ requiredEnv "CLUSTER_CIDR" }}
+    clusterPoolIPv4MaskSize: 24
+
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+# =========================
+# Layer 2 / External IP Support
+# =========================
+l2announcements:
+  enabled: true
+
+externalIPs:
+  enabled: true
+
+# =========================
+# Gateway API / Envoy Integration
+# =========================
+gatewayAPI:
+  enabled: true
+
+envoy:
+  enabled: true
+
+# =========================
+# Hubble Observability
+# =========================
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+    ingress:
+      enabled: false   # Can be enabled later if using NGINX or Cilium Ingress
+
+# =========================
+# Operator Configuration
+# =========================
+operator:
+  replicas: 1
+  rollOutPods: true
+  rollOutCiliumPods: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# =========================
+# Performance / Stability
+# =========================
+k8sClientRateLimit:
+  qps: 50
+  burst: 200
+
+# =========================
+# CNI / Runtime Integration
+# =========================
+cni:
+  binPath: {{ requiredEnv "CNI_BIN_PATH" }}        
+  confPath: {{ requiredEnv "CNI_CONF_PATH" }}      
+  exclusive: false # Allow other CNIs if needed (e.g., sr-iov, multus, etc.)
+
+# =========================
+# eBPF Settings
+bpf:
+  mapLockingEnabled: false
+
+# =========================
+# Security Contexts
+# =========================
+securityContext:
+  capabilities:
+    keepCapNetBindService: true
+  privileged: true
+  seccompProfile:
+    type: Unconfined
+  appArmorProfile:
+    type: Unconfined
+
+# =========================
+# Debug / Logging
+# =========================
+debug:
+  enabled: true
+  verbose: "datapath=debug,policy=debug,envoy=debug"
+
+# =========================
+# Misc / Compatibility
+# =========================
+rollOutCiliumPods: true
+enableIPv6: false

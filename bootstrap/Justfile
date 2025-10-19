@@ -1,0 +1,67 @@
+set dotenv-load
+
+HF  := "helmfile"
+K   := "kubectl"
+
+default:
+    echo "Bootstrap Homelab Environment"
+    @just --list
+
+[group('k3s')]
+up:
+    echo "Installing k3s server with containerd..."
+    curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=$INSTALL_K3S_CHANNEL sh -s - server \
+        --container-runtime-endpoint unix:///run/containerd/containerd.sock \
+        --flannel-backend=none \
+        --disable-network-policy \
+        --disable-kube-proxy \
+        --disable=traefik \
+        --tls-san $K8S_TLS_SANS \
+        --cluster-cidr=$CLUSTER_CIDR \
+        --service-cidr=$SERVICE_CIDR
+
+    echo "Setting up KUBECONFIG for k3s..."
+    mkdir -p $(dirname $KUBECONFIG)
+    sudo cp /etc/rancher/k3s/k3s.yaml $KUBECONFIG
+    chown $(id -u):$(id -g) $KUBECONFIG
+    chmod 600 $KUBECONFIG
+
+down:
+    echo "Uninstalling k3s..."
+    sudo /usr/local/bin/k3s-uninstall.sh
+
+[group('helmfile')]
+list:
+    echo "Applying Helmfile configurations..."
+    {{HF}} -e $ENV list
+
+template:
+    echo "Templating Helmfile releases..."
+    {{HF}} -e $ENV template
+
+template-target target:
+    echo "Templating Helmfile releases for target: {{target}}..."
+    {{HF}} -e $ENV -l name={{target}} template
+
+sync:
+    echo "Syncing Helmfile releases..."
+    {{HF}} -e $ENV sync
+
+sync-target target:
+    echo "Syncing Helmfile releases for target: {{target}}..."
+    {{HF}} -e $ENV -l name={{target}} sync
+
+apply:
+    echo "Applying Helmfile releases..."
+    {{HF}} -e $ENV apply
+
+apply-target target:
+    echo "Applying Helmfile releases for target: {{target}}..."
+    {{HF}} -e $ENV -l name={{target}} apply
+
+k8s-nvidia-smi:
+    echo "Running nvidia-smi in a Kubernetes pod..."
+    {{K}} run nvidia-test --rm -it --restart=Never \
+        --image=nvidia/cuda:12.4.1-base-ubuntu22.04 \
+        --overrides='{"spec":{"runtimeClassName":"nvidia"}}' \
+        -- nvidia-smi

@@ -1,0 +1,21 @@
+bases:
+  - ../../bases/helmDefaults.yaml
+  - ../../bases/envs.yaml.gotmpl
+
+repositories:
+  - name: nvidia
+    url: https://helm.ngc.nvidia.com/nvidia
+
+---
+releases:
+  - name: gpu-operator
+    chart: nvidia/gpu-operator
+    installed: {{ .Values | getOrNil "gpu_operator.installed" | default true }}
+    version: {{ .Values | getOrNil "gpu_operator.chart_version" | default "v24.6.2" }}
+    namespace: gpu-operator
+    createNamespace: true
+    labels:
+      app: gpu-operator
+    values:
+      - defaults.yaml
+      - values/{{ .Environment.Name }}.yaml.gotmpl

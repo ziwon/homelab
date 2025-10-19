@@ -1,0 +1,23 @@
+---
+bases:
+  - ../../bases/helmDefaults.yaml 
+  - ../../bases/envs.yaml.gotmpl
+
+---
+repositories:
+  - name: cilium
+    url: https://helm.cilium.io/ 
+
+releases:
+  - name: cilium
+    chart: cilium/cilium  
+    installed: {{ .Values | getOrNil "cilium.installed" | default true }} 
+    version: {{ .Values | getOrNil "cilium.chart_version" | default "1.18.2" }}
+    namespace: kube-system
+    createNamespace: true
+    labels:
+      group: network
+    values:
+      - defaults.yaml
+      - values/{{ .Environment.Name }}.yaml.gotmpl
+    force: true  

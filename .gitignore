@@ -1,0 +1,27 @@
+# Environment-specific overrides loaded by Just
+.env
+.env*
+!.env.example
+
+# Local kubeconfig files referenced in README workflows
+.kube/
+*.kubeconfig
+kubeconfig
+
+# Helm and Argo CD generated artifacts
+**/charts/*.tgz
+**/charts/*.tar.gz
+helmfile.d/
+tmp/
+tmp-*/
+*.tmp
+*.log
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak

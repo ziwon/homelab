@@ -1,0 +1,47 @@
+bases:
+  - ../../bases/helmDefaults.yaml 
+  - ../../bases/envs.yaml.gotmpl
+
+---
+repositories:
+  - name: infisical
+    url: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/
+
+releases:
+  - name: infisical
+    chart: infisical/secrets-operator
+    version: {{ .Values | get "infisical-operator.chart_version" nil }}
+    namespace: infisical
+    createNamespace: true
+    installed: {{ .Values | get "infisical-operator.installed" false }}
+    labels:
+      group: secret
+    hooks:
+      - events: ["prepare"]
+        command: "kubectl"
+        args:
+          - delete
+          - secret
+          - infisical-secrets
+          - -n
+          - infisical
+          - --ignore-not-found=true
+          - --context
+          - "{{`{{.Environment.KubeContext}}`}}"
+        showlogs: true
+      - events: ["presync"]
+        command: "kubectl"
+        args:
+         - create
+         - secret
+         - generic
+         - infisical-secrets
+         - --from-literal=clientId={{ requiredEnv "INFISICAL_CLIENT_ID" }}
+         - --from-literal=clientSecret={{ requiredEnv "INFISICAL_CLIENT_SECRET" }}
+         - -n
+         - infisical
+         - --context
+         - "{{`{{.Environment.KubeContext}}`}}"
+        showlogs: true
+    values:
+      - default.yaml
