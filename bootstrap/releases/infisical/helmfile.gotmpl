@@ -1,3 +1,4 @@
+---
 bases:
   - ../../bases/helmDefaults.yaml 
   - ../../bases/envs.yaml.gotmpl
@@ -10,13 +11,21 @@ repositories:
 releases:
   - name: infisical
     chart: infisical/secrets-operator
+    installed: {{ .Values | get "infisical-operator.installed" false }}
     version: {{ .Values | get "infisical-operator.chart_version" nil }}
     namespace: infisical
-    createNamespace: true
-    installed: {{ .Values | get "infisical-operator.installed" false }}
     labels:
-      group: secret
+      layer: secret
     hooks:
+      - events: ["prepare"]
+        command: "kubectl"
+        args:
+          - create
+          - namespace
+          - infisical
+          - --context
+          - "{{`{{.Environment.KubeContext}}`}}"
+        showlogs: true
       - events: ["prepare"]
         command: "kubectl"
         args:
@@ -44,4 +53,4 @@ releases:
          - "{{`{{.Environment.KubeContext}}`}}"
         showlogs: true
     values:
-      - default.yaml
+      - values.yaml

@@ -16,6 +16,48 @@ combining the simplicity of `Helmfile` for cluster provisioning with the reliabi
 
 ---
 
+### Infrastructure Stack
+
+#### Bootstraping
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        External Access                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Tailscale VPN (Private DNS)     Cloudflared (Public DNS)       │
+│  home.lab → Load Balancer        restack.tech → Tunnel → Pod    │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                      Load Balancer Layer                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Gateway (x.x.x.x/30)      │    CoreDNS External (x.x.x.x/31)   │
+│  HTTP/HTTPS Traffic        │    DNS Queries (home.lab)          │
+│  Cilium L2 Announcements   │    Cilium L2 Announcements         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    Kubernetes (K3s) Cluster                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌────────────────┐  ┌──────────────┐  ┌────────────────────┐   │
+│  │  Cilium CNI    │  │  Gateway API │  │  CoreDNS (Custom)  │   │
+│  │  - eBPF Proxy  │  │  - Envoy     │  │  - home.lab zone   │   │
+│  │  - L2 LB       │  │  - HTTPRoute │  │  - Split DNS       │   │
+│  └────────────────┘  └──────────────┘  └────────────────────┘   │
+│                                                                 │
+│  ┌────────────────┐  ┌──────────────┐  ┌────────────────────┐   │
+│  │  ArgoCD        │  │  GPU Operator│  │  Infisical Operator│   │
+│  │  - GitOps      │  │  - NVIDIA    │  │  - Secrets Mgmt    │   │
+│  │  - CD Pipeline │  │  - Runtime   │  │  - Env Injection   │   │
+│  └────────────────┘  └──────────────┘  └────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### GitOps Platform Managements
+(WIP)
+
 ## ⚙️ Features
 
 - **MicroK8s-ready**: Optimized for single-node or lightweight multi-node clusters.  
@@ -104,7 +146,7 @@ $ tree -L 6 .
 │       │       └── home
 │       │           ├── grafana.yaml
 │       │           ├── loki.yaml
-│       │           ├── periscope.yaml
+│       │           ├── pyroscope.yaml
 │       │           └── tempo.yaml
 │       ├── 03-data
 │       │   └── overlays

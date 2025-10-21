@@ -11,13 +11,17 @@ repositories:
 releases:
   - name: cilium
     chart: cilium/cilium  
-    installed: {{ .Values | getOrNil "cilium.installed" | default true }} 
-    version: {{ .Values | getOrNil "cilium.chart_version" | default "1.18.2" }}
+    installed: {{ .Values | get "cilium.installed" true }} 
+    version: {{ .Values | get "cilium.chart_version" "1.18.2" }}
     namespace: kube-system
     createNamespace: true
     labels:
-      group: network
+      layer: network
+    hooks:
+      - events: ["presync"]
+        command: "../../hacks/install-gateway-api-crds.sh"
+        args: ["{{ requiredEnv "K8S_GATEWAY_API_VERSION" }}"]
+        showlogs: true
     values:
-      - defaults.yaml
+      - default.yaml
       - values/{{ .Environment.Name }}.yaml.gotmpl
-    force: true  

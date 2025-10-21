@@ -65,3 +65,10 @@ k8s-nvidia-smi:
         --image=nvidia/cuda:12.4.1-base-ubuntu22.04 \
         --overrides='{"spec":{"runtimeClassName":"nvidia"}}' \
         -- nvidia-smi
+
+gen-certs domain:
+    echo "Generating self-signed TLS certificates for domain: {{domain}}..."
+    openssl req -x509 -nodes -days 365 -newkey rsa:4096 \
+        -keyout {{domain}}.key -out {{domain}}.crt \
+        -subj "/CN={{domain}}/O={{domain}}" \
+        -addext "subjectAltName=DNS:{{domain}},DNS:*.{{domain}}"

@@ -1,0 +1,180 @@
+resources:
+- apiVersion: "cilium.io/v2alpha1"
+  kind: CiliumLoadBalancerIPPool
+  metadata:
+    name: lb-pool-gateway
+  spec:
+    blocks:
+      - cidr: "{{ requiredEnv "L2_ANNOUNCEMENT_CIDR_GW" }}"
+    serviceSelector:
+      matchLabels:
+        gateway.networking.k8s.io/gateway-name: cilium
+- apiVersion: "cilium.io/v2alpha1"
+  kind: CiliumLoadBalancerIPPool
+  metadata:
+    name: lb-pool-dns
+  spec:
+    blocks:
+      - cidr: "{{ requiredEnv "L2_ANNOUNCEMENT_CIDR_DNS" }}"
+    serviceSelector:
+      matchLabels:
+        io.cilium/lb-dns: "true"
+- apiVersion: cilium.io/v2alpha1
+  kind: CiliumL2AnnouncementPolicy
+  metadata:
+    name: l2-policy
+  spec:
+    loadBalancerIPs: true
+    interfaces:
+      - ^eth.*
+      - ^en.*
+- apiVersion: cilium.io/v2alpha1
+  kind: CiliumL2AnnouncementPolicy
+  metadata:
+    name: l2-gateway
+    namespace: infra
+  spec:
+    serviceSelector:
+      matchExpressions:
+        - key: gateway.networking.k8s.io/gateway-name
+          operator: In
+          values: ["cilium"]
+    interfaces:
+      - {{ requiredEnv "L2_BRIDGE_INTERFACE" }}
+    externalIPs: true
+    loadBalancerIPs: true
+
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: GatewayClass
+  metadata:
+    name: cilium
+  spec:
+    controllerName: io.cilium/gateway-controller
+
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: Gateway
+  metadata:
+    name: cilium
+    namespace: infra
+  spec:
+    gatewayClassName: cilium
+    listeners:
+      - name: http
+        protocol: HTTP
+        port: 80
+        hostname: "*.{{ requiredEnv "DOMAIN_PRIVATE" }}"
+        allowedRoutes:
+          namespaces:
+            from: All
+      - name: https-private
+        protocol: HTTPS
+        port: 443
+        hostname: "*.{{ requiredEnv "DOMAIN_PRIVATE" }}"
+        allowedRoutes:
+          namespaces:
+            from: All
+        tls:
+          mode: Terminate
+          certificateRefs:
+            - kind: Secret
+              name: {{ requiredEnv "TLS_SECRET_NAME_FOR_DOMAIN_PRIVATE" }}
+      - name: https-public
+        protocol: HTTPS
+        port: 443
+        hostname: "*.{{ requiredEnv "DOMAIN_PUBLIC" }}"
+        allowedRoutes:
+          namespaces:
+            from: All
+        tls:
+          mode: Terminate
+          certificateRefs:
+            - kind: Secret
+              name: {{ requiredEnv "TLS_SECRET_NAME_FOR_DOMAIN_PUBLIC" }}
+
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: argocd
+    namespace: argocd
+  spec:
+    parentRefs:
+      - name: cilium
+        namespace: infra
+    hostnames:
+      - argocd.{{ requiredEnv "DOMAIN_PRIVATE" }}
+    rules:
+      - backendRefs:
+          - name: argocd-server
+            port: 80
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: hubble
+    namespace: kube-system
+  spec:
+    parentRefs:
+      - name: cilium
+        namespace: infra
+    hostnames:
+      - hubble.{{ requiredEnv "DOMAIN_PRIVATE" }}
+    rules:
+      - backendRefs:
+          - name: hubble-ui
+            port: 80
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: coredns-external
+    namespace: kube-system
+    labels:
+      io.cilium/lb-dns: "true"
+  spec:
+    type: LoadBalancer
+    ports:
+      - name: dns-udp
+        port: 53
+        protocol: UDP
+        targetPort: 53
+      - name: dns-tcp
+        port: 53
+        protocol: TCP
+        targetPort: 53
+    selector:
+      k8s-app: kube-dns
+
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: coredns-custom
+    namespace: kube-system
+  data:
+    home.lab.server: |
+      {{ requiredEnv "DOMAIN_PRIVATE" }}:53 {
+        errors
+        cache 30
+        forward . {{ requiredEnv "IP_ADDR_COREDNS" }}
+        file /etc/coredns/custom/{{ requiredEnv "DOMAIN_PRIVATE" }}.db {{ requiredEnv "DOMAIN_PRIVATE" }}
+      }
+    {{ requiredEnv "DOMAIN_PRIVATE" }}.db: |
+      $ORIGIN {{ requiredEnv "DOMAIN_PRIVATE" }}.
+      @       3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. (
+                              2024101801 ; serial
+                              7200       ; refresh (2 hours)
+                              3600       ; retry (1 hour)
+                              1209600    ; expire (2 weeks)
+                              3600       ; minimum (1 hour)
+                              )
+
+      ; Gateway IP - all HTTP(S) services point here
+      @           IN A     {{ requiredEnv "IP_ADDR_GW" }}
+      *           IN A     {{ requiredEnv "IP_ADDR_GW" }}
+
+
+      ; Specific service records (all point to gateway)
+      argocd      IN A     {{ requiredEnv "IP_ADDR_GW" }}
+      hubble      IN A     {{ requiredEnv "IP_ADDR_GW" }}
+
+      ; DNS server itself
+      dns         IN A     {{ requiredEnv "IP_ADDR_DNS" }}
+

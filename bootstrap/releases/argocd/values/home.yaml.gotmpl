@@ -1,31 +1,30 @@
-# ArgoCD 기본 설정 (단일 노드용)
 global:
-  domain: argocd.home.local  # K3s 기본 도메인
+  domain: argocd.home.local
   image:
     repository: quay.io/argoproj/argocd
-    tag: v2.12.4  # ArgoCD 앱 버전 (차트와 동기화 추천)
+    tag: v2.12.4
 
 configs:
   params:
-    server.insecure: "true"  # 개발용 (프로덕션: false + TLS)
+    server.insecure: "true"  
   rbac:
-    defaultPolicy: 'role:readonly'  # 기본 권한 (필요 시 조정)
+    defaultPolicy: 'role:readonly'  
   secret:
     createSecret: true
 
 controller:
-  replicas: 1  # 단일 노드: 1로 제한
+  replicas: 1 
   metrics:
     enabled: true
 
 server:
-  replicas: 1  # 단일 노드: 1로 제한
+  replicas: 1 
   service:
-    type: ClusterIP  # 외부 접근 필요 시 LoadBalancer로 변경
+    type: ClusterIP 
   extraArgs:
-    - --insecure  # 개발용
+    - --insecure 
   ingress:
-    enabled: false  # 필요 시 true + annotations 추가 (Cilium 호환)
+    enabled: false 
 
 redis:
   resources:

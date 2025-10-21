@@ -2,6 +2,9 @@ cilium:
   installed: true
   chart_version: 1.18.2
 
+cilium-post-setup:
+  installed: true
+
 argocd:
   installed: true
   chart_version: 8.6.4
@@ -10,9 +13,9 @@ gpu-operator:
   installed: true
   chart_version: 25.3.4
 
-infisical:
+infisical-operator:
   installed: true
-  chart_version: 2.6.0
+  chart_version: 0.10.9
 
 cert-manager:
   installed: true

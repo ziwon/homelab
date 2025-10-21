@@ -16,7 +16,8 @@ releases:
     namespace: argocd
     createNamespace: true
     labels:
-      group: gitops
+      layer: gitops
     values:
+       - default.yaml
        - values/{{ .Environment.Name }}.yaml.gotmpl
   

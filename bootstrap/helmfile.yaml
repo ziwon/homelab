@@ -7,5 +7,6 @@ helmfiles:
   - releases/gpu-operator/helmfile.gotmpl
   - releases/argocd/helmfile.gotmpl
   - releases/infisical/helmfile.gotmpl
+  - releases/cilium-post-setup/helmfile.gotmpl
 
 missingFileHandler: Error
