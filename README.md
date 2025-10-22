@@ -18,8 +18,7 @@ from *manual orchestration* to *autonomous self-healing*,
 from *scripted pipelines* to *AI-assisted decision loops*,  
 and from *operators of infrastructure* to *orchestrators of intelligence*.  
 
-In this paradigm, senior DevOps engineers are no longer pipeline builders —  
-they are **system conductors**, designing platforms that learn, adapt, and optimize themselves over time.
+In this paradigm, DevOps engineers are no longer pipeline builders — they are **system conductors**, designing platforms that learn, adapt, and optimize themselves over time.
 
 ---
 
@@ -85,7 +84,7 @@ a platform that not only runs services, but continuously learns **how to run the
 
 ---
 
-## 📦 Overview
+## Overview
 
 | Phase | Directory | Tool | Purpose |
 |--------|------------|------|----------|
@@ -136,7 +135,7 @@ a platform that not only runs services, but continuously learns **how to run the
 #### GitOps Platform Managements
 (WIP)
 
-## ⚙️ Features
+## Features
 
 - **MicroK8s-ready**: Optimized for single-node or lightweight multi-node clusters.  
 - **Cilium eBPF Networking**: Secure and high-performance data plane.  
@@ -147,7 +146,7 @@ a platform that not only runs services, but continuously learns **how to run the
 
 ---
 
-## 🧩 Repository Structure
+## Repository Structure
 
 ```
 $ tree -L 6 .
@@ -273,7 +272,7 @@ $ tree -L 6 .
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Prerequisites
 - Ubuntu 24.04 or later
@@ -297,7 +296,7 @@ Then, Argo CD will automatically sync all defined core, platform, workloads and 
 
 ---
 
-## 🧱 Design Principles
+## Design Principles
 
 * **Declarative Everything:** All infra and app states are stored in Git.
 * **Two-phase lifecycle:** Helmfile for setup, Argo CD for operations.
@@ -307,7 +306,7 @@ Then, Argo CD will automatically sync all defined core, platform, workloads and 
 
 ---
 
-## 📄 License
+## License
 
 MIT License © 2025 [Aaron]
 
