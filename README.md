@@ -1,8 +1,7 @@
 # 🏠 homelab
 
-A minimal yet modular **Kubernetes homelab** designed for reproducible local and edge deployments.  
-This repository separates the lifecycle into two clear phases — **Bootstrap** and **Platform** —  
-combining the simplicity of `Helmfile` for cluster provisioning with the reliability of `Argo CD` for GitOps management.
+A modular Kubernetes homelab that evolves from GitOps automation to AI-driven orchestration, enabling reproducible, adaptive deployments across local and edge clusters.
+(K3s + Helmfile + Argo CD + AIOps workflows)
 
 ## Background
 
@@ -213,6 +212,7 @@ $ tree -L 6 .
 │       ├── 01-platforms
 │       │   └── overlays
 │       │       └── home
+│       │           ├── act-runner.yaml
 │       │           ├── argo-events.yaml
 │       │           ├── argo-rollouts.yaml
 │       │           ├── argo-workflows.yaml
