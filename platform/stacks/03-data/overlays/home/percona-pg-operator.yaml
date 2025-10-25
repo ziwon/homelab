@@ -7,6 +7,8 @@ apps:
     chartRepo: https://percona.github.io/percona-helm-charts
     chartName: percona-postgresql-operator
     chartVersion: "2.4.2"
+    dependencies: []
+    syncOptions: []
     releaseName: percona-postgresql-operator
     values: |
       operator:
@@ -18,6 +20,7 @@ apps:
     dependencies:
       - percona-pg-operator
       - minio
+    syncOptions: []
     sourceType: raw
     releaseName: percona-pg-cluster
     values: |

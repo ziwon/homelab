@@ -26,10 +26,8 @@ spec:
             key: token
         requeueAfterSeconds: 60
         filters:
-          branches:
-            - main
-        labels:
-          - preview
+          - branchMatch: main
+            labelMatch: preview
 
   template:
     metadata:
