@@ -41,13 +41,26 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{$open}} .namespace {{$close}}"
-      dependencies: {{$open}} toJson .dependencies {{$close}}
+{{$open}} if .dependencies {{$close}}
+      dependencies:
+{{$open}} range .dependencies {{$close}}
+        - "{{$open}} . {{$close}}"
+{{$open}} end {{$close}}
+{{$open}} end {{$close}}
 
       syncPolicy:
         automated:
           prune: {{$open}} default true .autoPrune {{$close}}
           selfHeal: {{$open}} default true .autoSelfHeal {{$close}}
-        syncOptions: {{$open}} toJson .syncOptions {{$close}}
+{{$open}} if .syncOptions {{$close}}
+        syncOptions:
+{{$open}} range .syncOptions {{$close}}
+          - "{{$open}} . {{$close}}"
+{{$open}} end {{$close}}
+{{$open}} else {{$close}}
+        syncOptions:
+          - CreateNamespace=true
+{{$open}} end {{$close}}
 
       source:
         repoURL: "{{$open}} if eq .sourceType \"helm\" {{$close}}{{$open}} .chartRepo {{$close}}{{$open}} else {{$close}}{{ .Values.repository }}{{$open}} end {{$close}}"
