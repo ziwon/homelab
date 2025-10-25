@@ -14,73 +14,47 @@ spec:
     - missingkey=error
 
   generators:
-    - git:
-        repoURL: '{{ .Values.repository }}'
-        revision: '{{ .Values.revision }}'
-        directories:
-          path: 'platform/stacks/*/overlays/{{ .Values.environment }}/*.yaml'
+    - matrix:
+        generators:
+          - git:
+              repoURL: '{{ .Values.repository }}'
+              revision: '{{ .Values.revision }}'
+              files:
+                - path: 'platform/stacks/*/overlays/{{ .Values.environment }}/*.yaml'
+          - list:
+              elementsYaml: "{{$open}} toJson .apps {{$close}}"
 
   template:
     metadata:
-      name: "{{$open}} app.name {{$close}}"
+      name: "{{$open}} .name {{$close}}"
       namespace: argocd
       labels:
-        layer: "{{$open}} path.dir {{$close}}"
-        environment: "{{$open}} path.dir {{$close}}"
+        layer: "{{$open}} path[1] {{$close}}"
+        environment: "{{ .Values.environment }}"
         managed-by: argocd
-        app-type: "{{$open}} app.sourceType {{$close}}"
+        app-type: "{{$open}} .sourceType {{$close}}"
       annotations:
-        argocd.argoproj.io/sync-wave: "{{$open}} default \"0\" app.syncWave {{$close}}"
+        argocd.argoproj.io/sync-wave: "{{$open}} default \"0\" .syncWave {{$close}}"
 
     spec:
-      project: "{{$open}} app.project {{$close}}"
+      project: "{{$open}} .project {{$close}}"
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{$open}} app.namespace {{$close}}"
-
-{{- $open }}- if app.dependencies {{ $close }}
-      dependencies:
-        {{- $open }}- range app.dependencies {{ $close }}
-        - {{ $open }} . {{ $close }}
-        {{- $open }}- end {{ $close }}
-{{- $open }}- end {{ $close }}
+        namespace: "{{$open}} .namespace {{$close}}"
+      dependencies: "{{$open}} toJson .dependencies {{$close}}"
 
       syncPolicy:
         automated:
-          prune: {{$open}} default true app.autoPrune {{$close}}
-          selfHeal: {{$open}} default true app.autoSelfHeal {{$close}}
-        syncOptions:
-          {{- $open }}- if app.syncOptions {{ $close }}
-          {{- $open }}- range app.syncOptions {{ $close }}
-          - {{ $open }} . {{ $close }}
-          {{- $open }}- end {{ $close }}
-          {{- $open }}- else {{ $close }}
-          - CreateNamespace=true
-          {{- $open }}- end {{ $close }}
+          prune: "{{$open}} default true .autoPrune {{$close}}"
+          selfHeal: "{{$open}} default true .autoSelfHeal {{$close}}"
+        syncOptions: "{{$open}} default (list \"CreateNamespace=true\") .syncOptions {{$close}}"
 
       source:
-        {{- $open }}- if eq app.sourceType "helm" {{ $close }}
-        repoURL: "{{$open}} app.chartRepo {{$close}}"
-        chart: "{{$open}} app.chartName {{$close}}"
-        targetRevision: "{{$open}} app.chartVersion {{$close}}"
+        repoURL: "{{$open}} if eq .sourceType \"helm\" {{$close}}{{$open}} .chartRepo {{$close}}{{$open}} else {{$close}}{{ .Values.repository }}{{$open}} end {{$close}}"
+        chart: "{{$open}} if eq .sourceType \"helm\" {{$close}}{{$open}} .chartName {{$close}}{{$open}} end {{$close}}"
+        targetRevision: "{{$open}} if eq .sourceType \"helm\" {{$close}}{{$open}} .chartVersion {{$close}}{{$open}} else {{$close}}{{ .Values.revision }}{{$open}} end {{$close}}"
+        path: "{{$open}} if eq .sourceType \"raw\" {{$close}}{{$open}} default \"bootstrap/charts/raw\" .path {{$close}}{{$open}} end {{$close}}"
         helm:
-          releaseName: "{{$open}} default app.name app.releaseName {{$close}}"
-          {{- $open }}- if app.values {{ $close }}
+          releaseName: "{{$open}} default .name .releaseName {{$close}}"
           values: |
-{{$open}} app.values {{$close}}
-          {{- $open }}- end {{ $close }}
-
-        {{- $open }}- else if eq app.sourceType "raw" {{ $close }}
-        repoURL: '{{ .Values.repository }}'
-        targetRevision: '{{ .Values.revision }}'
-        path: "{{$open}} default \"bootstrap/charts/raw\" app.path {{$close}}"
-        helm:
-          releaseName: "{{$open}} default app.name app.releaseName {{$close}}"
-          {{- $open }}- if app.values {{ $close }}
-          values: |
-{{$open}} app.values {{$close}}
-          {{- $open }}- end {{ $close }}
-
-        {{- $open }}- else {{ $close }}
-        {{ $open }} fail (printf "unsupported sourceType: %s" app.sourceType) {{ $close }}
-        {{- $open }}- end {{ $close }}
+            {{$open}} .values {{$close}}

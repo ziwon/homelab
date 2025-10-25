@@ -1,5 +1,6 @@
 repository: git@github.com:ziwon/homelab.git
 revision: main
+environment: home
 
 repositories:
   - name: cilium
