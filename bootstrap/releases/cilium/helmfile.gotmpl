@@ -23,5 +23,5 @@ releases:
         args: ["{{ requiredEnv "K8S_GATEWAY_API_VERSION" }}"]
         showlogs: true
     values:
-      - default.yaml
+      - values/default.yaml
       - values/{{ .Environment.Name }}.yaml.gotmpl

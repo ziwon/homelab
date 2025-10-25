@@ -4,9 +4,9 @@ metadata:
   name: dev
   namespace: argocd
 spec:
-  description: "Homelab Home platform layer"
+  description: "Homelab platform layer"
   sourceRepos:
-    - https://github.com/aaronlab/homelab.git
+    - git@github.com:ziwon/homelab.git  
     - https://charts.jetstack.io
     - https://kyverno.github.io/kyverno/
     - https://coredns.github.io/helm
@@ -15,6 +15,9 @@ spec:
     - https://grafana.github.io/helm-charts
     - https://prometheus-community.github.io/helm-charts
     - https://helm.cilium.io/
+    - https://charts.min.io/
+    - https://percona.github.io/percona-helm-charts
+    - https://bedag.github.io/helm-charts/
   destinations:
     - server: https://kubernetes.default.svc
       namespace: '*'

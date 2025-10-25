@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-cloud
+  namespace: argocd
+spec:
+  project: prod
+  source:
+    repoURL: git@github.com:ziwon/homelab.git
+    targetRevision: main
+    path: platform/gitops
+    helm:
+      releaseName: homelab-platform-prod
+      values: |
+        environment: cloud
+  destination:
+    server: https://kubernetes.cloud.lab
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

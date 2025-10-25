@@ -1,4 +1,5 @@
 set dotenv-load
+set quiet
 
 HF  := "helmfile"
 K   := "kubectl"
@@ -35,11 +36,11 @@ list:
     echo "Applying Helmfile configurations..."
     {{HF}} -e $ENV list
 
-template:
+tmpl:
     echo "Templating Helmfile releases..."
     {{HF}} -e $ENV template
 
-template-target target:
+tmpl-for target:
     echo "Templating Helmfile releases for target: {{target}}..."
     {{HF}} -e $ENV -l name={{target}} template
 
@@ -47,7 +48,7 @@ sync:
     echo "Syncing Helmfile releases..."
     {{HF}} -e $ENV sync
 
-sync-target target:
+sync-for target:
     echo "Syncing Helmfile releases for target: {{target}}..."
     {{HF}} -e $ENV -l name={{target}} sync
 
@@ -55,7 +56,7 @@ apply:
     echo "Applying Helmfile releases..."
     {{HF}} -e $ENV apply
 
-apply-target target:
+apply-for target:
     echo "Applying Helmfile releases for target: {{target}}..."
     {{HF}} -e $ENV -l name={{target}} apply
 
@@ -66,9 +67,7 @@ k8s-nvidia-smi:
         --overrides='{"spec":{"runtimeClassName":"nvidia"}}' \
         -- nvidia-smi
 
-gen-certs domain:
-    echo "Generating self-signed TLS certificates for domain: {{domain}}..."
-    openssl req -x509 -nodes -days 365 -newkey rsa:4096 \
-        -keyout {{domain}}.key -out {{domain}}.crt \
-        -subj "/CN={{domain}}/O={{domain}}" \
-        -addext "subjectAltName=DNS:{{domain}},DNS:*.{{domain}}"
+argocd-password:
+    echo "Retrieving ArgoCD admin password..."
+    {{K}} -n argocd get secret argocd-initial-admin-secret \
+        -o jsonpath="{.data.password}" | base64 --decode; echo

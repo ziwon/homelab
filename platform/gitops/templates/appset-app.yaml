@@ -1,0 +1,86 @@
+{{- $open := "{{" -}}
+{{- $close := "}}" -}}
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: homelab-apps
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+
+  generators:
+    - git:
+        repoURL: '{{ .Values.repository }}'
+        revision: '{{ .Values.revision }}'
+        directories:
+          path: 'platform/stacks/*/overlays/{{ .Values.environment }}/*.yaml'
+
+  template:
+    metadata:
+      name: "{{$open}} app.name {{$close}}"
+      namespace: argocd
+      labels:
+        layer: "{{$open}} path.dir {{$close}}"
+        environment: "{{$open}} path.dir {{$close}}"
+        managed-by: argocd
+        app-type: "{{$open}} app.sourceType {{$close}}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "{{$open}} default \"0\" app.syncWave {{$close}}"
+
+    spec:
+      project: "{{$open}} app.project {{$close}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{$open}} app.namespace {{$close}}"
+
+{{- $open }}- if app.dependencies {{ $close }}
+      dependencies:
+        {{- $open }}- range app.dependencies {{ $close }}
+        - {{ $open }} . {{ $close }}
+        {{- $open }}- end {{ $close }}
+{{- $open }}- end {{ $close }}
+
+      syncPolicy:
+        automated:
+          prune: {{$open}} default true app.autoPrune {{$close}}
+          selfHeal: {{$open}} default true app.autoSelfHeal {{$close}}
+        syncOptions:
+          {{- $open }}- if app.syncOptions {{ $close }}
+          {{- $open }}- range app.syncOptions {{ $close }}
+          - {{ $open }} . {{ $close }}
+          {{- $open }}- end {{ $close }}
+          {{- $open }}- else {{ $close }}
+          - CreateNamespace=true
+          {{- $open }}- end {{ $close }}
+
+      source:
+        {{- $open }}- if eq app.sourceType "helm" {{ $close }}
+        repoURL: "{{$open}} app.chartRepo {{$close}}"
+        chart: "{{$open}} app.chartName {{$close}}"
+        targetRevision: "{{$open}} app.chartVersion {{$close}}"
+        helm:
+          releaseName: "{{$open}} default app.name app.releaseName {{$close}}"
+          {{- $open }}- if app.values {{ $close }}
+          values: |
+{{$open}} app.values {{$close}}
+          {{- $open }}- end {{ $close }}
+
+        {{- $open }}- else if eq app.sourceType "raw" {{ $close }}
+        repoURL: '{{ .Values.repository }}'
+        targetRevision: '{{ .Values.revision }}'
+        path: "{{$open}} default \"bootstrap/charts/raw\" app.path {{$close}}"
+        helm:
+          releaseName: "{{$open}} default app.name app.releaseName {{$close}}"
+          {{- $open }}- if app.values {{ $close }}
+          values: |
+{{$open}} app.values {{$close}}
+          {{- $open }}- end {{ $close }}
+
+        {{- $open }}- else {{ $close }}
+        {{ $open }} fail (printf "unsupported sourceType: %s" app.sourceType) {{ $close }}
+        {{- $open }}- end {{ $close }}

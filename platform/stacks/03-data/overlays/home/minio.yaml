@@ -1,0 +1,38 @@
+app:
+  name: minio
+  namespace: minio
+  project: dev
+  syncWave: "0"
+  sourceType: helm
+  chartRepo: https://charts.min.io/
+  chartName: minio
+  chartVersion: "5.0.12"
+  releaseName: minio
+  values: |
+    mode: standalone
+    replicas: 1
+
+    statefulset:
+      updateStrategy: RollingUpdate
+
+    rootUser: admin
+    rootPassword: changeme123
+
+    persistence:
+      enabled: true
+      size: 100Gi
+
+    buckets:
+      - name: pg-backups
+        versioning: false
+        lifecycle: []
+
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+    service:
+      type: ClusterIP

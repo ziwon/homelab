@@ -1,0 +1,27 @@
+resources:
+# Useful Self-Hosted Infisical Server with Infisical Operator for Kubernetes-Auth credentials
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: infisical-reviewer
+    namespace: infisical
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    name: infisical-reviewer-binding
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: system:auth-delegator
+  subjects:
+  - kind: ServiceAccount
+    name: infisical-reviewer
+    namespace: default
+- apiVersion: v1
+  kind: Secret
+  meta
+    name: infisical-reviewer-token
+    namespace: default
+    annotations:
+      kubernetes.io/service-account.name: infisical-reviewer
+  type: kubernetes.io/service-account-token

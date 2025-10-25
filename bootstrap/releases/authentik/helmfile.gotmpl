@@ -1,0 +1,59 @@
+---
+bases:
+  - ../../bases/helmDefaults.yaml
+  - ../../bases/envs.yaml.gotmpl
+
+---
+repositories:
+  - name: authentik
+    url: https://charts.goauthentik.io
+
+releases:
+  - name: authentik
+    namespace: authentik
+    createNamespace: true
+    chart: authentik/authentik
+    version: {{ .Values | get "authentik.chart_version" "2024.4.2" }}
+    installed: {{ .Values | get "authentik.installed" true }}
+    labels:
+      layer: identity
+    values:
+      - values/defaults.yaml
+      - values/{{ .Environment.Name }}.yaml.gotmpl
+    hooks:
+      - events: ["postsync"]
+        showlogs: true
+        command: bash
+        args:
+          - -c
+          - |
+            set -euo pipefail
+
+            # namespace
+            NS="authentik"
+
+            # pod name (StatefulSet pod 0 for Bitnami PostgreSQL)
+            PG_POD="$(kubectl get pod -n $NS -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}')"
+
+            # old password (current postgres superuser password from Secret)
+            OLD_PW="$(kubectl get secret -n $NS authentik-postgresql -o jsonpath='{.data.postgres-password}' | base64 -d)"
+
+            # new password = the one authentik should use (we assume it's in env or helmfile vars)
+            NEW_PW="{{ requiredEnv "AUTHENTIK_POSTGRES_PASSWORD" }}"
+
+            echo "Using pod: $PG_POD"
+            echo "Altering authentik user's password in Postgres..."
+
+            kubectl exec -n $NS "$PG_POD" -- \
+              env PGPASSWORD="$OLD_PW" \
+              psql -U postgres -h authentik-postgresql.authentik.svc.cluster.local -c "ALTER USER authentik WITH PASSWORD '${NEW_PW}';"
+
+            # (optional) also align postgres superuser password if you *really* want:
+            # kubectl exec -n $NS "$PG_POD" -- \
+            #   env PGPASSWORD="$OLD_PW" \
+            #   psql -U postgres -h 127.0.0.1 -c "ALTER USER postgres WITH PASSWORD '${NEW_PW}';"
+
+            echo "Restarting authentik deployments so they pick up the working DB creds..."
+            kubectl rollout restart deploy/authentik-server -n $NS || true
+            kubectl rollout restart deploy/authentik-worker -n $NS || true
+

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: homelab-gitops
+description: App-of-apps tooling and automation for Argo CD
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

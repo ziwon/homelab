@@ -1,0 +1,20 @@
+authentik:
+  log_level: info
+  general:
+    email: support@example.com
+  storage:
+    type: local
+  env: []
+
+postgresql:
+  enabled: true
+  primary:
+    persistence:
+      enabled: true
+  auth:
+    username: authentik
+    password: authentik
+    database: authentik
+
+redis:
+  enabled: true

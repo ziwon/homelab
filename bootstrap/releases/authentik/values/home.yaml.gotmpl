@@ -1,0 +1,53 @@
+authentik:
+  secret_key: {{ requiredEnv "AUTHENTIK_SECRET_KEY" }}
+  general:
+    domain: {{ requiredEnv "AUTHENTIK_DOMAIN" }}
+    email: {{ requiredEnv "AUTHENTIK_BOOTSTRAP_EMAIL" }}
+  bootstrap_password: {{ requiredEnv "AUTHENTIK_BOOTSTRAP_PASSWORD" }}
+  bootstrap_token: {{ requiredEnv "AUTHENTIK_BOOTSTRAP_TOKEN" }}
+  bootstrap_email: {{ requiredEnv "AUTHENTIK_BOOTSTRAP_EMAIL" }}
+
+  postgresql:
+    user: "authentik"
+    name: "authentik"
+    password: {{ requiredEnv "AUTHENTIK_POSTGRES_PASSWORD" }}
+
+redis:
+  enabled: true
+
+server:
+  ingress:
+    enabled: false
+  env:
+    - name: AUTHENTIK_WORKER_PIDFILE
+      value: /dev/shm/authentik-worker.pid
+    - name: TMPDIR
+      value: /tmp
+  extraVolumeMounts:
+    - name: shm
+      mountPath: /dev/shm
+  extraVolumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+
+postgresql:
+  enabled: true
+  auth:
+    username: "authentik"
+    database: "authentik"
+    postgresPassword: {{ requiredEnv "AUTHENTIK_POSTGRES_PASSWORD" }}
+    password: {{ requiredEnv "AUTHENTIK_POSTGRES_PASSWORD" }}
+  volumePermissions:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: bitnami/os-shell
+      tag: latest
+  primary:
+    pgHbaConfiguration: |-
+      local   all             all                                     trust
+      host    all             all             127.0.0.1/32            trust
+      host    all             all             ::1/128                 scram-sha-256
+      host    all             all             0.0.0.0/0               scram-sha-256
+      

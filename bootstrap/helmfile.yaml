@@ -5,6 +5,7 @@ bases:
 helmfiles:
   - releases/cilium/helmfile.gotmpl
   - releases/gpu-operator/helmfile.gotmpl
+  - releases/authentik/helmfile.gotmpl
   - releases/argocd/helmfile.gotmpl
   - releases/infisical/helmfile.gotmpl
   - releases/cilium-post-setup/helmfile.gotmpl

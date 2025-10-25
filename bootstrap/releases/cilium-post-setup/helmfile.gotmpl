@@ -28,6 +28,8 @@ hooks:
         else
           echo "Certificate already exists, skipping generation."
         fi
+        sudo cp secrets/${DOMAIN}.crt /usr/local/share/ca-certificates/${DOMAIN}.crt
+        sudo update-ca-certificates
         popd >/dev/null
 
 releases:

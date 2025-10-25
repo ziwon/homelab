@@ -1,0 +1,60 @@
+{{- $root := . -}}
+{{- $open := "{{" -}}
+{{- $close := "}}" -}}
+{{- $number := printf "%snumber%s" $open $close -}}
+{{- $branch := printf "%sbranch%s" $open $close -}}
+{{- $headSHA := printf "%shead_sha%s" $open $close -}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: homelab-preview
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+
+  generators:
+    - pullRequest:
+        github:
+          owner: ziwon
+          repo: homelab
+          tokenRef:
+            secretName: github-token
+            key: token
+        requeueAfterSeconds: 60
+        filters:
+          branches:
+            - main
+        labels:
+          - preview
+
+  template:
+    metadata:
+      name: "pr-{{$number}}-{{$branch}}"
+      labels:
+        environment: preview
+        pr-number: "{{$number}}"
+        app.kubernetes.io/part-of: homelab
+    spec:
+      project: preview
+      source:
+        repoURL: {{ .Values.repository }}
+        targetRevision: "{{$headSHA}}"
+        path: platform/stacks/05-workloads/overlays/home/talk-ready.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "pr-{{$number}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+      ignoreDifferences:
+        - group: "*"
+          kind: Secret
+          jsonPointers:
+            - /data

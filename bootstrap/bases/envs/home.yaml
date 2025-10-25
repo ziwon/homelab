@@ -2,12 +2,16 @@ cilium:
   installed: true
   chart_version: 1.18.2
 
+authentik:
+  installed: true
+  chart_version: 2025.8.4
+
 cilium-post-setup:
   installed: true
 
 argocd:
   installed: true
-  chart_version: 8.6.4
+  chart_version: 9.0.3 
 
 gpu-operator:
   installed: true

@@ -1,16 +1,28 @@
 global:
-  domain: argocd.home.local
-  image:
-    repository: quay.io/argoproj/argocd
-    tag: v2.12.4
+  domain: {{ requiredEnv "ARGOCD_HOSTNAME" }}
 
 configs:
   params:
     server.insecure: "true"  
   rbac:
-    defaultPolicy: 'role:readonly'  
+    defaultPolicy: 'role:readonly'
+    policy.csv: |
+      g, {{ requiredEnv "AUTHENTIK_ARGO_ADMIN_GROUP" }}, role:admin
+    scopes: '[groups]'
+  cm:
+    oidc.config: |
+      name: Authentik
+      issuer: {{ requiredEnv "AUTHENTIK_OIDC_ISSUER" }}
+      clientID: {{ requiredEnv "AUTHENTIK_OIDC_CLIENT_ID" }}
+      clientSecret: $oidc.authentik.clientSecret
+      requestedScopes: ["openid", "profile", "email", "groups"]
+      requestedIDTokenClaims:
+        groups:
+          essential: true
   secret:
     createSecret: true
+    extra:
+      oidc.authentik.clientSecret: {{ requiredEnv "AUTHENTIK_OIDC_CLIENT_SECRET" }}
 
 controller:
   replicas: 1 

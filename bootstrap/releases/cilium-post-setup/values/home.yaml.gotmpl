@@ -1,4 +1,7 @@
 resources:
+###############################
+# IP Pool
+###############################
 - apiVersion: "cilium.io/v2alpha1"
   kind: CiliumLoadBalancerIPPool
   metadata:
@@ -19,6 +22,10 @@ resources:
     serviceSelector:
       matchLabels:
         io.cilium/lb-dns: "true"
+
+###############################
+# L2 Announcements
+###############################
 - apiVersion: cilium.io/v2alpha1
   kind: CiliumL2AnnouncementPolicy
   metadata:
@@ -44,13 +51,15 @@ resources:
     externalIPs: true
     loadBalancerIPs: true
 
+###############################
+# Gateway API
+###############################
 - apiVersion: gateway.networking.k8s.io/v1
   kind: GatewayClass
   metadata:
     name: cilium
   spec:
     controllerName: io.cilium/gateway-controller
-
 - apiVersion: gateway.networking.k8s.io/v1
   kind: Gateway
   metadata:
@@ -90,7 +99,64 @@ resources:
           certificateRefs:
             - kind: Secret
               name: {{ requiredEnv "TLS_SECRET_NAME_FOR_DOMAIN_PUBLIC" }}
+      - name: https-public-apex
+        protocol: HTTPS
+        port: 443
+        hostname: {{ requiredEnv "DOMAIN_PUBLIC" }}
+        allowedRoutes:
+          namespaces:
+            from: All
+        tls:
+          mode: Terminate
+          certificateRefs:
+            - kind: Secret
+              name: {{ requiredEnv "TLS_SECRET_NAME_FOR_DOMAIN_PUBLIC" }}
 
+###############################
+# HTTP Routes
+###############################
+
+#------------------------------
+# Landing
+#------------------------------
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: landing
+    namespace: landing
+  spec:
+    parentRefs:
+      - name: cilium      
+        namespace: infra  
+    hostnames:
+      - {{ requiredEnv "DOMAIN_PUBLIC" }}
+    rules:
+      - backendRefs:
+        - name: landing   
+          port: 80
+
+#------------------------------
+# Authentik
+#------------------------------
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: authentik
+    namespace: authentik
+  spec:
+    parentRefs:
+      - name: cilium
+        namespace: infra
+    hostnames:
+      - auth.{{ requiredEnv "DOMAIN_PUBLIC" }}
+    rules:
+      - backendRefs:
+          - name: authentik-server
+            port: 80
+
+#------------------------------
+# Argo CD
+#------------------------------
 - apiVersion: gateway.networking.k8s.io/v1
   kind: HTTPRoute
   metadata:
@@ -106,6 +172,10 @@ resources:
       - backendRefs:
           - name: argocd-server
             port: 80
+
+#------------------------------
+# Hubble UI
+#------------------------------
 - apiVersion: gateway.networking.k8s.io/v1
   kind: HTTPRoute
   metadata:
@@ -122,6 +192,9 @@ resources:
           - name: hubble-ui
             port: 80
 
+#------------------------------
+# CoreDNS Service
+#------------------------------
 - apiVersion: v1
   kind: Service
   metadata:
@@ -143,6 +216,9 @@ resources:
     selector:
       k8s-app: kube-dns
 
+#------------------------------
+# CoreDNS Custom
+#------------------------------
 - apiVersion: v1
   kind: ConfigMap
   metadata:
@@ -156,7 +232,7 @@ resources:
         forward . {{ requiredEnv "IP_ADDR_COREDNS" }}
         file /etc/coredns/custom/{{ requiredEnv "DOMAIN_PRIVATE" }}.db {{ requiredEnv "DOMAIN_PRIVATE" }}
       }
-    {{ requiredEnv "DOMAIN_PRIVATE" }}.db: |
+      {{ requiredEnv "DOMAIN_PRIVATE" }}.db: |
       $ORIGIN {{ requiredEnv "DOMAIN_PRIVATE" }}.
       @       3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. (
                               2024101801 ; serial
@@ -177,4 +253,3 @@ resources:
 
       ; DNS server itself
       dns         IN A     {{ requiredEnv "IP_ADDR_DNS" }}
-

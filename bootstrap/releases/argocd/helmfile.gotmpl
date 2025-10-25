@@ -18,6 +18,6 @@ releases:
     labels:
       layer: gitops
     values:
-       - default.yaml
+       - values/default.yaml
        - values/{{ .Environment.Name }}.yaml.gotmpl
   

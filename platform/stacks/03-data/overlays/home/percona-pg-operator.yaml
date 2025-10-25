@@ -1,0 +1,119 @@
+apps:
+  - name: percona-pg-operator
+    namespace: percona-postgresql-operator
+    project: dev
+    syncWave: "10"
+    sourceType: helm
+    chartRepo: https://percona.github.io/percona-helm-charts
+    chartName: percona-postgresql-operator
+    chartVersion: "2.4.2"
+    releaseName: percona-postgresql-operator
+    values: |
+      operator:
+        createCRD: true
+  - name: percona-pg-cluster
+    namespace: postgres-operator
+    project: dev
+    syncWave: "30"
+    dependencies:
+      - percona-pg-operator
+      - minio
+    sourceType: raw
+    releaseName: percona-pg-cluster
+    values: |
+      templates:
+        - |
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: postgres-operator
+        # Will be synced with Infisical
+        # - |
+        #   apiVersion: v1
+        #   kind: Secret
+        #   metadata:
+        #     name: minio-credentials
+        #     namespace: postgres-operator
+        #   type: Opaque
+        #   stringData:
+        #     AWS_ACCESS_KEY_ID: CHANGEME_MINIO_ACCESS_KEY
+        #     AWS_SECRET_ACCESS_KEY: CHANGEME_MINIO_SECRET_KEY
+        - |
+          apiVersion: pgv2.percona.com/v1
+          kind: PerconaPGCluster
+          metadata:
+            name: homelab-pg
+            namespace: postgres-operator
+          spec:
+            postgresVersion: 16
+            instances:
+              - name: instance1
+                replicas: 1
+                dataVolumeClaimSpec:
+                  accessModes:
+                    - ReadWriteOnce
+                  resources:
+                    requests:
+                      storage: 50Gi
+                  storageClassName: local-path
+                resources:
+                  requests:
+                    cpu: "1"
+                    memory: 4Gi
+                  limits:
+                    cpu: "4"
+                    memory: 8Gi
+            proxy:
+              pgBouncer:
+                replicas: 1
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 500m
+                    memory: 256Mi
+            backups:
+              pgbackrest:
+                repos:
+                  - name: repo1
+                    s3:
+                      bucket: postgres-backups
+                      endpoint: minio.minio.svc.cluster.local:9000
+                      region: us-east-1
+                    schedules:
+                      full: "0 2 * * 0"
+                      differential: "0 2 * * 1-6"
+                      incremental: "0 */4 * * *"
+                global:
+                  repo1-retention-full: "4"
+                  repo1-retention-full-type: count
+                  repo1-retention-diff: "2"
+                  archive-push-queue-max: "4"
+                configuration:
+                  - secret:
+                      name: minio-credentials
+                jobs:
+                  resources:
+                    requests:
+                      cpu: 500m
+                      memory: 512Mi
+                    limits:
+                      cpu: "2"
+                      memory: 2Gi
+            patroni:
+              dynamicConfiguration:
+                postgresql:
+                  parameters:
+                    max_connections: "200"
+                    shared_buffers: "2GB"
+                    effective_cache_size: "6GB"
+                    maintenance_work_mem: "512MB"
+                    checkpoint_completion_target: "0.9"
+                    wal_buffers: "16MB"
+                    default_statistics_target: "100"
+                    random_page_cost: "1.1"
+                    effective_io_concurrency: "200"
+                    work_mem: "10MB"
+                    min_wal_size: "1GB"
+                    max_wal_size: "4GB"
