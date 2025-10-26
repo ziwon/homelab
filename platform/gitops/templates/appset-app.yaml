@@ -41,14 +41,12 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{$open}} .namespace {{$close}}'
-      dependencies: '{{$open}} toJson (default (list) .dependencies) {{$close}}'
-
-{{- $syncOptions := default (list "CreateNamespace=true") .Values.syncPolicy.syncOptions }}
       syncPolicy:
         automated:
-          prune: "{{$open}} default true .autoPrune {{$close}}"
-          selfHeal: "{{$open}} default true .autoSelfHeal {{$close}}"
-        syncOptions: "{{$open}} default (list \"CreateNamespace=true\") .syncOptions {{$close}}"
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
 
       source:
         repoURL: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartRepo {{$close}}{{$open}} else {{$close}}{{ .Values.repository }}{{$open}} end {{$close}}'
@@ -59,3 +57,41 @@ spec:
           releaseName: '{{$open}} default .name .releaseName {{$close}}'
           values: |
             {{$open}} .values {{$close}}
+
+  templatePatch: |
+    {{$open}}- $hasDeps := and (hasKey . "dependencies") (gt (len .dependencies) 0) {{$close}}
+    {{$open}}- $hasSyncOptions := hasKey . "syncOptions" {{$close}}
+    {{$open}}- $hasAutoPrune := hasKey . "autoPrune" {{$close}}
+    {{$open}}- $hasAutoSelfHeal := hasKey . "autoSelfHeal" {{$close}}
+    {{$open}} if or $hasDeps $hasSyncOptions $hasAutoPrune $hasAutoSelfHeal {{$close}}
+      spec:
+    {{$open}} if $hasDeps {{$close}}
+        dependencies:
+    {{$open}} range .dependencies {{$close}}
+          - "{{$open}} . {{$close}}"
+    {{$open}} end {{$close}}
+    {{$open}} end {{$close}}
+    {{$open}} if or $hasSyncOptions $hasAutoPrune $hasAutoSelfHeal {{$close}}
+        syncPolicy:
+    {{$open}} if or $hasAutoPrune $hasAutoSelfHeal {{$close}}
+          automated:
+    {{$open}} if $hasAutoPrune {{$close}}
+            prune: {{$open}} if .autoPrune {{$close}}true{{$open}} else {{$close}}false{{$open}} end {{$close}}
+    {{$open}} end {{$close}}
+    {{$open}} if $hasAutoSelfHeal {{$close}}
+            selfHeal: {{$open}} if .autoSelfHeal {{$close}}true{{$open}} else {{$close}}false{{$open}} end {{$close}}
+    {{$open}} end {{$close}}
+    {{$open}} end {{$close}}
+    {{$open}} if $hasSyncOptions {{$close}}
+    {{$open}} if gt (len .syncOptions) 0 {{$close}}
+          syncOptions:
+    {{$open}} range .syncOptions {{$close}}
+            - "{{$open}} . {{$close}}"
+    {{$open}} end {{$close}}
+    {{$open}} else {{$close}}
+          syncOptions: []
+    {{$open}} end {{$close}}
+    {{$open}} end {{$close}}
+    {{$open}} end {{$close}}
+    {{$open}} end {{$close}}
+    {{$open}} end {{$close}}

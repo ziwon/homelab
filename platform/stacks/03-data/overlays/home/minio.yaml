@@ -7,8 +7,6 @@ apps:
     chartRepo: https://charts.min.io/
     chartName: minio
     chartVersion: "5.0.12"
-    dependencies: []
-    syncOptions: []
     releaseName: minio
     values: |
       mode: standalone
