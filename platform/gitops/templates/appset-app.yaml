@@ -22,7 +22,7 @@ spec:
               files:
                 - path: 'platform/stacks/*/overlays/{{ .Values.environment }}/*.yaml'
           - list:
-              elementsYaml: '{{$open}} toJson .apps {{$close}}'
+              elementsYaml: '{{$open}} $apps := get . "apps" {{$close}}{{$open}} if $apps {{$close}}{{$open}} toJson $apps {{$close}}{{$open}} else {{$close}}[]{{$open}} end {{$close}}'
 
   template:
     metadata:
