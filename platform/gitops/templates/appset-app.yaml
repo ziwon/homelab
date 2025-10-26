@@ -52,7 +52,7 @@ spec:
         repoURL: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartRepo {{$close}}{{$open}} else {{$close}}{{ .Values.repository }}{{$open}} end {{$close}}'
         chart: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartName {{$close}}{{$open}} end {{$close}}'
         targetRevision: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartVersion {{$close}}{{$open}} else {{$close}}{{ .Values.revision }}{{$open}} end {{$close}}'
-        path: '{{$open}} if eq .sourceType "raw" {{$close}}{{$open}} default "bootstrap/charts/raw" .path {{$close}}{{$open}} end {{$close}}'
+        path: '{{$open}} if eq .sourceType "raw" {{$close}}{{$open}} default "bootstrap/charts/raw" (get .path "path") {{$close}}{{$open}} end {{$close}}'
         helm:
           releaseName: '{{$open}} default .name .releaseName {{$close}}'
           values: |
