@@ -6,33 +6,114 @@ apps:
     sourceType: helm
     chartRepo: https://charts.min.io/
     chartName: minio
-    chartVersion: "5.0.12"
+    chartVersion: "5.4.0"
     releaseName: minio
     values: |
       mode: standalone
-      replicas: 1
+      replica: 1
 
-      statefulset:
-        updateStrategy: RollingUpdate
+      resources:
+        limits:
+          memory: 4Gi
+          cpu: 2000m
 
-      rootUser: admin
-      rootPassword: changeme123
+      existingSecret: "minio-credentials"
 
       persistence:
         enabled: true
-        size: 100Gi
+        existingClaim: "minio-pvc"
+        storageClass: "local-path"
+        size:  1Ti
+
+      service:
+        type: ClusterIP
 
       buckets:
         - name: pg-backups
           versioning: false
-          lifecycle: []
+          lifecycle:
+            - id: expire-old-backups
+              prefix: ""
+              expiration:
+              days: 90
 
+      policies: []
+        - name: percona-backup-policy
+        statements:
+        - resources:
+        - 'arn:aws:s3:::pg-backups/*'
+        actions:
+        - "s3:GetObject"
+        - "s3:PutObject"
+        - "s3:DeleteObject"
+  - name: minio-raw
+    namespace: minio
+    project: dev
+    syncWave: "30"
+    dependencies:
+      - minio
+    sourceType: raw
+    releaseName: minio-raw
+    values: |
       resources:
-        requests:
-          cpu: 250m
-          memory: 512Mi
-        limits:
-          memory: 1Gi
+        - apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: minio
 
-      service:
-        type: ClusterIP
+        - apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+            name: minio-pv
+          spec:
+            capacity:
+              storage: 1Ti
+            accessModes:
+              - ReadWriteOnce
+            persistentVolumeReclaimPolicy: Retain
+            storageClassName: local-path
+            local:
+              path: /backup/minio
+            nodeAffinity:
+              required:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                    - aaron-lgt
+
+        - apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: minio-pvc
+            namespace: minio
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: local-path
+            resources:
+              requests:
+                storage: 1Ti 
+
+        - apiVersion: secrets.infisical.com/v1alpha1
+          kind: InfisicalSecret
+          metadata:
+            name: minio-credentials
+            namespace: minio 
+          spec:
+            hostAPI: https://app.infisical.com/api  
+            authentication:
+              universalAuth:
+                secretsScope:
+                  projectSlug: "home-lab"
+                  envSlug: "home"
+                  secretsPath: "/minio"
+                credentialsRef:
+                  secretName: infisical-secrets
+                  secretNamespace: infisical
+            
+            managedSecretReference:
+              secretName: minio-credentials
+              secretNamespace: minio
+              creationPolicy: "Owner"
