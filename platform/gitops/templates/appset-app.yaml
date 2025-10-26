@@ -29,7 +29,7 @@ spec:
       name: "{{$open}} .name {{$close}}"
       namespace: argocd
       labels:
-        layer: '{{$open}} index (splitList "/" (index .path "path")) 2 {{$close}}'
+        layer: '{{$open}} index .path.segments 2 {{$close}}'
         environment: "{{ .Values.environment }}"
         managed-by: argocd
         app-type: '{{$open}} .sourceType {{$close}}'
