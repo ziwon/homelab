@@ -29,7 +29,7 @@ spec:
       name: "{{$open}} .name {{$close}}"
       namespace: argocd
       labels:
-        layer: '{{$open}} index .path.segments 2 {{$close}}'
+        layer: '{{$open}}- $filePath := get .path "path" {{$close}}{{$open}} if $filePath {{$close}}{{$open}} index (splitList "/" $filePath) 2 {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
         environment: "{{ .Values.environment }}"
         managed-by: argocd
         app-type: '{{$open}} .sourceType {{$close}}'
