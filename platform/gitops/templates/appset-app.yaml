@@ -52,7 +52,7 @@ spec:
         repoURL: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartRepo {{$close}}{{$open}} else if eq .sourceType "raw" {{$close}}{{$open}} default "https://bedag.github.io/helm-charts" .chartRepo {{$close}}{{$open}} else {{$close}}{{ .Values.repository }}{{$open}} end {{$close}}'
         chart: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartName {{$close}}{{$open}} else if eq .sourceType "raw" {{$close}}{{$open}} default "raw" .chartName {{$close}}{{$open}} end {{$close}}'
         targetRevision: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartVersion {{$close}}{{$open}} else if eq .sourceType "raw" {{$close}}{{$open}} default "2.0.2" .chartVersion {{$close}}{{$open}} else {{$close}}{{ .Values.revision }}{{$open}} end {{$close}}'
-        path: '{{$open}} if eq .sourceType "raw" {{$close}}{{$open}} default "" .rawPath {{$close}}{{$open}} end {{$close}}'
+        path: '{{$open}} if eq .sourceType "raw" {{$close}}{{$open}} default "" (index . "rawPath") {{$close}}{{$open}} end {{$close}}'
         helm:
           releaseName: '{{$open}} default .name .releaseName {{$close}}'
           values: |
