@@ -98,15 +98,15 @@ apps:
             storageClassName: local-path
             resources:
               requests:
-                storage: 1Ti 
+                storage: 1Ti
 
         - apiVersion: secrets.infisical.com/v1alpha1
           kind: InfisicalSecret
           metadata:
             name: minio-credentials
-            namespace: minio 
+            namespace: minio
           spec:
-            hostAPI: https://app.infisical.com/api  
+            hostAPI: https://app.infisical.com/api
             authentication:
               universalAuth:
                 secretsScope:
