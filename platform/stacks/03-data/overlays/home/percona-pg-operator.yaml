@@ -5,7 +5,7 @@ apps:
     syncWave: "10"
     sourceType: helm
     chartRepo: https://percona.github.io/percona-helm-charts
-    chartName: percona
+    chartName: pg-operator
     chartVersion: "2.7.0"
     releaseName: pg-operator
     values: |
@@ -19,13 +19,16 @@ apps:
       - percona-pg-operator
       - minio
     sourceType: raw
+    chartRepo: https://bedag.github.io/helm-charts
+    chartName: raw
+    chartVersion: "2.0.2"
     releaseName: pg-cluster
     values: |
       resources:
         - apiVersion: v1
           kind: Namespace
           metadata:
-            name: postgres-operator
+            name: percona
         # Will be synced with Infisical
         # - |
         #   apiVersion: v1
@@ -41,7 +44,7 @@ apps:
           kind: PerconaPGCluster
           metadata:
             name: homelab-pg
-            namespace: postgres-operator
+            namespace: percona
           spec:
             postgresVersion: 16
             instances:

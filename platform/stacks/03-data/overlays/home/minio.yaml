@@ -57,6 +57,9 @@ apps:
     dependencies:
       - minio
     sourceType: raw
+    chartRepo: https://bedag.github.io/helm-charts
+    chartName: raw
+    chartVersion: "2.0.2"
     releaseName: minio-raw
     values: |
       resources:
