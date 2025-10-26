@@ -114,7 +114,7 @@ apps:
               universalAuth:
                 secretsScope:
                   projectSlug: "home-lab"
-                  envSlug: "home"
+                  envSlug: "hme"
                   secretsPath: "/minio"
                 credentialsRef:
                   secretName: infisical-secrets
