@@ -1,29 +1,28 @@
 apps:
   - name: percona-pg-operator
-    namespace: percona-postgresql-operator
+    namespace: percona
     project: dev
     syncWave: "10"
     sourceType: helm
     chartRepo: https://percona.github.io/percona-helm-charts
-    chartName: percona-postgresql-operator
-    chartVersion: "2.4.2"
-    releaseName: percona-postgresql-operator
+    chartName: percona
+    chartVersion: "2.7.0"
+    releaseName: pg-operator
     values: |
       operator:
         createCRD: true
   - name: percona-pg-cluster
-    namespace: postgres-operator
+    namespace: percona
     project: dev
     syncWave: "30"
     dependencies:
       - percona-pg-operator
       - minio
     sourceType: raw
-    releaseName: percona-pg-cluster
+    releaseName: pg-cluster
     values: |
-      templates:
-        - |
-          apiVersion: v1
+      resources:
+        - apiVersion: v1
           kind: Namespace
           metadata:
             name: postgres-operator
@@ -38,8 +37,7 @@ apps:
         #   stringData:
         #     AWS_ACCESS_KEY_ID: CHANGEME_MINIO_ACCESS_KEY
         #     AWS_SECRET_ACCESS_KEY: CHANGEME_MINIO_SECRET_KEY
-        - |
-          apiVersion: pgv2.percona.com/v1
+        - apiVersion: pgv2.percona.com/v1
           kind: PerconaPGCluster
           metadata:
             name: homelab-pg
@@ -105,7 +103,7 @@ apps:
               dynamicConfiguration:
                 postgresql:
                   parameters:
-                    max_connections: "200"
+                    max_connections: "100"
                     shared_buffers: "2GB"
                     effective_cache_size: "6GB"
                     maintenance_work_mem: "512MB"

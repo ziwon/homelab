@@ -10,7 +10,7 @@ apps:
     releaseName: minio
     values: |
       mode: standalone
-      replica: 1
+      replicas: 1
 
       resources:
         limits:
@@ -23,7 +23,7 @@ apps:
         enabled: true
         existingClaim: "minio-pvc"
         storageClass: "local-path"
-        size:  1Ti
+        size: 1Ti
 
       service:
         type: ClusterIP
@@ -35,17 +35,18 @@ apps:
             - id: expire-old-backups
               prefix: ""
               expiration:
-              days: 90
+                days: 90
 
-      policies: []
+      policies:
         - name: percona-backup-policy
-        statements:
-        - resources:
-        - 'arn:aws:s3:::pg-backups/*'
-        actions:
-        - "s3:GetObject"
-        - "s3:PutObject"
-        - "s3:DeleteObject"
+          statements:
+            - resources:
+                - 'arn:aws:s3:::pg-backups/*'
+              actions:
+                - "s3:GetObject"
+                - "s3:PutObject"
+                - "s3:DeleteObject"
+
   - name: minio-raw
     namespace: minio
     project: dev
