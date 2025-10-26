@@ -22,27 +22,28 @@ spec:
               files:
                 - path: 'platform/stacks/*/overlays/{{ .Values.environment }}/*.yaml'
           - list:
-              elementsYaml: "{{$open}} toJson .apps {{$close}}"
+              elementsYaml: '{{$open}} toJson .apps {{$close}}'
 
   template:
     metadata:
       name: "{{$open}} .name {{$close}}"
       namespace: argocd
       labels:
-        layer: "{{$open}} path[1] {{$close}}"
+        layer: '{{$open}} path[1] {{$close}}'
         environment: "{{ .Values.environment }}"
         managed-by: argocd
-        app-type: "{{$open}} .sourceType {{$close}}"
+        app-type: '{{$open}} .sourceType {{$close}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "{{$open}} default \"0\" .syncWave {{$close}}"
+        argocd.argoproj.io/sync-wave: '{{$open}} default "0" .syncWave {{$close}}'
 
     spec:
-      project: "{{$open}} .project {{$close}}"
+      project: '{{$open}} .project {{$close}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{$open}} .namespace {{$close}}"
-      dependencies: "{{$open}} toJson .dependencies {{$close}}"
+        namespace: '{{$open}} .namespace {{$close}}'
+      dependencies: '{{$open}} toJson (default (list) .dependencies) {{$close}}'
 
+{{- $syncOptions := default (list "CreateNamespace=true") .Values.syncPolicy.syncOptions }}
       syncPolicy:
         automated:
           prune: "{{$open}} default true .autoPrune {{$close}}"
@@ -50,11 +51,11 @@ spec:
         syncOptions: "{{$open}} default (list \"CreateNamespace=true\") .syncOptions {{$close}}"
 
       source:
-        repoURL: "{{$open}} if eq .sourceType \"helm\" {{$close}}{{$open}} .chartRepo {{$close}}{{$open}} else {{$close}}{{ .Values.repository }}{{$open}} end {{$close}}"
-        chart: "{{$open}} if eq .sourceType \"helm\" {{$close}}{{$open}} .chartName {{$close}}{{$open}} end {{$close}}"
-        targetRevision: "{{$open}} if eq .sourceType \"helm\" {{$close}}{{$open}} .chartVersion {{$close}}{{$open}} else {{$close}}{{ .Values.revision }}{{$open}} end {{$close}}"
-        path: "{{$open}} if eq .sourceType \"raw\" {{$close}}{{$open}} default \"bootstrap/charts/raw\" .path {{$close}}{{$open}} end {{$close}}"
+        repoURL: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartRepo {{$close}}{{$open}} else {{$close}}{{ .Values.repository }}{{$open}} end {{$close}}'
+        chart: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartName {{$close}}{{$open}} end {{$close}}'
+        targetRevision: '{{$open}} if eq .sourceType "helm" {{$close}}{{$open}} .chartVersion {{$close}}{{$open}} else {{$close}}{{ .Values.revision }}{{$open}} end {{$close}}'
+        path: '{{$open}} if eq .sourceType "raw" {{$close}}{{$open}} default "bootstrap/charts/raw" .path {{$close}}{{$open}} end {{$close}}'
         helm:
-          releaseName: "{{$open}} default .name .releaseName {{$close}}"
+          releaseName: '{{$open}} default .name .releaseName {{$close}}'
           values: |
             {{$open}} .values {{$close}}
