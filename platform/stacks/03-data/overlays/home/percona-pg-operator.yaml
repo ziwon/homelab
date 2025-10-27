@@ -11,13 +11,45 @@ apps:
     values: |
       operator:
         createCRD: true
-  - name: percona-pg-cluster
+  - name: percona-pg-db
+    namespace: percona
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - percona-pg-operator
+    sourceType: helm
+    chartRepo: https://percona.github.io/percona-helm-charts
+    chartName: pg-db
+    chartVersion: "2.7.0"
+    releaseName: pg-db
+    values: |
+      postgresVersion: 17.5.2
+      pmm:
+        enabled: true
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+      backup:
+        pgbackrest:
+          configuration:
+            - secret:
+                name: minio-credentials
+          repos:
+            - name: repo2
+              s3:
+                bucket: "pg-backups"
+                endpoint: "http://minio.minio.service.cluster.local:9000"
+                region: "us-east-1"
+                uriStyle: "path"
+                verifyTLS: false
+  - name: percona-raw
     namespace: percona
     project: dev
     syncWave: "30"
-    dependencies:
-      - percona-pg-operator
-      - minio
     sourceType: raw
     chartRepo: https://bedag.github.io/helm-charts
     chartName: raw
@@ -29,84 +61,6 @@ apps:
           kind: Namespace
           metadata:
             name: percona
-        - apiVersion: pgv2.percona.com/v1
-          kind: PerconaPGCluster
-          metadata:
-            name: homelab-pg
-            namespace: percona
-          spec:
-            postgresVersion: 16
-            instances:
-              - name: instance1
-                replicas: 1
-                dataVolumeClaimSpec:
-                  accessModes:
-                    - ReadWriteOnce
-                  resources:
-                    requests:
-                      storage: 50Gi
-                  storageClassName: local-path
-                resources:
-                  requests:
-                    cpu: "1"
-                    memory: 4Gi
-                  limits:
-                    cpu: "4"
-                    memory: 8Gi
-            proxy:
-              pgBouncer:
-                replicas: 1
-                resources:
-                  requests:
-                    cpu: 100m
-                    memory: 128Mi
-                  limits:
-                    cpu: 500m
-                    memory: 256Mi
-            backups:
-              pgbackrest:
-                repos:
-                  - name: repo1
-                    s3:
-                      bucket: pg-backups
-                      endpoint: minio.minio.svc.cluster.local:9000
-                      region: us-east-1
-                    schedules:
-                      full: "0 2 * * 0"
-                      differential: "0 2 * * 1-6"
-                      incremental: "0 */4 * * *"
-                global:
-                  repo1-retention-full: "4"
-                  repo1-retention-full-type: count
-                  repo1-retention-diff: "2"
-                  archive-push-queue-max: "4"
-                configuration:
-                  - secret:
-                      name: minio-credentials
-                jobs:
-                  resources:
-                    requests:
-                      cpu: 500m
-                      memory: 512Mi
-                    limits:
-                      cpu: "2"
-                      memory: 2Gi
-            patroni:
-              dynamicConfiguration:
-                postgresql:
-                  parameters:
-                    max_connections: "100"
-                    shared_buffers: "2GB"
-                    effective_cache_size: "6GB"
-                    maintenance_work_mem: "512MB"
-                    checkpoint_completion_target: "0.9"
-                    wal_buffers: "16MB"
-                    default_statistics_target: "100"
-                    random_page_cost: "1.1"
-                    effective_io_concurrency: "200"
-                    work_mem: "10MB"
-                    min_wal_size: "1GB"
-                    max_wal_size: "4GB"
         - apiVersion: secrets.infisical.com/v1alpha1
           kind: InfisicalSecret
           metadata:
