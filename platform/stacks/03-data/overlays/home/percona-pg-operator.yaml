@@ -8,6 +8,9 @@ apps:
     chartName: pg-operator
     chartVersion: "2.7.0"
     releaseName: pg-operator
+    values: |
+      version: 2.7.0             
+
   - name: percona-pg-db
     namespace: percona
     project: dev
