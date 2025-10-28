@@ -50,7 +50,7 @@ spec:
           - CreateNamespace=true
 
       source:
-{{- if hasKey . "source" }}
+{{ if hasKey . "source" }}
 {{ toYaml .source | indent 8 }}
 {{- else if hasKey . "sourceType" }}
 {{- if eq .sourceType "helm" }}
