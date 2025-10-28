@@ -1,4 +1,5 @@
 apps:
+  # Install bundle
   - name: percona-pg-operator
     namespace: percona
     project: dev
@@ -10,7 +11,21 @@ apps:
       kustomize:
         resources:
           - bundle.yaml
-          
+
+  # Install CR
+  - name: percona-pg-operator
+    namespace: percona
+    project: dev
+    syncWave: "10"
+    source:
+      repoURL: https://github.com/percona/percona-postgresql-operator.git
+      targetRevision: v2.7.0
+      path: deploy
+      kustomize:
+        resources:
+          - cr.yaml
+ 
+  # Install PostgreSQL Cluster
   - name: percona-pg-db
     namespace: percona
     project: dev
@@ -20,7 +35,7 @@ apps:
     source:
       repoURL: https://percona.github.io/percona-helm-charts
       chart: pg-db
-      targetRevision: "2.7.0"
+      targetRevision: 2.7.0
       helm:
         releaseName: cluster
         values: |
@@ -51,7 +66,7 @@ apps:
 
               configuration:
                 - secret:
-                    name: minio-credentials  
+                    name: repo2-minio-credentials  
 
               repos:
               - name: repo1
@@ -89,6 +104,7 @@ apps:
           secrets:
             name: ""
 
+  # Install InfisicalSecret for MinIO credentials
   - name: percona-raw
     namespace: percona
     project: dev
@@ -96,32 +112,30 @@ apps:
     source:
       repoURL: https://bedag.github.io/helm-charts
       chart: raw
-      targetRevision: "2.0.2"
+      targetRevision: 2.0.2
       helm:
         releaseName: pg-cluster
         values: |
           resources:
-            - apiVersion: v1
-              kind: Namespace
-              metadata:
-                name: percona
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
-                name: minio-credentials
+                name: repo2-minio-credentials
                 namespace: percona
+
               spec:
                 hostAPI: https://app.infisical.com/api
                 authentication:
                   universalAuth:
                     secretsScope:
-                      projectSlug: "home-lab"
+                      projectSlug: home-lab
                       envSlug: "hme"
-                      secretsPath: "/minio"
+                      secretsPath: /postgres
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
+
                 managedSecretReference:
-                  secretName: minio-credentials
+                  secretName: repo2-minio-credentials
                   secretNamespace: percona
-                  creationPolicy: "Owner"
+                  creationPolicy: Owner
