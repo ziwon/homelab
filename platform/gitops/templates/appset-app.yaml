@@ -32,7 +32,7 @@ spec:
         layer: '{{$open}}- $filePath := get .path "path" {{$close}}{{$open}} if $filePath {{$close}}{{$open}} index (splitList "/" $filePath) 2 {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
         environment: "{{ .Values.environment }}"
         managed-by: argocd
-        app-type: '{{$open}} if hasKey . "source" {{$close}}{{$open}}- if hasKey .source "chart" {{$close}}helm{{$open}}- else if hasKey .source "kustomize" {{$close}}kustomize{{$open}}- else {{$close}}raw{{$open}}- end {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
+        app-type: '{{$open}} if hasKey . "source" {{$close}}{{$open}}- if hasKey .source "chart" {{$close}}helm{{$open}}- else if hasKey .source "kustomize" {{$close}}kustomize{{$open}}- else {{$close}}raw{{$open}}- end {{$close}}{{$open}} else if hasKey . "sourceType" {{$close}}{{$open}} .sourceType {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
       annotations:
         argocd.argoproj.io/sync-wave: '{{$open}} default "0" .syncWave {{$close}}'
 
@@ -49,11 +49,56 @@ spec:
           - CreateNamespace=true
 
       source:
-{{- with .source }}
-{{ toYaml . | indent 6 }}
-{{- else }}
-{{- fail (printf "application '%s' is missing a source block" (default "unnamed" .name)) }}
-{{- end }}
+{{$open}}- if hasKey . "source" {{$close}}
+{{$open}}- if hasKey .source "repoURL" {{$close}}
+        repoURL: '{{$open}} .source.repoURL {{$close}}'
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey .source "chart" {{$close}}
+        chart: '{{$open}} .source.chart {{$close}}'
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey .source "targetRevision" {{$close}}
+        targetRevision: '{{$open}} .source.targetRevision {{$close}}'
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey .source "path" {{$close}}
+        path: '{{$open}} .source.path {{$close}}'
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey .source "helm" {{$close}}
+        helm:
+{{$open}} with .source.helm {{$close}}
+{{$open}}- if hasKey . "releaseName" {{$close}}
+          releaseName: '{{$open}} .releaseName {{$close}}'
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey . "values" {{$close}}
+          values: |
+{{$open}} .values | indent 10 {{$close}}
+{{$open}}- end {{$close}}
+{{$open}} end {{$close}}
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey .source "kustomize" {{$close}}
+        kustomize:
+{{$open}} with .source.kustomize {{$close}}
+{{$open}}- if hasKey . "resources" {{$close}}
+          resources:
+{{$open}}- range .resources {{$close}}
+            - "{{$open}} . {{$close}}"
+{{$open}}- end {{$close}}
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey . "components" {{$close}}
+          components:
+{{$open}}- range .components {{$close}}
+            - "{{$open}} . {{$close}}"
+{{$open}}- end {{$close}}
+{{$open}}- end {{$close}}
+{{$open}}- if hasKey . "images" {{$close}}
+          images:
+{{$open}}- range .images {{$close}}
+            - "{{$open}} . {{$close}}"
+{{$open}}- end {{$close}}
+{{$open}}- end {{$close}}
+{{$open}} end {{$close}}
+{{$open}}- else {{$close}}
+        repoURL: ''
+{{$open}}- end {{$close}}
 
   templatePatch: |
     {{- $hasDeps := hasKey . "dependencies" }}
