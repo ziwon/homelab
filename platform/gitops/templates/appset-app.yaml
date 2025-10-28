@@ -106,33 +106,29 @@ spec:
 
 
   templatePatch: |
-    {{$open}}- $hasDeps := and (hasKey . "dependencies") (gt (len .dependencies) 0) {{$close}}
-    {{$open}}- $hasIgnoreDiff := and (hasKey . "ignoreDifferences") (gt (len .ignoreDifferences) 0) {{$close}}
-    {{$open}} if or $hasDeps $hasIgnoreDiff {{$close}}
+    {{- $hasDeps := hasKey . "dependencies" }}
+    {{- $hasIgnore := hasKey . "ignoreDifferences" }}
+    {{- if or $hasDeps $hasIgnore }}
       spec:
-    {{$open}} if $hasDeps {{$close}}
+    {{- if $hasDeps }}
         dependencies:
-    {{$open}} range .dependencies {{$close}}
-          - "{{$open}} . {{$close}}"
-    {{$open}} end {{$close}}
-    {{$open}} if $hasIgnoreDiff {{$close}}
+    {{- range .dependencies }}
+          - "{{ . }}"
+    {{- end }}
+    {{- end }}
+    {{- if $hasIgnore }}
         ignoreDifferences:
-    {{$open}} range .ignoreDifferences {{$close}}
-          - {{$open}}- if hasKey . "group" {{$close}}group: "{{$open}} .group {{$close}}"{{$open}} end {{$close}}
-            {{$open}}- if hasKey . "kind" {{$close}}kind: "{{$open}} .kind {{$close}}"{{$open}} end {{$close}}
-            {{$open}}- if hasKey . "name" {{$close}}name: "{{$open}} .name {{$close}}"{{$open}} end {{$close}}
-            {{$open}}- if hasKey . "namespace" {{$close}}namespace: "{{$open}} .namespace {{$close}}"{{$open}} end {{$close}}
-            {{$open}}- if hasKey . "jsonPointers" {{$close}}
+    {{- range .ignoreDifferences }}
+          - {{- if hasKey . "group" }}group: "{{ .group }}"{{ end }}
+            {{- if hasKey . "kind" }}kind: "{{ .kind }}"{{ end }}
+            {{- if hasKey . "name" }}name: "{{ .name }}"{{ end }}
+            {{- if hasKey . "namespace" }}namespace: "{{ .namespace }}"{{ end }}
+            {{- if hasKey . "jsonPointers" }}
             jsonPointers:
-    {{$open}} range .jsonPointers {{$close}}
-              - "{{$open}} . {{$close}}"
-    {{$open}} end {{$close}}
-            {{$open}} end {{$close}}
-            {{$open}}- if hasKey . "jqPathExpressions" {{$close}}
-            jqPathExpressions:
-    {{$open}} range .jqPathExpressions {{$close}}
-              - "{{$open}} . {{$close}}"
-    {{$open}} end {{$close}}
-            {{$open}} end {{$close}}
-    {{$open}} end {{$close}}
-    {{$open}} end {{$close}}
+    {{- range .jsonPointers }}
+              - "{{ . }}"
+    {{- end }}
+            {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
