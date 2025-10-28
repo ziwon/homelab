@@ -49,56 +49,63 @@ spec:
           - CreateNamespace=true
 
       source:
-{{$open}}- if hasKey . "source" {{$close}}
-{{$open}}- if hasKey .source "repoURL" {{$close}}
-        repoURL: '{{$open}} .source.repoURL {{$close}}'
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey .source "chart" {{$close}}
-        chart: '{{$open}} .source.chart {{$close}}'
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey .source "targetRevision" {{$close}}
-        targetRevision: '{{$open}} .source.targetRevision {{$close}}'
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey .source "path" {{$close}}
-        path: '{{$open}} .source.path {{$close}}'
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey .source "helm" {{$close}}
+{{- if hasKey . "source" }}
+{{ toYaml .source | indent 6 }}
+{{- else if hasKey . "sourceType" }}
+{{- if eq .sourceType "helm" }}
+        repoURL: '{{ .chartRepo }}'
+        chart: '{{ .chartName }}'
+        targetRevision: '{{ .chartVersion }}'
         helm:
-{{$open}} with .source.helm {{$close}}
-{{$open}}- if hasKey . "releaseName" {{$close}}
-          releaseName: '{{$open}} .releaseName {{$close}}'
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey . "values" {{$close}}
+          releaseName: '{{ default .name .releaseName }}'
+{{- if hasKey . "values" }}
           values: |
-{{$open}} .values | indent 10 {{$close}}
-{{$open}}- end {{$close}}
-{{$open}} end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey .source "kustomize" {{$close}}
+{{ .values | indent 10 }}
+{{- end }}
+{{- else if eq .sourceType "raw" }}
+        repoURL: '{{ default "https://bedag.github.io/helm-charts" .chartRepo }}'
+        chart: '{{ default "raw" .chartName }}'
+        targetRevision: '{{ default "2.0.2" .chartVersion }}'
+        path: '{{ default "" (index . "rawPath") }}'
+        helm:
+          releaseName: '{{ default .name .releaseName }}'
+{{- if hasKey . "values" }}
+          values: |
+{{ .values | indent 10 }}
+{{- end }}
+{{- else if eq .sourceType "kustomize" }}
+        repoURL: '{{ .repoURL }}'
+        targetRevision: '{{ .targetRevision }}'
+        path: '{{ default "" .path }}'
+{{- if hasKey . "kustomize" }}
         kustomize:
-{{$open}} with .source.kustomize {{$close}}
-{{$open}}- if hasKey . "resources" {{$close}}
+{{ with .kustomize }}
+{{- if hasKey . "resources" }}
           resources:
-{{$open}}- range .resources {{$close}}
-            - "{{$open}} . {{$close}}"
-{{$open}}- end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey . "components" {{$close}}
+{{- range .resources }}
+            - "{{ . }}"
+{{- end }}
+{{- end }}
+{{- if hasKey . "components" }}
           components:
-{{$open}}- range .components {{$close}}
-            - "{{$open}} . {{$close}}"
-{{$open}}- end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey . "images" {{$close}}
+{{- range .components }}
+            - "{{ . }}"
+{{- end }}
+{{- end }}
+{{- if hasKey . "images" }}
           images:
-{{$open}}- range .images {{$close}}
-            - "{{$open}} . {{$close}}"
-{{$open}}- end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}} end {{$close}}
-{{$open}}- else {{$close}}
+{{- range .images }}
+            - "{{ . }}"
+{{- end }}
+{{- end }}
+{{ end }}
+{{- end }}
+{{- else }}
         repoURL: ''
-{{$open}}- end {{$close}}
+{{- end }}
+{{- else }}
+        repoURL: ''
+{{- end }}
 
   templatePatch: |
     {{- $hasDeps := hasKey . "dependencies" }}
