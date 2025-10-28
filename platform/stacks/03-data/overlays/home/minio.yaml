@@ -119,7 +119,6 @@ apps:
                 credentialsRef:
                   secretName: infisical-secrets
                   secretNamespace: infisical
-            
             managedSecretReference:
               secretName: minio-credentials
               secretNamespace: minio
