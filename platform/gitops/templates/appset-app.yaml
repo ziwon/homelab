@@ -48,90 +48,38 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-
       source:
-{{ if hasKey . "source" }}
-{{ toYaml .source | indent 8 }}
-{{- else if hasKey . "sourceType" }}
-{{- if eq .sourceType "helm" }}
-        repoURL: '{{ .chartRepo }}'
-        chart: '{{ .chartName }}'
-        targetRevision: '{{ .chartVersion }}'
-        helm:
-          releaseName: '{{ default .name .releaseName }}'
-{{- if hasKey . "values" }}
-          values: |
-{{ .values | indent 10 }}
-{{- end }}
-{{- else if eq .sourceType "raw" }}
-        repoURL: '{{ default "https://bedag.github.io/helm-charts" .chartRepo }}'
-        chart: '{{ default "raw" .chartName }}'
-        targetRevision: '{{ default "2.0.2" .chartVersion }}'
-        path: '{{ default "" (index . "rawPath") }}'
-        helm:
-          releaseName: '{{ default .name .releaseName }}'
-{{- if hasKey . "values" }}
-          values: |
-{{ .values | indent 10 }}
-{{- end }}
-{{- else if eq .sourceType "kustomize" }}
-        repoURL: '{{ .repoURL }}'
-        targetRevision: '{{ .targetRevision }}'
-        path: '{{ default "" .path }}'
-{{- if hasKey . "kustomize" }}
-        kustomize:
-{{ with .kustomize }}
-{{- if hasKey . "resources" }}
-          resources:
-{{- range .resources }}
-            - "{{ . }}"
-{{- end }}
-{{- end }}
-{{- if hasKey . "components" }}
-          components:
-{{- range .components }}
-            - "{{ . }}"
-{{- end }}
-{{- end }}
-{{- if hasKey . "images" }}
-          images:
-{{- range .images }}
-            - "{{ . }}"
-{{- end }}
-{{- end }}
-{{ end }}
-{{- end }}
-{{- else }}
-        repoURL: ''
-{{- end }}
-{{- else }}
-        repoURL: ''
-{{- end }}
+        repoURL: 'https://placeholder.invalid'
+        path: '.'
 
   templatePatch: |
-    {{- $hasDeps := hasKey . "dependencies" }}
-    {{- $hasIgnore := hasKey . "ignoreDifferences" }}
-    {{- if or $hasDeps $hasIgnore }}
-      spec:
-    {{- if $hasDeps }}
-        dependencies:
+    spec:
+      source:
+    {{$open}} if hasKey . "source" {{$close}}
+    {{$open}} toYaml .source | indent 10 {{$close}}
+    {{$open}} else {{$close}}
+        repoURL: ''
+    {{$open}} end {{$close}}
+
+    {{- if hasKey . "dependencies" }}
+      dependencies:
     {{- range .dependencies }}
-          - "{{ . }}"
+        - "{{ . }}"
     {{- end }}
     {{- end }}
-    {{- if $hasIgnore }}
-        ignoreDifferences:
+
+    {{- if hasKey . "ignoreDifferences" }}
+      ignoreDifferences:
     {{- range .ignoreDifferences }}
-          - {{- if hasKey . "group" }}group: "{{ .group }}"{{ end }}
-            {{- if hasKey . "kind" }}kind: "{{ .kind }}"{{ end }}
-            {{- if hasKey . "name" }}name: "{{ .name }}"{{ end }}
-            {{- if hasKey . "namespace" }}namespace: "{{ .namespace }}"{{ end }}
-            {{- if hasKey . "jsonPointers" }}
-            jsonPointers:
+        - {{- if hasKey . "group" }}group: "{{ .group }}"{{ end }}
+          {{- if hasKey . "kind" }}kind: "{{ .kind }}"{{ end }}
+          {{- if hasKey . "name" }}name: "{{ .name }}"{{ end }}
+          {{- if hasKey . "namespace" }}namespace: "{{ .namespace }}"{{ end }}
+          {{- if hasKey . "jsonPointers" }}
+          jsonPointers:
     {{- range .jsonPointers }}
-              - "{{ . }}"
+            - "{{ . }}"
     {{- end }}
-            {{- end }}
-    {{- end }}
+          {{- end }}
     {{- end }}
     {{- end }}
