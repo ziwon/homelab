@@ -32,7 +32,7 @@ spec:
         layer: '{{$open}}- $filePath := get .path "path" {{$close}}{{$open}} if $filePath {{$close}}{{$open}} index (splitList "/" $filePath) 2 {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
         environment: "{{ .Values.environment }}"
         managed-by: argocd
-        app-type: '{{$open}} .sourceType {{$close}}'
+        app-type: '{{$open}} if hasKey . "source" {{$close}}{{$open}}- if hasKey .source "chart" {{$close}}helm{{$open}}- else if hasKey .source "kustomize" {{$close}}kustomize{{$open}}- else {{$close}}raw{{$open}}- end {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
       annotations:
         argocd.argoproj.io/sync-wave: '{{$open}} default "0" .syncWave {{$close}}'
 
@@ -49,61 +49,11 @@ spec:
           - CreateNamespace=true
 
       source:
-{{$open}}- if eq .sourceType "helm" {{$close}}
-        repoURL: '{{$open}} .chartRepo {{$close}}'
-        chart: '{{$open}} .chartName {{$close}}'
-        targetRevision: '{{$open}} .chartVersion {{$close}}'
-        helm:
-          releaseName: '{{$open}} default .name .releaseName {{$close}}'
-{{$open}}- if hasKey . "values" {{$close}}
-          values: |
-{{$open}} .values | indent 12 {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- else if eq .sourceType "raw" {{$close}}
-        repoURL: '{{$open}} default "https://bedag.github.io/helm-charts" .chartRepo {{$close}}'
-        chart: '{{$open}} default "raw" .chartName {{$close}}'
-        targetRevision: '{{$open}} default "2.0.2" .chartVersion {{$close}}'
-        path: '{{$open}} default "" (index . "rawPath") {{$close}}'
-        helm:
-          releaseName: '{{$open}} default .name .releaseName {{$close}}'
-{{$open}}- if hasKey . "values" {{$close}}
-          values: |
-{{$open}} .values | indent 12 {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- else if eq .sourceType "kustomize" {{$close}}
-        repoURL: '{{$open}} .repoURL {{$close}}'
-        targetRevision: '{{$open}} .targetRevision {{$close}}'
-        path: '{{$open}} default "" .path {{$close}}'
-{{$open}}- if and (hasKey . "kustomize") (gt (len .kustomize) 0) {{$close}}
-        kustomize:
-{{$open}} with .kustomize {{$close}}
-{{$open}}- if hasKey . "resources" {{$close}}
-          resources:
-{{$open}}- range .resources {{$close}}
-            - "{{$open}} . {{$close}}"
-{{$open}}- end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey . "components" {{$close}}
-          components:
-{{$open}}- range .components {{$close}}
-            - "{{$open}} . {{$close}}"
-{{$open}}- end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- if hasKey . "images" {{$close}}
-          images:
-{{$open}}- range .images {{$close}}
-            - "{{$open}} . {{$close}}"
-{{$open}}- end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}} end {{$close}}
-{{$open}}- end {{$close}}
-{{$open}}- else {{$close}}
-        repoURL: '{{$open}} .repoURL {{$close}}'
-        targetRevision: '{{$open}} .targetRevision {{$close}}'
-        path: '{{$open}} default "" .path {{$close}}'
-{{$open}}- end {{$close}}
-
-
+{{- with .source }}
+{{ toYaml . | indent 6 }}
+{{- else }}
+{{- fail (printf "application '%s' is missing a source block" (default "unnamed" .name)) }}
+{{- end }}
 
   templatePatch: |
     {{- $hasDeps := hasKey . "dependencies" }}

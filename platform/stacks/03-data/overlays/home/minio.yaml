@@ -3,52 +3,53 @@ apps:
     namespace: minio
     project: dev
     syncWave: "0"
-    sourceType: helm
-    chartRepo: https://charts.min.io/
-    chartName: minio
-    chartVersion: "5.4.0"
-    releaseName: minio
-    values: |
-      mode: standalone
-      replicas: 1
+    source:
+      repoURL: https://charts.min.io/
+      chart: minio
+      targetRevision: 5.4.0
+      helm:
+        releaseName: minio
+        values: |
+          mode: standalone
+          replicas: 1
 
-      resources:
-        requests:
-          memory: 1Gi
-          cpu: 1000m
-        limits:
-          memory: 8Gi
-          cpu: 2000m
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1000m
+            limits:
+              memory: 8Gi
+              cpu: 2000m
 
-      existingSecret: "minio-credentials"
+          existingSecret: "minio-credentials"
 
-      persistence:
-        enabled: true
-        existingClaim: "minio-pvc"
-        storageClass: "local-path"
-        size: 1Ti
+          persistence:
+            enabled: true
+            existingClaim: "minio-pvc"
+            storageClass: "local-path"
+            size: 1Ti
 
-      service:
-        type: ClusterIP
+          service:
+            type: ClusterIP
 
-      buckets:
-        - name: pg-backups
-          versioning: false
-          lifecycle:
-            - id: expire-old-backups
-              prefix: ""
-              expiration:
-                days: 90
+          buckets:
+            - name: pg-backups
+              versioning: false
+              lifecycle:
+                - id: expire-old-backups
+                  prefix: ""
+                  expiration:
+                    days: 90
 
-      policies:
-        - name: percona-backup-policy
-          statements:
-            - resources:
-                - 'arn:aws:s3:::pg-backups/*'
-              actions:
-                - "s3:GetObject"
-                - "s3:PutObject"
-                - "s3:DeleteObject"
+          policies:
+            - name: percona-backup-policy
+              statements:
+                - resources:
+                    - 'arn:aws:s3:::pg-backups/*'
+                  actions:
+                    - "s3:GetObject"
+                    - "s3:PutObject"
+                    - "s3:DeleteObject"
 
   - name: minio-raw
     namespace: minio
@@ -56,70 +57,71 @@ apps:
     syncWave: "30"
     dependencies:
       - minio
-    sourceType: raw
-    chartRepo: https://bedag.github.io/helm-charts
-    chartName: raw
-    chartVersion: "2.0.2"
-    releaseName: minio-raw
-    values: |
-      resources:
-        - apiVersion: v1
-          kind: Namespace
-          metadata:
-            name: minio
+    source: 
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: minio-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: minio
 
-        - apiVersion: v1
-          kind: PersistentVolume
-          metadata:
-            name: minio-pv
-          spec:
-            capacity:
-              storage: 1Ti
-            accessModes:
-              - ReadWriteOnce
-            persistentVolumeReclaimPolicy: Retain
-            storageClassName: local-path
-            local:
-              path: /backup/minio
-            nodeAffinity:
-              required:
-                nodeSelectorTerms:
-                - matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                    - aaron-lgt
+            - apiVersion: v1
+              kind: PersistentVolume
+              metadata:
+                name: minio-pv
+              spec:
+                capacity:
+                  storage: 1Ti
+                accessModes:
+                  - ReadWriteOnce
+                persistentVolumeReclaimPolicy: Retain
+                storageClassName: local-path
+                local:
+                  path: /backup/minio
+                nodeAffinity:
+                  required:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                        - aaron-lgt
 
-        - apiVersion: v1
-          kind: PersistentVolumeClaim
-          metadata:
-            name: minio-pvc
-            namespace: minio
-          spec:
-            accessModes:
-              - ReadWriteOnce
-            storageClassName: local-path
-            resources:
-              requests:
-                storage: 1Ti
+            - apiVersion: v1
+              kind: PersistentVolumeClaim
+              metadata:
+                name: minio-pvc
+                namespace: minio
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: local-path
+                resources:
+                  requests:
+                    storage: 1Ti
 
-        - apiVersion: secrets.infisical.com/v1alpha1
-          kind: InfisicalSecret
-          metadata:
-            name: minio-credentials
-            namespace: minio
-          spec:
-            hostAPI: https://app.infisical.com/api
-            authentication:
-              universalAuth:
-                secretsScope:
-                  projectSlug: "home-lab"
-                  envSlug: "hme"
-                  secretsPath: "/minio"
-                credentialsRef:
-                  secretName: infisical-secrets
-                  secretNamespace: infisical
-            managedSecretReference:
-              secretName: minio-credentials
-              secretNamespace: minio
-              creationPolicy: "Owner"
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: minio-credentials
+                namespace: minio
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: "home-lab"
+                      envSlug: "hme"
+                      secretsPath: "/minio"
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedSecretReference:
+                  secretName: minio-credentials
+                  secretNamespace: minio
+                  creationPolicy: "Owner"
