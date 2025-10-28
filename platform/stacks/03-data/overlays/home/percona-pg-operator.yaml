@@ -54,6 +54,15 @@ apps:
                     name: minio-credentials  
 
               repos:
+              - name: repo1
+                volume:
+                  volumeClaimSpec:
+                    storageClassName: local-path 
+                    accessModes:
+                      - ReadWriteOnce
+                    resources:
+                      requests:
+                        storage: 10Gi     
                 - name: repo2
                   s3:
                     bucket: pg-backups 
@@ -64,9 +73,11 @@ apps:
                     incremental: "0 3 * * 1-6"         # 월~토 새벽 03:00 증분백업
 
               global:
-                repo2-s3-uri-style: path
-                repo2-retention-full: "14"             
-                repo2-retention-full-type: time    
+                repo1-retention-full: "7"
+                repo1-retention-full-type: time
+                repo2-retention-full: "14"
+                repo2-retention-full-type: time
+                repo2-s3-uri-style: path 
 
               manual:
                 repoName: repo2
