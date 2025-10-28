@@ -37,6 +37,7 @@ spec:
         argocd.argoproj.io/sync-wave: '{{$open}} default "0" .syncWave {{$close}}'
 
     spec:
+      # debug: {{ toJson . }}
       project: '{{$open}} .project {{$close}}'
       destination:
         server: https://kubernetes.default.svc
@@ -50,7 +51,7 @@ spec:
 
       source:
 {{- if hasKey . "source" }}
-{{ toYaml .source | indent 6 }}
+{{ toYaml .source | indent 8 }}
 {{- else if hasKey . "sourceType" }}
 {{- if eq .sourceType "helm" }}
         repoURL: '{{ .chartRepo }}'
