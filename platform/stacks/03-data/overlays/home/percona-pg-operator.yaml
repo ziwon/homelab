@@ -1,7 +1,7 @@
 apps:
   # Install bundle
   - name: percona-pg-operator
-    namespace: percona
+    namespace: postgres
     project: dev
     syncWave: "10"
     source:
@@ -14,7 +14,7 @@ apps:
 
   # Install CR
   - name: percona-pg-operator
-    namespace: percona
+    namespace: postgres
     project: dev
     syncWave: "10"
     source:
@@ -27,7 +27,7 @@ apps:
  
   # Install PostgreSQL Cluster
   - name: percona-pg-db
-    namespace: percona
+    namespace: postgres
     project: dev
     syncWave: "10"
     dependencies:
@@ -106,7 +106,7 @@ apps:
 
   # Install InfisicalSecret for MinIO credentials
   - name: percona-raw
-    namespace: percona
+    namespace: postgres
     project: dev
     syncWave: "30"
     source:
@@ -121,7 +121,7 @@ apps:
               kind: InfisicalSecret
               metadata:
                 name: repo2-minio-credentials
-                namespace: percona
+                namespace: postgres
 
               spec:
                 hostAPI: https://app.infisical.com/api
@@ -137,5 +137,5 @@ apps:
 
                 managedSecretReference:
                   secretName: repo2-minio-credentials
-                  secretNamespace: percona
+                  secretNamespace: postgres
                   creationPolicy: Owner
