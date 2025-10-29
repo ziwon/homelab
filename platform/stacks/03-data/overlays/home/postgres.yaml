@@ -11,7 +11,9 @@ apps:
       path: deploy
       kustomize:
         resources:
-          - bundle.yaml
+          - crd.yaml
+          - rbac.yaml
+          - opereator.yaml
 
   # Install PostgreSQL Cluster
   - name: percona-pg-db
