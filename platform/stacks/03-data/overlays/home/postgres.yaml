@@ -53,6 +53,7 @@ apps:
 
               restore:
                 enabled: false
+                repoName: repo1
 
               configuration:
                 - secret:
