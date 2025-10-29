@@ -1,5 +1,5 @@
 apps:
-  # Install bundle
+  # Install Bundle
   - name: percona-pg-operator
     namespace: postgres
     project: dev
@@ -12,19 +12,6 @@ apps:
         resources:
           - bundle.yaml
 
-  # Install CR
-  - name: percona-pg-operator
-    namespace: postgres
-    project: dev
-    syncWave: "10"
-    source:
-      repoURL: https://github.com/percona/percona-postgresql-operator.git
-      targetRevision: v2.7.0
-      path: deploy
-      kustomize:
-        resources:
-          - cr.yaml
- 
   # Install PostgreSQL Cluster
   - name: percona-pg-db
     namespace: postgres
@@ -69,15 +56,15 @@ apps:
                     name: repo2-minio-credentials  
 
               repos:
-              - name: repo1
-                volume:
-                  volumeClaimSpec:
-                    storageClassName: local-path 
-                    accessModes:
-                      - ReadWriteOnce
-                    resources:
-                      requests:
-                        storage: 10Gi     
+                - name: repo1
+                  volume:
+                    volumeClaimSpec:
+                      storageClassName: local-path 
+                      accessModes:
+                        - ReadWriteOnce
+                      resources:
+                        requests:
+                          storage: 10Gi     
                 - name: repo2
                   s3:
                     bucket: pg-backups 
