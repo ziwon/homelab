@@ -21,12 +21,12 @@ apps:
               memory: 8Gi
               cpu: 2000m
 
-          existingSecret: "minio-credentials"
+          existingSecret: minio-credentials
 
           persistence:
             enabled: true
-            existingClaim: "minio-pvc"
-            storageClass: "local-path"
+            existingClaim: minio-pvc
+            storageClass: local-path
             size: 1Ti
 
           service:
@@ -65,11 +65,6 @@ apps:
         releaseName: minio-raw
         values: |
           resources:
-            - apiVersion: v1
-              kind: Namespace
-              metadata:
-                name: minio
-
             - apiVersion: v1
               kind: PersistentVolume
               metadata:
@@ -110,18 +105,20 @@ apps:
               metadata:
                 name: minio-credentials
                 namespace: minio
+
               spec:
                 hostAPI: https://app.infisical.com/api
                 authentication:
                   universalAuth:
                     secretsScope:
-                      projectSlug: "home-lab"
-                      envSlug: "hme"
-                      secretsPath: "/minio"
+                      projectSlug: home-lab
+                      envSlug: hme
+                      secretsPath: /minio
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
+
                 managedSecretReference:
                   secretName: minio-credentials
                   secretNamespace: minio
-                  creationPolicy: "Owner"
+                  creationPolicy: Owner
