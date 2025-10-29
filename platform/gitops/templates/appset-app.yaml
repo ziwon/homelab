@@ -55,31 +55,37 @@ spec:
   templatePatch: |
     spec:
       source:
-    {{$open}} if hasKey . "source" {{$close}}
-    {{$open}} toYaml .source | indent 10 {{$close}}
-    {{$open}} else {{$close}}
-        repoURL: ''
-    {{$open}} end {{$close}}
+{{- if hasKey . "source" }}
+{{ toYaml .source | indent 8 }}
+{{- else }}
+        repoURL: ""
+{{- end }}
 
-    {{- if hasKey . "dependencies" }}
+{{- if hasKey . "dependencies" }}
       dependencies:
-    {{- range .dependencies }}
+{{- range .dependencies }}
         - "{{ . }}"
-    {{- end }}
-    {{- end }}
+{{- end }}
+{{- end }}
 
-    {{- if hasKey . "ignoreDifferences" }}
+{{- if hasKey . "ignoreDifferences" }}
       ignoreDifferences:
-    {{- range .ignoreDifferences }}
+{{- range .ignoreDifferences }}
         - {{- if hasKey . "group" }}group: "{{ .group }}"{{ end }}
-          {{- if hasKey . "kind" }}kind: "{{ .kind }}"{{ end }}
-          {{- if hasKey . "name" }}name: "{{ .name }}"{{ end }}
-          {{- if hasKey . "namespace" }}namespace: "{{ .namespace }}"{{ end }}
+          {{- if hasKey . "kind" }}
+          kind: "{{ .kind }}"
+          {{- end }}
+          {{- if hasKey . "name" }}
+          name: "{{ .name }}"
+          {{- end }}
+          {{- if hasKey . "namespace" }}
+          namespace: "{{ .namespace }}"
+          {{- end }}
           {{- if hasKey . "jsonPointers" }}
           jsonPointers:
-    {{- range .jsonPointers }}
+{{- range .jsonPointers }}
             - "{{ . }}"
-    {{- end }}
+{{- end }}
           {{- end }}
-    {{- end }}
-    {{- end }}
+{{- end }}
+{{- end }}
