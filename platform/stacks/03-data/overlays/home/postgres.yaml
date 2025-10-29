@@ -6,7 +6,7 @@ apps:
     project: dev
     syncWave: "10"
     source:
-      repoURL: git://github.com/ziwon/homelab.git
+      repoURL: https://github.com/ziwon/homelab.git
       targetRevision: main
       path: platform/stacks/kustomize/percona-operator
       kustomize: {} # Needed to recognize as kustomize source
