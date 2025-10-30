@@ -71,3 +71,9 @@ argocd-password:
     echo "Retrieving ArgoCD admin password..."
     {{K}} -n argocd get secret argocd-initial-admin-secret \
         -o jsonpath="{.data.password}" | base64 --decode; echo
+
+fin-ns namespace:
+    echo "Removing Kubernetes namespace: {{namespace}}..."
+    {{K}} get namespace {{namespace}} -o json \
+        | jq '.spec.finalizers = []' \
+        | {{K}} replace --raw "/api/v1/namespaces/{{namespace}}/finalize" -f -
