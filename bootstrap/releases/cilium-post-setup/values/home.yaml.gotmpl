@@ -12,6 +12,7 @@ resources:
     serviceSelector:
       matchLabels:
         gateway.networking.k8s.io/gateway-name: cilium
+
 - apiVersion: "cilium.io/v2alpha1"
   kind: CiliumLoadBalancerIPPool
   metadata:
@@ -22,6 +23,17 @@ resources:
     serviceSelector:
       matchLabels:
         io.cilium/lb-dns: "true"
+
+- apiVersion: "cilium.io/v2alpha1"
+  kind: CiliumLoadBalancerIPPool
+  metadata:
+    name: lb-pool-db
+  spec:
+    blocks:
+      - cidr: "{{ requiredEnv "L2_ANNOUNCEMENT_CIDR_DB" }}"
+    serviceSelector:
+      matchLabels:
+        io.cilium/lb-db: "true"
 
 ###############################
 # L2 Announcements
@@ -60,6 +72,7 @@ resources:
     name: cilium
   spec:
     controllerName: io.cilium/gateway-controller
+
 - apiVersion: gateway.networking.k8s.io/v1
   kind: Gateway
   metadata:
@@ -111,7 +124,6 @@ resources:
           certificateRefs:
             - kind: Secret
               name: {{ requiredEnv "TLS_SECRET_NAME_FOR_DOMAIN_PUBLIC" }}
-
 ###############################
 # HTTP Routes
 ###############################
@@ -212,23 +224,24 @@ resources:
             port: 9001
 
 #------------------------------
-# Postgres HA
+# Postgres External 
 #------------------------------
-- apiVersion: gateway.networking.k8s.io/v1alpha2
-  kind: TCPRoute
+- apiVersion: v1
+  kind: Service
   metadata:
-    name: pg-ha
+    name: pg-external
     namespace: postgres
+    labels:
+      io.cilium/lb-db: "true"
   spec:
-    parentRefs:
-      - name: cilium
-        namespace: infra
-    hostnames:
-      - pg.{{ requiredEnv "DOMAIN_PRIVATE" }}
-    rules:
-      - backendRefs:
-          - name: cluster-pg-db-ha
-            port: 5432
+    type: LoadBalancer
+    ports:
+      - name: pg
+        port: 5432
+        targetPort: 5432
+        protocol: TCP
+    selector:
+      app.kubernetes.io/component: pgbouncer
 
 #------------------------------
 # CoreDNS Service

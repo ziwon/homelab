@@ -104,8 +104,10 @@ apps:
           pmm:
             enabled: false  
 
+          tlsOnly: false
+
           secrets:
-            name: ""
+            name: "cluster"
 
   # Install InfisicalSecret for MinIO credentials
   - name: percona-raw
