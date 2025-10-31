@@ -62,14 +62,13 @@ apps:
                   work_mem: 2MB
                   password_encryption: scram-sha-256
                 pg_hba:
-                  - local all "postgres" peer
+                  - local all postgres peer
                   - local all all trust 
-                  - hostnossl replication "_crunchyrepl" all scram-sha-256
-                  - hostnossl all "_crunchypgbouncer" all scram-sha-256
-                  - hostnossl all "monitor" 127.0.0.0/8 scram-sha-256
-                  - hostnossl all "monitor" ::1/128 scram-sha-256
+                  - hostnossl replication _crunchyrepl all scram-sha-256
+                  - hostnossl all _crunchypgbouncer all scram-sha-256
+                  - hostnossl all monitor 127.0.0.0/8 scram-sha-256
                   - hostnossl all all 0.0.0.0/0 scram-sha-256
-                  - hostnossl all all ::0/0 scram-sha-256
+                  - host all _crunchypgbouncer all reject
                 
           proxy:
             pgBouncer:
