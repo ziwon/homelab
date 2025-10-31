@@ -55,8 +55,9 @@ apps:
             dynamicConfiguration:
               postgresql:
                 parameters:
-                  pg_hba:
-                    - "hostnossl all all all md5"
+                  ssl: "off"
+                pg_hba:
+                  - "hostnossl all all all md5"
 
           proxy:
             pgBouncer:
