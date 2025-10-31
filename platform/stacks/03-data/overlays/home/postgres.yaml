@@ -51,9 +51,20 @@ apps:
                   requests:
                     storage: 100Gi     
 
+          patroni:
+            dynamicConfiguration:
+              postgresql:
+                parameters:
+                  pg_hba:
+                    - "hostnossl all all all md5"
+
           proxy:
             pgBouncer:
-              replicas: 2
+              config:
+                global:
+                  server_tls_sslmode: disable
+                  client_tls_sslmode: disable
+              replicas: 1
               image: docker.io/percona/percona-pgbouncer:1.24.1
 
           backups:
