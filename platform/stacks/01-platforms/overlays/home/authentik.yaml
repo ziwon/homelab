@@ -27,6 +27,9 @@ apps:
                   name: authentik
 
           server:
+            env:
+              - name: TMPDIR
+                value: /tmp
             volumes:
               - name: postgres-creds
                 secret:
@@ -37,6 +40,9 @@ apps:
                 readOnly: true
 
           worker:
+            env:
+              - name: TMPDIR
+                value: /tmp
             volumes:
               - name: postgres-creds
                 secret:
