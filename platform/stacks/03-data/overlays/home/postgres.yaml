@@ -101,9 +101,7 @@ apps:
                     key: postgres-managed-secrets
               databases:
                 - authentik
-              options:
-                - createrole
-                - createdb
+              options: "CREATEDB CREATEROLE"
 
           proxy:
             pgBouncer:
