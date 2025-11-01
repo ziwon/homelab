@@ -1,0 +1,64 @@
+apps:
+  - name: tailscale
+    namespace: tailscale
+    project: dev
+    syncWave: "10"
+    source:
+      chart: tailscale 
+      targetRevision: 1.90.6
+      repoURL: https://pkgs.tailscale.com/helmcharts
+      helm:
+        releaseName: tailscale
+        values: |
+          oauth: {} 
+
+          oauthSecretVolume:
+            secret:
+              secretName: operator-auth
+
+          loginServer: "https://login.tailscale.com"
+
+          operatorConfig:
+            defaultTags:
+              - "tag:k8s-operator"
+
+          proxyConfig:
+            defaultTags: "tag:k8s"
+
+  - name: tailscale-raw
+    namespace: tailscale
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: tailscale-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: operator-auth
+                namespace: tailscale
+
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /tailscale
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+
+                managedKubeSecretReferences:
+                  - secretName: operator-auth
+                    secretNamespace: tailscale
+                    creationPolicy: Owner
+                    keysMapping:
+                      client_id: TS_OAUTH_CLIENT_ID
+                      client_secret: TS_OAUTH_CLIENT_SECRET
