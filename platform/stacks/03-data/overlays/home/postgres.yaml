@@ -55,18 +55,9 @@ apps:
             dynamicConfiguration:
               postgresql:
                 pg_hba:
-                  - local   all              "postgres"                        peer
-                  - hostssl replication      "_crunchyrepl"  all               cert
-                  - hostssl "postgres"       "_crunchyrepl"  all               cert
-                  - host    all              "_crunchyrepl"  all               reject
-                  - host    all              "monitor"       127.0.0.0/8       scram-sha-256
-                  - host    all              "monitor"       ::1/128           scram-sha-256
-                  - host    all              "monitor"       all               reject
-                  - hostnossl all            "_crunchypgbouncer"  all          scram-sha-256
-                  - host     all             "_crunchypgbouncer"  all          reject
-                  - local    all             all                               trust
-                  - hostnossl all            all               0.0.0.0/0       scram-sha-256
-                  - hostnossl all            all               ::0/0           scram-sha-256
+                  - local all all scram-sha-256
+                  - host all all 0.0.0.0/0 scram-sha-256
+                  - host all all ::0/0 scram-sha-256
                 parameters:
                   max_connections: 100                     
 
