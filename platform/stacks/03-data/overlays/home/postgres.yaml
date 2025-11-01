@@ -91,15 +91,9 @@ apps:
                   max_parallel_maintenance_workers: 2  
 
           users:
-            - name: postgres
-              password:
-                valueFrom:
-                  secretKeyRef:
-                    name: postgres
-                    key: postgres-managed-secrets
-              options:
-                - superuser
             - name: authentik
+              databases:
+                - authentik
               password:
                 valueFrom:
                   secretKeyRef:
