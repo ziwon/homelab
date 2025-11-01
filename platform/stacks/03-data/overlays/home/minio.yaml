@@ -27,12 +27,12 @@ apps:
           oidc:
             enabled: true
             configUrl: https://auth.restack.tech/application/o/minio/.well-known/openid-configuration
-            clientId: minio
-            redirectUri: https://minio.home.lab/oauth_callback
-            displayName: Authentik
-            scopes: openid,profile,email,groups
             existingClientSecretName: minio-secrets
+            existingClientIdKey: MINIO_IDENTITY_OPENID_CLIENT_ID
             existingClientSecretKey: MINIO_IDENTITY_OPENID_CLIENT_SECRET
+            redirectUri: https://minio.home.lab/oauth_callback
+            scopes: openid,profile,email,groups
+            displayName: Authentik
 
           persistence:
             enabled: true
