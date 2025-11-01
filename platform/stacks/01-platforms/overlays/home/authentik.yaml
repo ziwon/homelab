@@ -54,11 +54,12 @@ apps:
         releaseName: authentik-raw
         values: |
           resources:
-            - apiVersion: secrets.infisical.com/v1alpha1
+            - apiVersion: secrets.infisical.com/api
               kind: InfisicalSecret
               metadata:
                 name: authentik-managed-secrets
                 namespace: authentik
+
               spec:
                 hostAPI: https://app.infisical.com/api
                 authentication:
@@ -70,6 +71,7 @@ apps:
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
+
                 managedSecretReference:
                   secretName: authentik-managed-secrets
                   secretNamespace: authentik
