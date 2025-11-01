@@ -18,7 +18,7 @@ apps:
             enabled: true
 
           authentik:
-            createSecret: false
+            enabled : false
 
           global:
             envFrom:
