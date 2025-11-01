@@ -1,5 +1,5 @@
 apps:
-  - name: authentik-postgres-db
+  - name: authentik
     namespace: authentik
     project: dev
     syncWave: "10"
@@ -15,11 +15,29 @@ apps:
           postgres:
             enabled: false
           redis:
-            enabled: false
+            enabled: true
           global:
             envFrom:
               - secretRef:
                 name: authentik-managed-secrets
+          server:
+            volumes:
+              - name: postgres-creds
+                secret:
+                  secretName: authentik-managed-secrets
+            volumeMounts:
+              - name: postgres-creds
+                mountPath: /postgres-creds
+                readOnly: true
+            worker:
+              volumes:
+                - name: postgres-creds
+                  secret:
+                    secretName: authentik-managed-secrets
+              volumeMounts:
+                - name: postgres-creds
+                  mountPath: /postgres-creds
+                  readOnly: true
 
   - name: authentik-raw
     namespace: authentik
