@@ -14,6 +14,7 @@ apps:
         values: |
           postgres:
             enabled: false
+          
           redis:
             enabled: true
 
@@ -23,13 +24,13 @@ apps:
           global:
             envFrom:
               - secretRef:
-                  name: authentik-managed-secrets
+                  name: authentik
 
           server:
             volumes:
               - name: postgres-creds
                 secret:
-                  secretName: authentik-managed-secrets
+                  secretName: authentik
             volumeMounts:
               - name: postgres-creds
                 mountPath: /postgres-creds
@@ -39,7 +40,7 @@ apps:
             volumes:
               - name: postgres-creds
                 secret:
-                  secretName: authentik-managed-secrets
+                  secretName: authentik
             volumeMounts:
               - name: postgres-creds
                 mountPath: /postgres-creds
@@ -76,6 +77,6 @@ apps:
                       secretNamespace: infisical
 
                 managedKubeSecretReferences:
-                  - secretName: authentik-managed-secrets
+                  - secretName: authentik
                     secretNamespace: authentik
                     creationPolicy: Owner
