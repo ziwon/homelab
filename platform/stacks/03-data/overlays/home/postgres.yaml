@@ -164,7 +164,7 @@ apps:
       chart: raw
       targetRevision: 2.0.2
       helm:
-        releaseName: pg-cluster
+        releaseName: percona-raw
         values: |
           resources:
             - apiVersion: secrets.infisical.com/v1alpha1
@@ -185,10 +185,10 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
 
-                managedSecretReference:
-                  secretName: postgres-managed-secrets
-                  secretNamespace: postgres
-                  creationPolicy: Owner
+                managedKubeSecretReferences:
+                  - secretName: postgres-managed-secrets
+                    secretNamespace: postgres
+                    creationPolicy: Owner
 
             - apiVersion: v1
               kind: Service

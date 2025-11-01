@@ -47,7 +47,7 @@ apps:
     project: dev
     syncWave: "5"
     source:
-      repoURL: https://charts.goauthentik.io
+      repoURL: https://bedag.github.io/helm-charts
       chart: raw
       targetRevision: 2.0.2
       helm: 
@@ -72,7 +72,7 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
 
-                managedSecretReference:
-                  secretName: authentik-managed-secrets
-                  secretNamespace: authentik
-                  creationPolicy: Owner
+                managedKubeSecretReferences:
+                  - secretName: authentik-managed-secrets
+                    secretNamespace: authentik
+                    creationPolicy: Owner
