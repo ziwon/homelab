@@ -16,10 +16,12 @@ apps:
             enabled: false
           redis:
             enabled: true
+
           global:
             envFrom:
               - secretRef:
-                name: authentik-managed-secrets
+                  name: authentik-managed-secrets
+
           server:
             volumes:
               - name: postgres-creds
@@ -29,15 +31,16 @@ apps:
               - name: postgres-creds
                 mountPath: /postgres-creds
                 readOnly: true
-            worker:
-              volumes:
-                - name: postgres-creds
-                  secret:
-                    secretName: authentik-managed-secrets
-              volumeMounts:
-                - name: postgres-creds
-                  mountPath: /postgres-creds
-                  readOnly: true
+
+          worker:
+            volumes:
+              - name: postgres-creds
+                secret:
+                  secretName: authentik-managed-secrets
+            volumeMounts:
+              - name: postgres-creds
+                mountPath: /postgres-creds
+                readOnly: true
 
   - name: authentik-raw
     namespace: authentik
@@ -56,7 +59,6 @@ apps:
               metadata:
                 name: authentik-managed-secrets
                 namespace: authentik
-
               spec:
                 hostAPI: https://app.infisical.com/api
                 authentication:
@@ -68,9 +70,7 @@ apps:
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
-
                 managedSecretReference:
                   secretName: authentik-managed-secrets
                   secretNamespace: authentik
-                  creationPolicy: Owner   
-               
+                  creationPolicy: Owner
