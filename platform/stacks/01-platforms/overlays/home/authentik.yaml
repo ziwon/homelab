@@ -1,0 +1,58 @@
+apps:
+  - name: authentik-postgres-db
+    namespace: authentik
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - percona-pg-db
+    source:
+      repoURL: https://charts.goauthentik.io
+      chart: authentik
+      targetRevision: 2025.10.0
+      helm:
+        releaseName: authentik
+        values: |
+          postgres:
+            enabled: false
+          redis:
+            enabled: false
+          global:
+            envFrom:
+              - secretRef:
+                name: authentik-managed-secrets
+
+  - name: authentik-raw
+    namespace: authentik
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://charts.goauthentik.io
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: authentik-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: authentik-managed-secrets
+                namespace: authentik
+
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /authentik
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+
+                managedSecretReference:
+                  secretName: authentik-managed-secrets
+                  secretNamespace: authentik
+                  creationPolicy: Owner   
+               
