@@ -21,7 +21,12 @@ apps:
               memory: 8Gi
               cpu: 2000m
 
-          existingSecret: minio-credentials
+          existingSecret: minio-secrets
+
+          oidc:
+            enabled: true
+            existingClientSecretName: minio-secrets
+            existingClientSecretKey: MINIO_IDENTITY_OPENID_CLIENT_SECRET
 
           persistence:
             enabled: true
@@ -49,7 +54,7 @@ apps:
                   actions:
                     - "s3:GetObject"
                     - "s3:PutObject"
-                    - "s3:DeleteObject"
+                    - "s3:DeleteObject" 
 
   - name: minio-raw
     namespace: minio
@@ -103,7 +108,7 @@ apps:
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
-                name: minio-credentials
+                name: minio-secrets
                 namespace: minio
 
               spec:
@@ -119,6 +124,6 @@ apps:
                       secretNamespace: infisical
 
                 managedKubeSecretReferences:
-                  - secretName: minio-credentials
+                  - secretName: minio-secrets
                     secretNamespace: minio
                     creationPolicy: Owner
