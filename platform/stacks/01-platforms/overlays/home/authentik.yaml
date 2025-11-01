@@ -17,6 +17,9 @@ apps:
           redis:
             enabled: true
 
+          authentik:
+            createSecret: false
+
           global:
             envFrom:
               - secretRef:
