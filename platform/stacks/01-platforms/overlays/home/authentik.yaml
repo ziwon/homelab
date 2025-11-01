@@ -4,7 +4,7 @@ apps:
     project: dev
     syncWave: "10"
     dependencies:
-      - percona-pg-db
+      - authentik-raw
     source:
       repoURL: https://charts.goauthentik.io
       chart: authentik
@@ -50,11 +50,11 @@ apps:
       repoURL: https://charts.goauthentik.io
       chart: raw
       targetRevision: 2.0.2
-      helm:
+      helm: 
         releaseName: authentik-raw
         values: |
           resources:
-            - apiVersion: secrets.infisical.com/api
+            - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
                 name: authentik-managed-secrets
