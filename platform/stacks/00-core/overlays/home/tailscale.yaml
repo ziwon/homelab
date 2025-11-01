@@ -4,11 +4,11 @@ apps:
     project: dev
     syncWave: "10"
     source:
-      chart: tailscale 
+      chart: tailscale-operator
       targetRevision: 1.90.6
       repoURL: https://pkgs.tailscale.com/helmcharts
       helm:
-        releaseName: tailscale
+        releaseName: tailscale-operator
         values: |
           oauth: {} 
 
@@ -19,6 +19,7 @@ apps:
           loginServer: "https://login.tailscale.com"
 
           operatorConfig:
+            logging: debug
             defaultTags:
               - "tag:k8s-operator"
 
@@ -32,7 +33,7 @@ apps:
     source:
       repoURL: https://bedag.github.io/helm-charts
       chart: raw
-      targetRevision: "2.0.2"
+      targetRevision: 2.0.2
       helm:
         releaseName: tailscale-raw
         values: |
