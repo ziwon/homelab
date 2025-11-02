@@ -100,8 +100,8 @@ apps:
                   pool_mode: transaction
                   default_pool_size: "20"
                   max_client_conn: "200"
-                replicas: 1
               image: docker.io/percona/percona-pgbouncer:1.24.1
+              replicas: 1
 
           backups:
             enabled: true
@@ -133,6 +133,10 @@ apps:
                     bucket: pg-backups 
                     endpoint: http://minio.minio.svc.cluster.local:9000
                     region: us-east-1
+                    uriStyle: path
+                    verifyTLS: false
+                  credentials:
+                    name: postgres-managed-secrets
                   schedules:
                     full: "0 3 * * 0"                  # 일 새벽 03:00 전체백업           
                     incremental: "0 3 * * 1-6"         # 월~토 새벽 03:00 증분백업
