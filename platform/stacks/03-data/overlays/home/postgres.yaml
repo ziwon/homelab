@@ -95,7 +95,7 @@ apps:
             pgBouncer:
               config:
                 global:
-                  server_tls_sslmode: required
+                  server_tls_sslmode: require
                   client_tls_sslmode: disable 
                   pool_mode: transaction
                   default_pool_size: "20"
