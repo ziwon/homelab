@@ -124,6 +124,7 @@ resources:
           certificateRefs:
             - kind: Secret
               name: {{ requiredEnv "TLS_SECRET_NAME_FOR_DOMAIN_PUBLIC" }}
+
 ###############################
 # HTTP Routes
 ###############################
@@ -216,32 +217,33 @@ resources:
     parentRefs:
       - name: cilium
         namespace: infra
+        sectionName: https-private
     hostnames:
-      - minio.{{ requiredEnv "DOMAIN_PRIVATE" }}
+      - minio-console.{{ requiredEnv "DOMAIN_PRIVATE" }}
     rules:
       - backendRefs:
           - name: minio-console
             port: 9001
 
 #------------------------------
-# Postgres External 
+# MINIO API
 #------------------------------
-- apiVersion: v1
-  kind: Service
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
   metadata:
-    name: pg-external
-    namespace: postgres
-    labels:
-      io.cilium/lb-db: "true"
+    name: minio
+    namespace: minio
   spec:
-    type: LoadBalancer
-    ports:
-      - name: pg
-        port: 5432
-        targetPort: 5432
-        protocol: TCP
-    selector:
-      app.kubernetes.io/component: pgbouncer
+    parentRefs:
+      - name: cilium
+        namespace: infra
+        sectionName: https-private
+    hostnames:
+      - minio.{{ requiredEnv "DOMAIN_PRIVATE" }}
+    rules:
+      - backendRefs:
+          - name: minio
+            port: 9000
 
 #------------------------------
 # CoreDNS Service
@@ -276,31 +278,23 @@ resources:
     name: coredns-custom
     namespace: kube-system
   data:
-    home.lab.server: |
+    home.lab.server: |-
       {{ requiredEnv "DOMAIN_PRIVATE" }}:53 {
         errors
         cache 30
         forward . {{ requiredEnv "IP_ADDR_COREDNS" }}
         file /etc/coredns/custom/{{ requiredEnv "DOMAIN_PRIVATE" }}.db {{ requiredEnv "DOMAIN_PRIVATE" }}
       }
-      {{ requiredEnv "DOMAIN_PRIVATE" }}.db: |
+    home.lab.db: |-
       $ORIGIN {{ requiredEnv "DOMAIN_PRIVATE" }}.
-      @       3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. (
-                              2024101801 ; serial
-                              7200       ; refresh (2 hours)
-                              3600       ; retry (1 hour)
-                              1209600    ; expire (2 weeks)
-                              3600       ; minimum (1 hour)
-                              )
-
-      ; Gateway IP - all HTTP(S) services point here
-      @           IN A     {{ requiredEnv "IP_ADDR_GW" }}
-      *           IN A     {{ requiredEnv "IP_ADDR_GW" }}
-
-
-      ; Specific service records (all point to gateway)
-      argocd      IN A     {{ requiredEnv "IP_ADDR_GW" }}
-      hubble      IN A     {{ requiredEnv "IP_ADDR_GW" }}
-
-      ; DNS server itself
-      dns         IN A     {{ requiredEnv "IP_ADDR_DNS" }}
+      @ 3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. (
+        2024101801 7200 3600 1209600 3600
+      )
+      @               IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      *               IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      argocd          IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      hubble          IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      minio           IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      minio-console   IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      pg              IN  A {{ requiredEnv "IP_ADDR_DB"   }}
+      dns             IN  A {{ requiredEnv "IP_ADDR_DNS"  }}

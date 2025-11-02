@@ -28,6 +28,18 @@ hooks:
         else
           echo "Certificate already exists, skipping generation."
         fi
+
+        # Install secrtes in the infra namespace
+        SECRET_NAME="tls-${DOMAIN_PRIVATE_SLUG:-${DOMAIN}}"
+        if ! kubectl -n infra get secret "${SECRET_NAME}" >/dev/null 2>&1; then
+          echo "Creating Kubernetes TLS secret '${SECRET_NAME}' in namespace 'infra'..."
+          kubectl -n infra create secret tls "${SECRET_NAME}" \
+          --cert="secrets/${DOMAIN}.crt" \
+          --key="secrets/${DOMAIN}.key"
+        else
+          echo "Kubernetes TLS secret '${SECRET_NAME}' already exists, skipping creation."
+        fi
+
         sudo cp secrets/${DOMAIN}.crt /usr/local/share/ca-certificates/${DOMAIN}.crt
         sudo update-ca-certificates
         popd >/dev/null

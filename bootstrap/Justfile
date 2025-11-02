@@ -3,10 +3,11 @@ set quiet
 
 HF  := "helmfile"
 K   := "kubectl"
+M   := "mc"
 
 default:
     echo "Bootstrap Homelab Environment"
-    @just --list
+    just --list
 
 [group('k3s')]
 up:
@@ -27,53 +28,117 @@ up:
     chown $(id -u):$(id -g) $KUBECONFIG
     chmod 600 $KUBECONFIG
 
+[group('k3s')]
 down:
     echo "Uninstalling k3s..."
     sudo /usr/local/bin/k3s-uninstall.sh
 
-[group('helmfile')]
+[group('helm')]
 list:
     echo "Applying Helmfile configurations..."
     {{HF}} -e $ENV list
 
+[group('helm')]
 tmpl:
     echo "Templating Helmfile releases..."
     {{HF}} -e $ENV template
 
+[group('helm')]
 tmpl-for target:
     echo "Templating Helmfile releases for target: {{target}}..."
     {{HF}} -e $ENV -l name={{target}} template
 
+[group('helm')]
 sync:
     echo "Syncing Helmfile releases..."
     {{HF}} -e $ENV sync
 
+[group('helm')]
 sync-for target:
     echo "Syncing Helmfile releases for target: {{target}}..."
     {{HF}} -e $ENV -l name={{target}} sync
 
+[group('helm')]
 apply:
     echo "Applying Helmfile releases..."
     {{HF}} -e $ENV apply
 
+[group('helm')]
 apply-for target:
     echo "Applying Helmfile releases for target: {{target}}..."
     {{HF}} -e $ENV -l name={{target}} apply
 
-k8s-nvidia-smi:
+[group('k8s')]
+nvidia-smi:
     echo "Running nvidia-smi in a Kubernetes pod..."
     {{K}} run nvidia-test --rm -it --restart=Never \
         --image=nvidia/cuda:12.4.1-base-ubuntu22.04 \
         --overrides='{"spec":{"runtimeClassName":"nvidia"}}' \
         -- nvidia-smi
 
-argocd-password:
-    echo "Retrieving ArgoCD admin password..."
-    {{K}} -n argocd get secret argocd-initial-admin-secret \
-        -o jsonpath="{.data.password}" | base64 --decode; echo
-
+[group('k8s')]
 fin-ns namespace:
     echo "Removing Kubernetes namespace: {{namespace}}..."
     {{K}} get namespace {{namespace}} -o json \
         | jq '.spec.finalizers = []' \
         | {{K}} replace --raw "/api/v1/namespaces/{{namespace}}/finalize" -f -
+
+[group('k8s')]
+debug node="aaron-lgt":
+    {{K}} run debug-shell \
+        --rm -i --tty \
+        --image nicolaka/netshoot \
+        --overrides='{"apiVersion": "v1","spec": {"nodeSelector": {"kubernetes.io/hostname": "{{node}}"}}}' \
+        -- /bin/bash
+
+[group('argocd')]
+argocd-password:
+    echo "Retrieving ArgoCD admin password..."
+    {{K}} -n argocd get secret argocd-initial-admin-secret \
+        -o jsonpath="{.data.password}" | base64 --decode; echo
+
+[group('pg')]
+pg-certs ns="postgres" cl="cluster-pg-db":
+    #!/bin/bash
+    set -e
+    echo "Extracting PostgreSQL SSL certificates from namespace '{{ns}}' ..."
+    {{K}} -n {{ns}} get secret {{cl}}-cluster-ca-cert -o jsonpath='{.data.root\.crt}' | base64 -d > pg.ca.crt
+    {{K}} -n {{ns}} get secret {{cl}}-cluster-cert -o jsonpath='{.data.tls\.crt}' | base64 -d > pg.client.crt
+    {{K}} -n {{ns}} get secret {{cl}}-cluster-cert -o jsonpath='{.data.tls\.key}' | base64 -d > pg.client.key
+    chmod 600 pg.client.key
+
+    echo "Certificates extracted:"
+    ls -lh pg.ca.crt pg.client.crt pg.client.key
+    echo
+    echo "Connect with:"
+    echo "  psql \"host=$DB_HOST port=$DB_PORT user=$DB_USER dbname=$DB_NAME \\"
+    echo "        sslmode=verify-full sslrootcert=pg.ca.crt sslcert=pg.client.crt sslkey=pg.client.key\""
+
+[group('pg')]
+pg-backrest-hash:
+    echo "Calculating pgBackRest repository hash..."
+    {{K}} -n postgres exec deploy/cluster-pg-db -- pgbackrest --stanza=main info --log-level-console=info \
+        | grep "repo1: backup set" -A 3 \
+        | grep "hash:" \
+        | awk '{print $2}'
+
+[group('pg')]
+pg-reconcile:
+    echo "Triggering pgBackRest reconciliation for PostgreSQL cluster..."
+    {{K}} -n postgres patch perconapgcluster cluster-pg-db \
+        --type=merge -p '{"metadata":{"annotations":{"pgbr-reconcile":"'"$(date +%s)"'"}}}'
+
+[group('mc')]
+mc-config:
+    echo "Configuring mc (MinIO Client)..."
+    {{M}} alias set minio $MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+
+[group('mc')]
+mc-ls bucket="minio/pg-backups":
+    echo "Listing contents of MinIO bucket recusively..."
+    {{M}} ls -r {{bucket}}
+
+[group('mc')]
+mc-du bucket="minio/pg-backups":
+    echo "Listing MinIO buckets..."
+    {{M}} du {{bucket}}

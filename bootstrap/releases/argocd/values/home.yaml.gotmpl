@@ -12,8 +12,8 @@ configs:
   cm:
     oidc.config: |
       name: Authentik
-      issuer: {{ requiredEnv "AUTHENTIK_OIDC_ISSUER" }}
-      clientID: {{ requiredEnv "AUTHENTIK_OIDC_CLIENT_ID" }}
+      issuer: {{ requiredEnv "AUTHENTIK_ARGOCD_OIDC_ISSUER" }}
+      clientID: {{ requiredEnv "AUTHENTIK_ARGOCD_OIDC_CLIENT_ID" }}
       clientSecret: $oidc.authentik.clientSecret
       requestedScopes: ["openid", "profile", "email", "groups"]
       requestedIDTokenClaims:
@@ -22,7 +22,8 @@ configs:
   secret:
     createSecret: true
     extra:
-      oidc.authentik.clientSecret: {{ requiredEnv "AUTHENTIK_OIDC_CLIENT_SECRET" }}
+      server.secretkey: {{ requiredEnv "ARGOCD_SERVER_SECRETKEY" }}  
+      oidc.authentik.clientSecret: {{ requiredEnv "AUTHENTIK_ARGOCD_OIDC_CLIENT_SECRET" }}
 
 controller:
   replicas: 1 
