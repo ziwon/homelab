@@ -116,6 +116,8 @@ apps:
               configuration:
                 - secret:
                     name: postgres-managed-secrets 
+                - secret:
+                    name: minio-ca
 
               repos:
                 - name: repo1
