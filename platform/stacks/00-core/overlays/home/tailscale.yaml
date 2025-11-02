@@ -60,6 +60,3 @@ apps:
                   - secretName: operator-auth
                     secretNamespace: tailscale
                     creationPolicy: Owner
-                    keysMapping:
-                      client_id: TS_OAUTH_CLIENT_ID
-                      client_secret: TS_OAUTH_CLIENT_SECRET
