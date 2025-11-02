@@ -107,7 +107,7 @@ apps:
             enabled: true
             trackLatestRestorableTime: true
             pgbackrest:
-              image: docker.io/percona/percona-pgbackrest:2.56.0
+              image: docker.io/percona/percona-pgbackrest:2.55.0
 
               restore:
                 enabled: false
