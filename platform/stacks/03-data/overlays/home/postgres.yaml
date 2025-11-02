@@ -131,7 +131,7 @@ apps:
                 - name: repo2
                   s3:
                     bucket: pg-backups 
-                    endpoint: http://minio.minio.svc.cluster.local:9000
+                    endpoint: minio.minio.svc.cluster.local:9000
                     region: us-east-1
                     uriStyle: path
                     verifyTLS: false
