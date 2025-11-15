@@ -35,6 +35,7 @@ spec:
         app-type: '{{$open}} if hasKey . "source" {{$close}}{{$open}}- if hasKey .source "chart" {{$close}}helm{{$open}}- else if hasKey .source "kustomize" {{$close}}kustomize{{$open}}- else {{$close}}raw{{$open}}- end {{$close}}{{$open}} else if hasKey . "sourceType" {{$close}}{{$open}} .sourceType {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
       annotations:
         argocd.argoproj.io/sync-wave: '{{$open}} default "0" .syncWave {{$close}}'
+        argocd.argoproj.io/sync-options: '{{$open}} if get . "pause" {{$close}}Skip=true{{$open}} end {{$close}}'
 
     spec:
       # debug: {{ toJson . }}
