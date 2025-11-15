@@ -122,8 +122,13 @@ apps:
               repos:
                 - name: repo1
                   volume:
-                    existingClaim: cluster-pg-db-repo1
-                    storageClassName: ""
+                    volumeClaimSpec:
+                      storageClassName: local-path 
+                      accessModes:
+                        - ReadWriteOnce
+                      resources:
+                        requests:
+                          storage: 10Gi
                     
                 - name: repo2
                   s3:
@@ -209,40 +214,3 @@ apps:
                     port: 5432
                     targetPort: postgres
                     protocol: TCP
-
-            - apiVersion: v1
-              kind: PersistentVolume
-              metadata:
-                name: cluster-pg-backup-repo1
-              spec:
-                capacity:
-                  storage: 57Gi
-                accessModes:
-                  - ReadWriteOnce
-                storageClassName: "" 
-                local:
-                  path: /mnt/db-backup
-                nodeAffinity:
-                  required:
-                    nodeSelectorTerms:
-                    - matchExpressions:
-                      - key: kubernetes.io/hostname
-                        operator: In
-                        values:
-                        - aaron-lgt
-                persistentVolumeReclaimPolicy: Retain
-                volumeMode: Filesystem
-
-            - apiVersion: v1
-              kind: PersistentVolumeClaim
-              metadata:
-                name: cluster-pg-db-repo1
-                namespace: postgres
-              spec:
-                accessModes:
-                  - ReadWriteOnce
-                storageClassName: "" 
-                volumeName: cluster-pg-backup-repo1
-                resources:
-                  requests:
-                    storage: 57Gi
