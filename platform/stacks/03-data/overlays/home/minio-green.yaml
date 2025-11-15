@@ -158,7 +158,7 @@ apps:
                     namespace: infra
                     sectionName: https-private
                 hostnames:
-                  - minio-console.home.lab
+                  - minio-green-console.home.lab
                 rules:
                   - backendRefs:
                       - name: minio-green-console
@@ -175,7 +175,7 @@ apps:
                     namespace: infra
                     sectionName: https-private
                 hostnames:
-                  - minio.home.lab
+                  - minio-green.home.lab
                 rules:
                   - backendRefs:
                       - name: minio-green
