@@ -1,0 +1,182 @@
+# MinIO Green Deployment for Home Lab for migration to new storage path (/data/minio from /backup/minio)
+apps:
+  - name: minio-green
+    namespace: minio-green
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://charts.min.io/
+      chart: minio
+      targetRevision: 5.4.0
+      helm:
+        releaseName: minio-green
+        values: |
+          mode: standalone
+          replicas: 1
+
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1000m
+            limits:
+              memory: 8Gi
+              cpu: 2000m
+
+          existingSecret: minio-secrets
+          extraSecret: minio-secrets
+
+          oidc:
+            enabled: true
+            configUrl: https://auth.restack.tech/application/o/minio/.well-known/openid-configuration
+            existingClientSecretName: minio-secrets
+            existingClientIdKey: MINIO_IDENTITY_OPENID_CLIENT_ID
+            existingClientSecretKey: MINIO_IDENTITY_OPENID_CLIENT_SECRET
+            redirectUri: https://minio.home.lab/oauth_callback
+            scopes: openid,profile,email,groups
+            displayName: Authentik
+
+          persistence:
+            enabled: true
+            existingClaim: minio-pvc
+            storageClass: local-path
+            size: 1Ti
+
+          service:
+            type: ClusterIP
+
+          buckets:
+            - name: pg-backups
+              versioning: false
+              lifecycle:
+                - id: expire-old-backups
+                  prefix: ""
+                  expiration:
+                    days: 90
+
+          policies:
+            - name: percona-backup-policy
+              statements:
+                - resources:
+                    - 'arn:aws:s3:::pg-backups/*'
+                  actions:
+                    - "s3:GetObject"
+                    - "s3:PutObject"
+                    - "s3:DeleteObject"
+                    - "s3:ListBucket" 
+                    - "s3:ListBucketMultipartUploads"
+                    - "s3:AbortMultipartUpload"
+                    - "s3:ListMultipartUploadParts"
+
+  - name: minio-green-raw
+    namespace: minio-green
+    project: dev
+    syncWave: "30"
+    dependencies:
+      - minio-green
+    source: 
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: minio-green-raw
+        values: |
+          resources:
+            # --------------------------------------------------------------
+            # PersistentVolume and PersistentVolumeClaim for MinIO (Green)
+            # --------------------------------------------------------------
+            - apiVersion: v1
+              kind: PersistentVolume
+              metadata:
+                name: minio-pv-green
+              spec:
+                capacity:
+                  storage: 1Ti
+                accessModes:
+                  - ReadWriteOnce
+                persistentVolumeReclaimPolicy: Retain
+                storageClassName: local-path
+                local:
+                  path: /data/minio
+                nodeAffinity:
+                  required:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                        - aaron-lgt
+            - apiVersion: v1
+              kind: PersistentVolumeClaim
+              metadata:
+                name: minio-pvc
+                namespace: minio-green
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: local-path
+                resources:
+                  requests:
+                    storage: 1Ti
+
+            # -------------------------------------------------------------- 
+            # InfisicalSecret for MinIO credentials
+            # --------------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: minio-secrets
+                namespace: minio-green
+
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: hme
+                      secretsPath: /minio
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+
+                managedKubeSecretReferences:
+                  - secretName: minio-secrets
+                    secretNamespace: minio-green
+                    creationPolicy: Owner
+
+            # -------------------------------------------------------------- 
+            # HTTPRoute for MinIO and MinIO Console (Green)
+            # --------------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: minio-console
+                namespace: minio-green
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - minio-console.home.lab
+                rules:
+                  - backendRefs:
+                      - name: minio-green-console
+                        port: 9001
+
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: minio
+                namespace: minio-green
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - minio.home.lab
+                rules:
+                  - backendRefs:
+                      - name: minio-green
+                        port: 9000
