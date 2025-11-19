@@ -8,7 +8,7 @@ apps:
     source:
       repoURL: https://charts.goauthentik.io
       chart: authentik
-      targetRevision: 2025.10.0
+      targetRevision: 2025.10.1
       helm:
         releaseName: authentik
         values: |
