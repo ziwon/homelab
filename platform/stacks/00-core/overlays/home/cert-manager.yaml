@@ -7,7 +7,7 @@ apps:
     source:
       repoURL: https://charts.jetstack.io
       chart: cert-manager
-      targetRevision: v1.11.0
+      targetRevision: v1.19.0
       helm:
         releaseName: cert-manager
         values: |
