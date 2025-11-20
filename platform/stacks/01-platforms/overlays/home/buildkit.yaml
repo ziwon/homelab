@@ -52,7 +52,6 @@ apps:
                     rootless = false
                     selinux = false
                     snapshotter = "auto"
-                    noProcessSandbox = true
                     max-parallelism = 8
                     gc = true
                     gcDefaultKeepStorage = "40GB"
