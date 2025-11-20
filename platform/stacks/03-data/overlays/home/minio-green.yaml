@@ -34,6 +34,7 @@ apps:
             redirectUri: https://minio-console.home.lab/oauth_callback
             scopes: openid,profile,email,groups
             displayName: Authentik
+            claimName: policy
 
           persistence:
             enabled: true
