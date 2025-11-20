@@ -1,0 +1,176 @@
+apps:
+  - name: buildkit
+    namespace: buildkit
+    project: dev
+    syncWave: "10"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: buildkit
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: buildkit-managed-secrets
+                namespace: buildkit
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /buildkit
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: buildkit-managed-secrets
+                    secretNamespace: buildkit
+                    creationPolicy: Owner
+
+            - apiVersion: v1
+              kind: ServiceAccount
+              metadata:
+                name: buildkit
+                namespace: buildkit
+
+            - apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: buildkitd-config
+                namespace: buildkit
+              data:
+                buildkitd.toml: |
+                  debug = true
+
+                  [worker.oci]
+                    enabled = true
+                    rootless = false
+                    selinux = false
+                    snapshotter = "auto"
+                    noProcessSandbox = true
+                    max-parallelism = 8
+                    gc = true
+                    gcDefaultKeepStorage = "40GB"
+
+                  [[worker.oci.gcpolicy]]
+                    keepBytes = 5000000000        # ~5GB
+                    keepDuration = 1209600        # 14 days (초)
+                    filters = [
+                      "type==source.local",
+                      "type==exec.cachemount",
+                      "type==source.git.checkout"
+                    ]
+
+                  # 전체 캐시는 최대 ~30GB 정도만 유지 (PVC 50Gi 기준)
+                  [[worker.oci.gcpolicy]]
+                    all = true
+                    keepBytes = 30000000000       # ~30GB
+
+                  [registry."registry.home.lab"]
+                    # Harbor Endpoint
+                    mirrors = ["registry.home.lab"]
+                    insecure = false
+                    ca = ["/etc/buildkit/certs/homelab-ca.crt"]
+
+                  [history]
+                    maxAge = 172800               # 2 days
+                    maxEntries = 50
+
+            - apiVersion: v1
+              kind: PersistentVolumeClaim
+              metadata:
+                name: buildkit-cache
+                namespace: buildkit
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: local-path
+                resources:
+                  requests:
+                    storage: 50Gi
+
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: buildkitd
+                namespace: buildkit
+                labels:
+                  app: buildkitd
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: buildkitd
+                template:
+                  metadata:
+                    labels:
+                      app: buildkitd
+                  spec:
+                    serviceAccountName: buildkit
+                    containers:
+                      - name: buildkitd
+                        image: moby/buildkit:v0.13.1
+                        imagePullPolicy: IfNotPresent
+                        args:
+                          - --addr=tcp://0.0.0.0:1234
+                          - --config=/etc/buildkit/buildkitd.toml
+                        env:
+                          - name: HARBOR_USERNAME
+                            valueFrom:
+                              secretKeyRef:
+                                name: buildkit-managed-secrets
+                                key: harbor-username
+                          - name: HARBOR_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: buildkit-managed-secrets
+                                key: harbor-password
+                        ports:
+                          - name: buildkit
+                            containerPort: 1234
+                        securityContext:
+                          privileged: true
+                        resources:
+                          requests:
+                            cpu: "500m"
+                            memory: "1Gi"
+                          limits:
+                            cpu: "4"
+                            memory: "8Gi"
+                        volumeMounts:
+                          - name: config
+                            mountPath: /etc/buildkit
+                          - name: cache
+                            mountPath: /var/lib/buildkit
+                          - name: homelab-ca
+                            mountPath: /etc/buildkit/certs
+                            readOnly: true
+                    volumes:
+                      - name: config
+                        configMap:
+                          name: buildkitd-config
+                      - name: cache
+                        persistentVolumeClaim:
+                          claimName: buildkit-cache
+                      - name: homelab-ca
+                        secret:
+                          secretName: buildkit-managed-secrets
+
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: buildkitd
+                namespace: buildkit
+              spec:
+                type: ClusterIP
+                selector:
+                  app: buildkitd
+                ports:
+                  - name: buildkit
+                    port: 1234
+                    targetPort: 1234

@@ -1,0 +1,109 @@
+apps:
+  - name: harbor
+    namespace: harbor
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - harbor-raw
+    source:
+      repoURL: https://helm.goharbor.io
+      chart: harbor
+      targetRevision: 1.18.0
+      helm:
+        releaseName: harbor
+        values: |
+          expose:
+            type: ingress
+            ingress:
+              className: cilium
+              hosts:
+                core: registry.home.lab
+              notary: ~
+            tls:
+              enabled: true
+              certSource: secret
+              secret:
+                secretName: harbor-tls
+          externalURL: https://registry.home.lab
+
+          chartmuseum:
+            enabled: false
+          notary:
+            enabled: false
+          metrics:
+            enabled: false
+          trivy:
+            enabled: true
+
+          database:
+            type: external
+            external:
+              host: cluster-pg-db-ha.postgres.svc.cluster.local
+              port: 5432
+              username: harbor
+              coreDatabase: harbor
+              existingSecret: harbor-managed-secrets
+
+          persistence:
+            enabled: true
+            resourcePolicy: keep
+            persistentVolumeClaim:
+              registry:
+                size: 200Gi
+                storageClass: local-path
+              redis:
+                size: 5Gi
+                storageClass: local-path
+              jobservice:
+                size: 10Gi
+                storageClass: local-path
+
+          existingSecretAdminPassword: harbor-managed-secrets
+          existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
+
+  - name: harbor-raw
+    namespace: harbor
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: harbor-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: harbor-managed-secrets
+                namespace: harbor
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /harbor
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: harbor-managed-secrets
+                    secretNamespace: harbor
+                    creationPolicy: Owner
+
+            - apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: harbor-tls
+                namespace: harbor
+              spec:
+                secretName: harbor-tls
+                commonName: registry.home.lab
+                dnsNames:
+                  - registry.home.lab
+                issuerRef:
+                  name: homelab-ca
+                  kind: ClusterIssuer
