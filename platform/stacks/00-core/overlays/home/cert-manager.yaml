@@ -1,0 +1,136 @@
+apps:
+  # Install cert-manager via the official Jetstack Helm chart.
+  - name: cert-manager
+    namespace: cert-manager
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://charts.jetstack.io
+      chart: cert-manager
+      targetRevision: v1.11.0
+      helm:
+        releaseName: cert-manager
+        values: |
+          installCRDs: true
+
+          replicaCount: 1
+
+          extraArgs:
+            - --feature-gates=AdditionalCertificateOutputFormats=true
+            - --dns01-recursive-nameservers=1.1.1.1:53,8.8.8.8:53
+            - --dns01-recursive-nameservers-only
+
+          prometheus:
+            enabled: true
+
+          ingressShim:
+            defaultIssuerName: homelab-ca
+            defaultIssuerKind: ClusterIssuer
+
+  # Bootstrap shared issuers, CA bundles, and secret material.
+  - name: cert-manager-bootstrap
+    namespace: cert-manager
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - cert-manager
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: cert-manager-bootstrap
+        values: |
+          resources:
+            # Cloudflare credentials are sourced from Infisical and exposed
+            # as a Kubernetes Secret for the DNS-01 solver.
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: cloudflare-api-token
+                namespace: cert-manager
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /cert-manager
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: cloudflare-api-token
+                    secretNamespace: cert-manager
+                    creationPolicy: Owner
+
+            # Self-signed issuer to seed an internal CA that can be used
+            # by services before DNS automation is enabled.
+            - apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: homelab-selfsigned
+              spec:
+                selfSigned: {}
+
+            - apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: homelab-root
+                namespace: cert-manager
+              spec:
+                secretName: homelab-ca
+                commonName: homelab-root
+                isCA: true
+                duration: 8760h # 1 year
+                renewBefore: 720h
+                subject:
+                  organizations:
+                    - homelab
+                issuerRef:
+                  name: homelab-selfsigned
+                  kind: ClusterIssuer
+
+            - apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: homelab-ca
+              spec:
+                ca:
+                  secretName: homelab-ca
+
+            # Public ACME cluster issuers for automated wildcard issuance.
+            - apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: letsencrypt-staging
+              spec:
+                acme:
+                  server: https://acme-staging-v02.api.letsencrypt.org/directory
+                  email: ops@home.lab
+                  privateKeySecretRef:
+                    name: letsencrypt-staging-key
+                  solvers:
+                    - dns01:
+                        cloudflare:
+                          apiTokenSecretRef:
+                            name: cloudflare-api-token
+                            key: api-token
+
+            - apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: letsencrypt-production
+              spec:
+                acme:
+                  server: https://acme-v02.api.letsencrypt.org/directory
+                  email: ops@home.lab
+                  privateKeySecretRef:
+                    name: letsencrypt-production-key
+                  solvers:
+                    - dns01:
+                        cloudflare:
+                          apiTokenSecretRef:
+                            name: cloudflare-api-token
+                            key: api-token
