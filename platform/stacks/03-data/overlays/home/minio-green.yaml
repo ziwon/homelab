@@ -32,7 +32,7 @@ apps:
             existingClientIdKey: MINIO_IDENTITY_OPENID_CLIENT_ID
             existingClientSecretKey: MINIO_IDENTITY_OPENID_CLIENT_SECRET
             redirectUri: https://minio-console.home.lab/oauth_callback
-            scopes: openid,profile,email,groups,policy
+            scopes: openid,profile,email,groups
             displayName: Authentik
             claimName: policy
 
