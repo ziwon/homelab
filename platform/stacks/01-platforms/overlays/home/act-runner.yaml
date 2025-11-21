@@ -9,7 +9,7 @@ apps:
     source:
       repoURL: https://actions-runner-controller.github.io/actions-runner-controller
       chart: actions-runner-controller
-      targetRevision: 0.23.7
+      targetRevision: 0.27.6
       helm:
         releaseName: actions-runner-controller
         values: |
