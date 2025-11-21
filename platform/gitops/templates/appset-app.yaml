@@ -48,6 +48,7 @@ spec:
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
+          - ServerSideApply=true
       source:
         repoURL: 'https://placeholder.invalid'
         path: '.'
