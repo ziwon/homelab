@@ -113,6 +113,16 @@ apps:
                     serviceAccountName: buildkit
 
                     initContainers:
+                      - name: cleanup-lock
+                        image: busybox:latest
+                        command:
+                          - /bin/sh
+                          - -c
+                          - rm -f /var/lib/buildkit/buildkitd.lock
+                        volumeMounts:
+                          - name: cache
+                            mountPath: /var/lib/buildkit
+
                       - name: install-ca
                         image: debian:bookworm-slim
                         imagePullPolicy: IfNotPresent
