@@ -80,3 +80,7 @@ spec:
     {{- end }}
           {{- end }}
     {{- end }}
+        - group: secrets.infisical.com
+          kind: InfisicalSecret
+          jsonPointers:
+            - /spec/managedKubeSecretReferences/0/secretType
