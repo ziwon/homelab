@@ -1,4 +1,15 @@
 apps:
+  # Install Slim CRDs
+  - name: act-runner-slim-crds
+    namespace: actions-runner
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://github.com/ziwon/homelab.git
+      targetRevision: main
+      path: platform/stacks/kustomize/actions-runner
+      kustomize: {} # Needed to recognize as kustomize source
+
   # Controller that manages GitHub self-hosted runners.
   - name: actions-runner-controller
     namespace: actions-runner
@@ -9,7 +20,7 @@ apps:
     source:
       repoURL: https://actions-runner-controller.github.io/actions-runner-controller
       chart: actions-runner-controller
-      targetRevision: 0.27.6
+      targetRevision: 0.23.7
       helm:
         releaseName: actions-runner-controller
         values: |
