@@ -96,11 +96,10 @@ apps:
                 parentRefs:
                   - name: cilium
                     namespace: infra
-                    secretName: https-private
+                    sectionName: https-private
                 hostnames:
                   - registry.home.lab
                 rules:
-                  # 1) Harbor UI (portal)
                   - matches:
                       - path:
                           type: PathPrefix
@@ -109,7 +108,6 @@ apps:
                       - name: harbor-portal
                         port: 80
 
-                  # 2) Harbor Core API들
                   - matches:
                       - path:
                           type: PathPrefix
