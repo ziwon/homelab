@@ -1,95 +1,32 @@
 apps:
-  # Install Slim CRDs
-  - name: act-runner-slim-crds
-    namespace: actions-runner
+  # Install InfisicalSecret for GitHub Auth
+  - name: act-runner-raw
+    namespace: act-runner
     project: dev
     syncWave: "0"
-    source:
-      repoURL: https://github.com/ziwon/homelab.git
-      targetRevision: main
-      path: platform/stacks/kustomize/actions-runner
-      kustomize: {} # Needed to recognize as kustomize source
-
-  # Controller that manages GitHub self-hosted runners.
-  - name: actions-runner-controller
-    namespace: actions-runner
-    project: dev
-    syncWave: "5"
-    dependencies:
-      - act-runner-raw
-    source:
-      repoURL: https://actions-runner-controller.github.io/actions-runner-controller
-      chart: actions-runner-controller
-      targetRevision: 0.23.7
-      helm:
-        releaseName: actions-runner-controller
-        values: |
-          authSecret:
-            create: false
-            name: managed-github-auth
-
-          githubWebhookServer:
-            enabled: false
-
-          metrics:
-            enabled: true
-
-  # RunnerDeployment that connects to the homelab repository.
-  - name: act-runner-raw
-    namespace: actions-runner
-    project: dev
-    syncWave: "10"
-    dependencies:
-      - actions-runner-controller
     source:
       repoURL: https://bedag.github.io/helm-charts
       chart: raw
       targetRevision: 2.0.2
       helm:
-        releaseName: act-runner-raw
+        releaseName: act-runner-secret
         values: |
           resources:
-            - apiVersion: actions.summerwind.dev/v1alpha1
-              kind: RunnerDeployment
+            - apiVersion: v1
+              kind: Namespace
               metadata:
-                name: homelab-gh
-                namespace: actions-runner
-              spec:
-                replicas: 1
-                template:
-                  spec:
-                    repository: ziwon/homelab
-                    labels:
-                      - self-hosted
-                      - home
-                      - build
-                    env:
-                      - name: RUNNER_FEATURE_FLAGS
-                        value: "ContainerHooks"
-
-            - apiVersion: actions.summerwind.dev/v1alpha1
-              kind: HorizontalRunnerAutoscaler
+                name: arc-system
+            
+            - apiVersion: v1
+              kind: Namespace
               metadata:
-                name: homelab-gh
-                namespace: actions-runner
-              spec:
-                scaleTargetRef:
-                  name: homelab-gh
-                  kind: RunnerDeployment
-                minReplicas: 1
-                maxReplicas: 3
-                metrics:
-                  - type: PercentRunnersBusy
-                    scaleUpThreshold: "80"
-                    scaleDownThreshold: "20"
-                    scaleUpAdjustment: 1
-                    scaleDownAdjustment: 1
+                name: act-runner
 
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
                 name: managed-github-auth
-                namespace: actions-runner
+                namespace: act-runner
 
               spec:
                 hostAPI: https://app.infisical.com/api
@@ -105,5 +42,65 @@ apps:
 
                 managedKubeSecretReferences:
                   - secretName: managed-github-auth
-                    secretNamespace: actions-runner
+                    secretNamespace: act-runner
                     creationPolicy: Owner
+
+  # Install gha-runner-scale-set-controller chart
+  - name: gha-runner-scale-set-controller
+    namespace: arc-system
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - act-runner-raw
+    source:
+      repoURL: ghcr.io/actions/actions-runner-controller-charts
+      chart: gha-runner-scale-set-controller
+      targetRevision: 0.13.0
+      helm:
+        releaseName: arc
+        values: |
+          replicaCount: 1
+          logLevel: info
+
+  # Install gha-runner-scale-set chart
+  - name: gha-runner-scale-set
+    namespace: act-runner
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - gha-runner-scale-set-controller
+      - act-runner-raw
+    source:
+      repoURL: ghcr.io/actions/actions-runner-controller-charts
+      chart: gha-runner-scale-set
+      targetRevision: 0.13.0
+      helm:
+        releaseName: homelab-gh
+        values: |
+          githubConfigUrl: https://github.com/ziwon
+
+          githubConfigSecret: managed-github-auth
+
+          runnerScaleSetName: "homelab-gh"
+
+          minRunners: 1
+          maxRunners: 3
+
+          containerMode:
+            type: dind
+
+          template:
+            spec:
+              containers:
+              - name: runner
+                image: ghcr.io/actions/actions-runner:latest
+                env:
+                  - name: RUNNER_FEATURE_FLAGS
+                    value: "ContainerHooks"
+                resources:
+                  requests:
+                    cpu: "500m"
+                    memory: "512Mi"
+                  limits:
+                    cpu: "2"
+                    memory: "2Gi"

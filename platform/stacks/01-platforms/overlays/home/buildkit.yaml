@@ -52,6 +52,7 @@ apps:
                     rootless = false
                     selinux = false
                     snapshotter = "auto"
+                    noProcessSandbox = false
                     max-parallelism = 8
                     gc = true
                     gcDefaultKeepStorage = "40GB"
@@ -70,10 +71,9 @@ apps:
                     all = true
                     keepBytes = 30000000000       # ~30GB
 
-                  [registry."registry.home.lab"]
-                    # Harbor Endpoint
-                    mirrors = ["registry.home.lab"]
+                  [registry."harbor.home.lab"]
                     insecure = false
+                    http = false
                     ca = ["/etc/buildkit/certs/homelab-ca.crt"]
 
                   [history]
@@ -111,6 +111,26 @@ apps:
                       app: buildkitd
                   spec:
                     serviceAccountName: buildkit
+
+                    initContainers:
+                      - name: install-ca
+                        image: debian:bookworm-slim
+                        imagePullPolicy: IfNotPresent
+                        command:
+                          - /bin/sh
+                          - -c
+                        args:
+                          - |
+                            set -e
+                            apt-get update >/dev/null 2>&1
+                            apt-get install -y ca-certificates >/dev/null 2>&1
+                            update-ca-certificates
+                        volumeMounts:
+                          - name: homelab-ca
+                            mountPath: /usr/local/share/ca-certificates
+                          - name: etc-ssl
+                            mountPath: /etc/ssl/certs
+
                     containers:
                       - name: buildkitd
                         image: moby/buildkit:v0.13.1
@@ -144,21 +164,36 @@ apps:
                         volumeMounts:
                           - name: config
                             mountPath: /etc/buildkit
+                          - name: docker-config
+                            mountPath: /root/.docker
+                            readOnly: true
                           - name: cache
                             mountPath: /var/lib/buildkit
                           - name: homelab-ca
                             mountPath: /etc/buildkit/certs
                             readOnly: true
+                         - name: etc-ssl
+                            mountPath: /etc/ssl/certs
+                            readOnly: true
+
                     volumes:
                       - name: config
                         configMap:
                           name: buildkitd-config
+                      - name: docker-config
+                        secret:
+                          secretName: buildkit-managed-secrets
+                          items:
+                            - key: config.json
+                              path: config.json
                       - name: cache
                         persistentVolumeClaim:
                           claimName: buildkit-cache
                       - name: homelab-ca
                         secret:
                           secretName: buildkit-managed-secrets
+                      - name: etc-ssl
+                        emptyDir: {}
 
             - apiVersion: v1
               kind: Service

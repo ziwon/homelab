@@ -17,7 +17,7 @@ apps:
             tls:
               enabled: false
 
-          externalURL: https://registry.home.lab
+          externalURL: https://harbor.home.lab
 
           chartmuseum:
             enabled: false
@@ -98,7 +98,7 @@ apps:
                     namespace: infra
                     sectionName: https-private
                 hostnames:
-                  - registry.home.lab
+                  - harbor.home.lab
                 rules:
                   - matches:
                       - path:
@@ -132,9 +132,9 @@ apps:
                 namespace: harbor
               spec:
                 secretName: harbor-tls
-                commonName: registry.home.lab
+                commonName: harbor.home.lab
                 dnsNames:
-                  - registry.home.lab
+                  - harbor.home.lab
                 issuerRef:
                   name: homelab-ca
                   kind: ClusterIssuer
