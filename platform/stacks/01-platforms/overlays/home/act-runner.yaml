@@ -1,7 +1,7 @@
 apps:
   # Controller that manages GitHub self-hosted runners.
   - name: actions-runner-controller
-    namespace: actions-runner-system
+    namespace: actions-runner
     project: dev
     syncWave: "5"
     dependencies:
@@ -25,7 +25,7 @@ apps:
 
   # RunnerDeployment that connects to the homelab repository.
   - name: act-runner
-    namespace: actions-runner-system
+    namespace: actions-runner
     project: dev
     syncWave: "10"
     dependencies:
@@ -42,7 +42,7 @@ apps:
               kind: RunnerDeployment
               metadata:
                 name: homelab-gh
-                namespace: actions-runner-system
+                namespace: actions-runner
               spec:
                 replicas: 1
                 template:
@@ -60,7 +60,7 @@ apps:
               kind: HorizontalRunnerAutoscaler
               metadata:
                 name: homelab-gh
-                namespace: actions-runner-system
+                namespace: actions-runner
               spec:
                 scaleTargetRef:
                   name: homelab-gh
@@ -77,8 +77,8 @@ apps:
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
-                name: arc-github-auth
-                namespace: actions-runner-system
+                name: managed-github-auth
+                namespace: actions-runner
               spec:
                 hostAPI: https://app.infisical.com/api
                 authentication:
@@ -91,6 +91,6 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
                 managedKubeSecretReferences:
-                  - secretName: arc-github-auth
-                    secretNamespace: actions-runner-system
+                  - secretName: managed-github-auth
+                    secretNamespace: actions-runner
                     creationPolicy: Owner
