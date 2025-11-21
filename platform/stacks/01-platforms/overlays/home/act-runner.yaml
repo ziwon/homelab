@@ -9,13 +9,13 @@ apps:
     source:
       repoURL: https://actions-runner-controller.github.io/actions-runner-controller
       chart: actions-runner-controller
-      targetRevision: 0.23.2
+      targetRevision: 0.23.7
       helm:
         releaseName: actions-runner-controller
         values: |
           authSecret:
             create: false
-            name: arc-github-auth
+            name: managed-github-auth
 
           githubWebhookServer:
             enabled: false
@@ -79,17 +79,19 @@ apps:
               metadata:
                 name: managed-github-auth
                 namespace: actions-runner
+
               spec:
                 hostAPI: https://app.infisical.com/api
                 authentication:
                   universalAuth:
                     secretsScope:
                       projectSlug: home-lab
-                      envSlug: "hme"
+                      envSlug: hme
                       secretsPath: /github
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
+
                 managedKubeSecretReferences:
                   - secretName: managed-github-auth
                     secretNamespace: actions-runner
