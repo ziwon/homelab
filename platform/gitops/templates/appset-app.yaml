@@ -84,3 +84,10 @@ spec:
           kind: InfisicalSecret
           jsonPointers:
             - /spec/managedKubeSecretReferences/0/secretType
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+          jqPathExpressions:
+            - .spec.parentRefs[].group
+            - .spec.parentRefs[].kind
+            - .spec.rules[].backendRefs[].group
+            - .spec.rules[].backendRefs[].kind
