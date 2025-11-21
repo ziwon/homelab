@@ -3,3 +3,6 @@ kind: Kustomization
 namespace: actions-runner
 resources:
   - runnerreplicaset.yaml
+  - runner.yaml
+  - runnerset.yaml
+  - runnerdeployment.yaml
