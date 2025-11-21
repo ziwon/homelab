@@ -24,7 +24,7 @@ apps:
             enabled: true
 
   # RunnerDeployment that connects to the homelab repository.
-  - name: act-runner
+  - name: act-runner-raw
     namespace: actions-runner
     project: dev
     syncWave: "10"
@@ -35,7 +35,7 @@ apps:
       chart: raw
       targetRevision: 2.0.2
       helm:
-        releaseName: act-runner
+        releaseName: act-runner-raw
         values: |
           resources:
             - apiVersion: actions.summerwind.dev/v1alpha1
