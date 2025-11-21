@@ -88,6 +88,10 @@ apps:
 
           containerMode:
             type: dind
+          
+          controllerServiceAccount:
+            name: act-gha-rs-controller
+            namespace: arc-system
 
           template:
             spec:
@@ -95,8 +99,8 @@ apps:
               - name: runner
                 image: ghcr.io/actions/actions-runner:latest
                 env:
-                  - name: RUNNER_FEATURE_FLAGS
-                    value: "ContainerHooks"
+                  - name: DOCKER_BUILDKIT
+                    value: "1"
                 resources:
                   requests:
                     cpu: "500m"
