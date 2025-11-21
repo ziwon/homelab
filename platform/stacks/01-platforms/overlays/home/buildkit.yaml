@@ -172,7 +172,7 @@ apps:
                           - name: homelab-ca
                             mountPath: /etc/buildkit/certs
                             readOnly: true
-                         - name: etc-ssl
+                          - name: etc-ssl
                             mountPath: /etc/ssl/certs
                             readOnly: true
 
