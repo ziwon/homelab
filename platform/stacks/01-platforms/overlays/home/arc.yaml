@@ -114,21 +114,3 @@ apps:
           controllerServiceAccount:
             name: arc-gha-rs-controller
             namespace: arc-systems
-
-          template:
-            spec:
-              containers:
-                - name: runner
-                  image: ghcr.io/actions/actions-runner:latest
-                  env:
-                    - name: DOCKER_BUILDKIT
-                      value: "1"
-                  securityContext:
-                    privileged: true
-                  resources:
-                    requests:
-                      cpu: "500m"
-                      memory: "512Mi"
-                    limits:
-                      cpu: "2"
-                      memory: "2Gi"
