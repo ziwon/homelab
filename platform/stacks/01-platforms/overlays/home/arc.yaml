@@ -117,6 +117,9 @@ apps:
 
           template:
             spec:
+              imagePullSecrets:
+                - name: harbor-pull-secret
+
               volumes:
                 - name: docker-config
                   secret:
