@@ -127,12 +127,19 @@ apps:
                     items:
                       - key: config.json
                         path: config.json
+                - name: harbor-ca
+                  secret:
+                    secretName: managed-github-auth
+                    items:
+                      - key: homelab-ca.crt
+                        path: ca.crt
                 - name: work
                   emptyDir: {}
 
               containers:
                 - name: runner
                   image: harbor.home.lab/restack/actions-runner:latest
+                  imagePullPolicy: Always
                   command: ["/home/runner/run.sh"]
                   env:
                     - name: DOCKER_HOST
@@ -140,5 +147,21 @@ apps:
                   volumeMounts:
                     - name: docker-config
                       mountPath: /home/runner/.docker 
+                    - name: work
+                      mountPath: /home/runner/_work 
+
+                - name: dind
+                  image: docker:dind
+                  securityContext:
+                    privileged: true
+                  env:
+                    - name: DOCKER_TLS_CERTDIR
+                      value: ""
+                  volumeMounts:
+                    - name: harbor-ca
+                      mountPath: /etc/docker/certs.d/harbor.home.lab
+                      readOnly: true
+                    - name: docker-config
+                      mountPath: /root/.docker
                     - name: work
                       mountPath: /home/runner/_work 
