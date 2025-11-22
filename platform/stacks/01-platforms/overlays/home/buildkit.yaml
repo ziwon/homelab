@@ -147,9 +147,10 @@ apps:
                         imagePullPolicy: IfNotPresent
                         args:
                           - --addr=tcp://0.0.0.0:1234
-                          - --addr=unix:///run/buildkit/buildkitd.sock
                           - --config=/etc/buildkit/buildkitd.toml
                         env:
+                          - name: BUILDKIT_HOST
+                            value: tcp://127.0.0.1:1234
                           - name: HARBOR_USERNAME
                             valueFrom:
                               secretKeyRef:
@@ -183,8 +184,6 @@ apps:
                           - name: homelab-ca
                             mountPath: /etc/buildkit/certs
                             readOnly: true
-                          - name: run-buildkit
-                            mountPath: /run/buildkit
                           - name: etc-ssl
                             mountPath: /etc/ssl/certs
                             readOnly: true
@@ -206,8 +205,6 @@ apps:
                         secret:
                           secretName: buildkit-managed-secrets
                       - name: etc-ssl
-                        emptyDir: {}
-                      - name: run-buildkit
                         emptyDir: {}
 
             - apiVersion: v1
