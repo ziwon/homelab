@@ -22,6 +22,30 @@ apps:
               metadata:
                 name: arc-runners
 
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: Role
+              metadata:
+                name: arc-secret-reader
+                namespace: arc-runners
+              rules:
+              - apiGroups: [""]
+                resources: ["secrets"]
+                verbs: ["get", "list", "watch"]
+            
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: RoleBinding
+              metadata:
+                name: arc-secret-reader
+                namespace: arc-runners
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: Role
+                name: arc-secret-reader
+              subjects:
+              - kind: ServiceAccount
+                name: arc-gha-rs-controller
+                namespace: arc-systems
+
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
@@ -60,7 +84,7 @@ apps:
         releaseName: arc
         values: |
           replicaCount: 1
-          logLevel: info
+          logLevel: debug
 
   # Install gha-runner-scale-set chart
   - name: gha-runner-scale-set
@@ -78,9 +102,7 @@ apps:
         releaseName: homelab-gh
         values: |
           githubConfigUrl: https://github.com/ziwon
-
           githubConfigSecret: managed-github-auth
-
           runnerScaleSetName: "homelab-gh"
 
           minRunners: 1
@@ -88,10 +110,6 @@ apps:
 
           containerMode:
             type: dind
-          
-          controllerServiceAccount:
-            name: act-gha-rs-controller
-            namespace: arc-systems
 
           template:
             spec:
