@@ -120,6 +120,8 @@ apps:
               containers:
               - name: runner
                 image: ghcr.io/actions/actions-runner:latest
+                securityContext:
+                  privileged: true
                 env:
                   - name: DOCKER_BUILDKIT
                     value: "1"
