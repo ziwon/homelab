@@ -127,12 +127,18 @@ apps:
                     items:
                       - key: config.json
                         path: config.json
+                - name: work
+                  emptyDir: {}
 
               containers:
                 - name: runner
                   image: harbor.home.lab/restack/actions-runner:latest
+                  command: ["/home/runner/run.sh"]
+                  env:
+                    - name: DOCKER_HOST
+                      value: unix:///var/run/docker.sock
                   volumeMounts:
                     - name: docker-config
-                      mountPath: /home/runner/.docker
-
-               
+                      mountPath: /home/runner/.docker 
+                    - name: work
+                      mountPath: /home/runner/_work 
