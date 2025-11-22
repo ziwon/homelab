@@ -84,6 +84,7 @@ spec:
           kind: InfisicalSecret
           jsonPointers:
             - /spec/managedKubeSecretReferences/0/secretType
+            - /status
         - group: gateway.networking.k8s.io
           kind: HTTPRoute
           jqPathExpressions:
