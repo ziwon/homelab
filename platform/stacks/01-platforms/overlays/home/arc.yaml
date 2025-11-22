@@ -1,7 +1,7 @@
 apps:
   # Install InfisicalSecret for GitHub Auth
-  - name: act-runner-raw
-    namespace: act-runner
+  - name: arc-runners-raw
+    namespace: arc-runners
     project: dev
     syncWave: "0"
     source:
@@ -9,24 +9,24 @@ apps:
       chart: raw
       targetRevision: 2.0.2
       helm:
-        releaseName: act-runner-secret
+        releaseName: arc-runners-secret
         values: |
           resources:
             - apiVersion: v1
               kind: Namespace
               metadata:
-                name: arc-system
+                name: arc-systems
             
             - apiVersion: v1
               kind: Namespace
               metadata:
-                name: act-runner
+                name: arc-runners
 
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
                 name: managed-github-auth
-                namespace: act-runner
+                namespace: arc-runners
 
               spec:
                 hostAPI: https://app.infisical.com/api
@@ -42,16 +42,16 @@ apps:
 
                 managedKubeSecretReferences:
                   - secretName: managed-github-auth
-                    secretNamespace: act-runner
+                    secretNamespace: arc-runners
                     creationPolicy: Owner
 
   # Install gha-runner-scale-set-controller chart
   - name: gha-runner-scale-set-controller
-    namespace: arc-system
+    namespace: arc-systems
     project: dev
     syncWave: "5"
     dependencies:
-      - act-runner-raw
+      - arc-runners-raw
     source:
       repoURL: ghcr.io/actions/actions-runner-controller-charts
       chart: gha-runner-scale-set-controller
@@ -64,12 +64,12 @@ apps:
 
   # Install gha-runner-scale-set chart
   - name: gha-runner-scale-set
-    namespace: act-runner
+    namespace: arc-runners
     project: dev
     syncWave: "10"
     dependencies:
       - gha-runner-scale-set-controller
-      - act-runner-raw
+      - arc-runners-raw
     source:
       repoURL: ghcr.io/actions/actions-runner-controller-charts
       chart: gha-runner-scale-set
@@ -91,7 +91,7 @@ apps:
           
           controllerServiceAccount:
             name: act-gha-rs-controller
-            namespace: arc-system
+            namespace: arc-systems
 
           template:
             spec:
