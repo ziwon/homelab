@@ -101,7 +101,7 @@ apps:
       helm:
         releaseName: homelab-gh
         values: |
-          githubConfigUrl: https://github.com/ziwon
+          githubConfigUrl: https://github.com/restack
           githubConfigSecret: managed-github-auth
           runnerScaleSetName: "homelab-gh"
 
