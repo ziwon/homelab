@@ -108,8 +108,7 @@ apps:
           minRunners: 1
           maxRunners: 3
 
-          containerMode:
-            type: "dind"
+          containerMode: {}
 
           controllerServiceAccount:
             name: arc-gha-rs-controller
@@ -121,6 +120,9 @@ apps:
                 - name: harbor-pull-secret
 
               volumes:
+                - name: dind-sock
+                  emptyDir: {}
+
                 - name: work
                   emptyDir: {}
 
@@ -138,22 +140,6 @@ apps:
                       - key: homelab-ca.crt
                         path: ca.crt
 
-              initContainers:
-                - name: dind
-                  volumeMounts:
-                    - name: work
-                      mountPath: /home/runner/_work
-                    - name: dind-sock
-                      mountPath: /var/run
-                    - name: dind-externals
-                      mountPath: /home/runner/externals
-                    - name: harbor-ca
-                      mountPath: /etc/docker/certs.d/harbor.home.lab
-                      readOnly: true
-                  env:
-                    - name: DOCKER_TLS_CERTDIR
-                      value: ""  
-
               containers:
                 - name: runner
                   image: harbor.home.lab/restack/actions-runner:latest
@@ -169,3 +155,25 @@ apps:
                       mountPath: /var/run
                     - name: docker-config
                       mountPath: /home/runner/.docker 
+
+                - name: dind
+                  image: docker:dind
+                  securityContext:
+                    privileged: true 
+                  args:
+                    - dockerd
+                    - --host=unix:///var/run/docker.sock
+                    - --group=1001 
+                  env:
+                    - name: DOCKER_TLS_CERTDIR
+                      value: "" 
+                  volumeMounts:
+                    - name: work
+                      mountPath: /home/runner/_work
+                    - name: dind-sock
+                      mountPath: /var/run 
+                    - name: docker-config
+                      mountPath: /root/.docker 
+                    - name: harbor-ca
+                      mountPath: /etc/docker/certs.d/harbor.home.lab
+                      readOnly: true
