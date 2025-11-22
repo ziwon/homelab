@@ -114,3 +114,26 @@ apps:
           controllerServiceAccount:
             name: arc-gha-rs-controller
             namespace: arc-systems
+
+          template:
+            spec:
+              volumes:
+                - name: docker-config
+                  secret:
+                    secretName: managed-github-auth
+                    items:
+                      - key: config.json
+                        path: config.json
+
+              containers:
+                - name: runner
+                  image: harbor.home.lab/restack/actions-runner:latest
+                  volumeMounts:
+                    - name: docker-config
+                      mountPath: /home/runner/.docker
+
+                - name: dind
+                  volumeMounts:
+                    - name: docker-config
+                      mountPath: /root/.docker
+                      readOnly: true
