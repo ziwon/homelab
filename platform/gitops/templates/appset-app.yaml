@@ -92,3 +92,5 @@ spec:
             - .spec.parentRefs[].kind
             - .spec.rules[].backendRefs[].group
             - .spec.rules[].backendRefs[].kind
+            - .spec.rules[].matches
+            - .spec.rules[].backendRefs[].weight
