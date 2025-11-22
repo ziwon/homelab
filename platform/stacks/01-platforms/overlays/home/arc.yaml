@@ -135,10 +135,4 @@ apps:
                     - name: docker-config
                       mountPath: /home/runner/.docker
 
-                - name: dind
-                  securityContext:
-                    privileged: true
-                  volumeMounts:
-                    - name: docker-config
-                      mountPath: /root/.docker
-                      readOnly: true
+               
