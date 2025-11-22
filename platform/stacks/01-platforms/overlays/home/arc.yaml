@@ -111,6 +111,10 @@ apps:
           containerMode:
             type: dind
 
+          controllerServiceAccount:
+            name: arc-gha-rs-controller
+            namespace: arc-systems
+
           template:
             spec:
               containers:
