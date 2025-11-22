@@ -126,13 +126,6 @@ apps:
                 - name: work
                   emptyDir: {}
 
-                - name: docker-config
-                  secret:
-                    secretName: managed-github-auth
-                    items:
-                      - key: config.json
-                        path: config.json
-
                 - name: harbor-ca
                   secret:
                     secretName: managed-github-auth
@@ -153,8 +146,6 @@ apps:
                       mountPath: /home/runner/_work 
                     - name: dind-sock
                       mountPath: /var/run
-                    - name: docker-config
-                      mountPath: /home/runner/.docker 
 
                 - name: dind
                   image: docker:dind
@@ -172,8 +163,6 @@ apps:
                       mountPath: /home/runner/_work
                     - name: dind-sock
                       mountPath: /var/run 
-                    - name: docker-config
-                      mountPath: /root/.docker 
                     - name: harbor-ca
                       mountPath: /etc/docker/certs.d/harbor.home.lab
                       readOnly: true
