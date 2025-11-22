@@ -138,6 +138,22 @@ apps:
                       - key: homelab-ca.crt
                         path: ca.crt
 
+              initContainers:
+                - name: dind
+                  volumeMounts:
+                    - name: work
+                      mountPath: /home/runner/_work
+                    - name: dind-sock
+                      mountPath: /var/run
+                    - name: dind-externals
+                      mountPath: /home/runner/externals
+                    - name: harbor-ca
+                      mountPath: /etc/docker/certs.d/harbor.home.lab
+                      readOnly: true
+                  env:
+                    - name: DOCKER_TLS_CERTDIR
+                      value: ""  
+
               containers:
                 - name: runner
                   image: harbor.home.lab/restack/actions-runner:latest
@@ -153,25 +169,3 @@ apps:
                       mountPath: /var/run
                     - name: docker-config
                       mountPath: /home/runner/.docker 
-
-                - name: dind
-                  image: docker:dind
-                  securityContext:
-                    privileged: true
-                  env:
-                    - name: DOCKER_TLS_CERTDIR
-                      value: ""
-                  args:
-                    - dockerd
-                    - --host=unix:///var/run/docker.sock
-                    - --group=1001
-                  volumeMounts:
-                    - name: work
-                      mountPath: /home/runner/_work 
-                    - name: dind-sock
-                      mountPath: /var/run
-                    - name: docker-config
-                      mountPath: /root/.docker 
-                    - name: harbor-ca
-                      mountPath: /etc/docker/certs.d/harbor.home.lab
-                      readOnly: true
