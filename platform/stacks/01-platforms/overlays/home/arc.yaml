@@ -109,13 +109,7 @@ apps:
           maxRunners: 3
 
           containerMode:
-            type: "kubernetes"
-            kubernetesModeWorkVolumeClaim:
-              accessModes: ["ReadWriteOnce"]
-              storageClassName: "local-path"
-              resources:
-                requests:
-                  storage: 10Gi
+            type: "dind"
 
           controllerServiceAccount:
             name: arc-gha-rs-controller
@@ -123,26 +117,18 @@ apps:
 
           template:
             spec:
-              securityContext:
-                fsGroup: 1001
-
               containers:
-              - name: runner
-                image: ghcr.io/actions/actions-runner:latest
-                command: ["/home/runner/run.sh"]
-                env:
-                  - name: ACTIONS_RUNNER_CONTAINER_HOOKS
-                    value: /home/runner/k8s/index.js
-                  - name: ACTIONS_RUNNER_POD_NAME
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.name
-                  - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
-                    value: "true"
-                resources:
-                  requests:
-                    cpu: "500m"
-                    memory: "512Mi"
-                  limits:
-                    cpu: "2"
-                    memory: "2Gi"
+                - name: runner
+                  image: ghcr.io/actions/actions-runner:latest
+                  env:
+                    - name: DOCKER_BUILDKIT
+                      value: "1"
+                  securityContext:
+                    privileged: true
+                  resources:
+                    requests:
+                      cpu: "500m"
+                      memory: "512Mi"
+                    limits:
+                      cpu: "2"
+                      memory: "2Gi"
