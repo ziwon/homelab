@@ -1,5 +1,5 @@
 apps:
-  - name: langing
+  - name: landing
     namespace: landing
     project: dev
     syncWave: "0"
@@ -11,29 +11,28 @@ apps:
         releaseName: landing
         values: |
           resources:
-          - apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: landing
-              namespace: landing
-            spec:
-              replicas: 1
-
-              selector:
-                matchLabels:
-                  app: landing
-
-              template:
-                metadata:
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: landing
+                namespace: landing
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
                     app: landing
-                spec:
-                  imagePullSecrets:
-                  - name: harbor-secret
-                  containers:
-                  - image: harbor.home.lab/restack/www:latest
-                    imagePullPolicy: Always
-                    name: landing
-                    ports:
-                    - containerPort: 80
-                      protocol: TCP
-                 restartPolicy: Always
+                template:
+                  metadata:
+                    labels:
+                      app: landing
+                  spec:
+                    imagePullSecrets:
+                      - name: harbor-secret
+                    containers:
+                      - name: landing
+                        image: harbor.home.lab/restack/www:latest
+                        imagePullPolicy: Always
+                        ports:
+                          - containerPort: 80
+                            protocol: TCP
+                    restartPolicy: Always
