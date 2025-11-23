@@ -1,0 +1,39 @@
+apps:
+  - name: langing
+    namespace: landing
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: landing
+        values: |
+          resources:
+          - apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: landing
+              namespace: landing
+            spec:
+              replicas: 1
+
+              selector:
+                matchLabels:
+                  app: landing
+
+              template:
+                metadata:
+                    app: landing
+                spec:
+                  imagePullSecrets:
+                  - name: harbor-secret
+                  containers:
+                  - image: harbor.home.lab/restack/www:latest
+                    imagePullPolicy: Always
+                    name: landing
+                    ports:
+                    - containerPort: 80
+                      protocol: TCP
+                 restartPolicy: Always
