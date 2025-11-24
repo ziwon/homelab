@@ -38,7 +38,7 @@ apps:
           metrics:
             enabled: true
             serviceMonitor:
-              enabled: true
+              enabled: false
               namespace: redis
 
   - name: redis-raw
