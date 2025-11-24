@@ -1,0 +1,80 @@
+apps:
+  - name: redis
+    namespace: redis
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - redis-raw
+    source:
+      repoURL: https://charts.bitnami.com/bitnami
+      chart: redis
+      targetRevision: 22.0.7 # for K8s 1.33.5
+      helm:
+        releaseName: redis
+        values: |
+          architecture: replication
+          sentinel:
+            enabled: true
+            masterSet: master
+          
+          auth:
+            enabled: true
+            existingSecret: redis-managed-secrets
+            existingSecretPasswordKey: password
+          
+          master:
+            persistence:
+              enabled: true
+              size: 10Gi
+              storageClass: local-path
+
+          replica:
+            replicaCount: 3
+            persistence:
+              enabled: true
+              size: 10Gi
+              storageClass: local-path
+     
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              namespace: redis
+
+  - name: redis-raw
+    namespace: redis
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: redis-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: redis
+
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: redis-managed-secrets
+                namespace: redis
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: hme
+                      secretsPath: /redis
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: redis-managed-secrets
+                    secretNamespace: redis
+                    creationPolicy: Owner
