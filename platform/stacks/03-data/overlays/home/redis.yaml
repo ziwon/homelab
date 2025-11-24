@@ -36,10 +36,7 @@ apps:
               storageClass: local-path
      
           metrics:
-            enabled: true
-            serviceMonitor:
-              enabled: false
-              namespace: redis
+            enabled: false # replace with OTEL based metrics
 
   - name: redis-raw
     namespace: redis
