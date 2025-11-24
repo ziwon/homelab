@@ -6,8 +6,8 @@ apps:
     dependencies:
       - redis-raw
     source:
-      repoURL: oci://registry-1.docker.io/cloudpirates
-      chart: redis
+      repoURL: oci://registry-1.docker.io/cloudpirates/redis
+      chart: .
       targetRevision: 0.15.3 
       helm:
         releaseName: redis
