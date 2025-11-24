@@ -6,37 +6,38 @@ apps:
     dependencies:
       - redis-raw
     source:
-      repoURL: https://charts.bitnami.com/bitnami
+      repoURL: oci://registry-1.docker.io/cloudpirates
       chart: redis
-      targetRevision: 22.0.7 # for K8s 1.33.5
+      targetRevision: 0.15.3 
       helm:
         releaseName: redis
         values: |
           architecture: replication
-          sentinel:
-            enabled: true
-            masterSet: master
-          
+          replicaCount: 3
+
           auth:
             enabled: true
+            sentinel: true
             existingSecret: redis-managed-secrets
             existingSecretPasswordKey: password
-          
-          master:
-            persistence:
-              enabled: true
-              size: 10Gi
-              storageClass: local-path
 
-          replica:
-            replicaCount: 3
-            persistence:
-              enabled: true
-              size: 10Gi
-              storageClass: local-path
-     
+          persistence:
+            enabled: true
+            storageClass: local-path
+            size: 10Gi
+
+          sentinel:
+            enabled: true
+            masterName: master
+            quorum: 2
+
           metrics:
-            enabled: false # replace with OTEL based metrics
+            enabled: true
+            service:
+              type: ClusterIP
+              port: 9121
+            serviceMonitor:
+              enabled: false
 
   - name: redis-raw
     namespace: redis
