@@ -153,11 +153,11 @@ apps:
                             ADMIN_API_URL="https://redpanda.redpanda.svc.cluster.local:9644"
                             CA_CERT="/etc/tls/certs/default/ca.crt"
 
-                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASSWORD -X sasl.mechanism=$SUPERUSER_AUTHENTICATION_MECHANISM --brokers $BROKERS"
+                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASSWORD -X sasl.mechanism=$SUPERUSER_MECHANISM -X tls.insecure_skip_verify=true"
 
                             echo "Waiting for Redpanda cluster..."
-                            until rpk cluster info $RPK_OPTS >/dev/null 2>&1; do
-                              echo "Redpanda not ready yet or auth failed..."
+                            until rpk cluster info --brokers $BROKERS $RPK_OPTS >/dev/null 2>&1; do
+                              echo "Redpanda not ready yet..."
                               sleep 5
                             done
                             
