@@ -70,9 +70,18 @@ apps:
                       enabled: true
                       secretRef: redpanda-managed-secrets
                       users:
-                        - admin
-                        - vector
-                        - quickwit
+                        - name: admin
+                          passwordSecretRef:
+                            name: redpanda-managed-secrets
+                            key: superuser-password
+                        - name: vector
+                          passwordSecretRef:
+                            name: redpanda-managed-secrets
+                            key: vector-password
+                        - name: quickwit
+                          passwordSecretRef:
+                            name: redpanda-managed-secrets
+                            key: quickwit-password
 
                   statefulset:
                     initContainers:
@@ -88,15 +97,7 @@ apps:
 
                   console:
                     enabled: true
-                    authentication:
-                      sasl:
-                        enabled: true
-                        mechanism: scram-sha-512
-                        username: admin
-                        passwordSecretRef:
-                          name: redpanda-managed-secrets
-                          key: superuser-password
-
+                    
                   monitoring:
                     enabled: true
                     scrapeInterval: 30s
