@@ -151,7 +151,7 @@ apps:
 
                             echo "Waiting for Redpanda cluster to be ready..."
                             BROKERS="redpanda.redpanda.svc.cluster.local:9093"
-                            ADMIN_API="redpanda.redpanda.svc.cluster.local:9644"
+                            ADMIN_API_URL="https://redpanda.redpanda.svc.cluster.local:9644"
                             CA_CERT="/etc/tls/certs/default/ca.crt"
 
                             RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASSWORD -X sasl.mechanism=$SUPERUSER_AUTHENTICATION_MECHANISM --brokers $BROKERS"
@@ -165,15 +165,15 @@ apps:
                             echo "Connected as Bootstrap User: $SUPERUSER_NAME"
                             
                             echo "Creating custom users..."
-                            rpk security user create admin -p "$ADMIN_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls $ADMIN_API $RPK_OPTS || echo "User admin might already exist"
-                            rpk security user create vector -p "$VECTOR_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls $ADMIN_API $RPK_OPTS || echo "User vector might already exist"
-                            rpk security user create quickwit -p "$QUICKWIT_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls $ADMIN_API $RPK_OPTS || echo "User quickwit might already exist"
+                            rpk security user create admin -p "$ADMIN_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" $RPK_OPTS || echo "User admin might already exist"
+                            rpk security user create vector -p "$VECTOR_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" $RPK_OPTS || echo "User vector might already exist"
+                            rpk security user create quickwit -p "$QUICKWIT_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" $RPK_OPTS || echo "User quickwit might already exist"
 
                             echo "Creating ACLs..."
                             # Admin: Full Control
-                            rpk security acl create --allow-principal User:admin --operation all --cluster $RPK_OPTS || true
-                            rpk security acl create --allow-principal User:admin --operation all --topic "*" $RPK_OPTS || true
-                            rpk security acl create --allow-principal User:admin --operation all --group "*" $RPK_OPTS || true
+                            rpk security acl create --allow-principal User:admin --operation all --cluster --brokers $BROKERS $RPK_OPTS || true
+                            rpk security acl create --allow-principal User:admin --operation all --topic "*" --brokers $BROKERS $RPK_OPTS || true
+                            rpk security acl create --allow-principal User:admin --operation all --group "*" --brokers $BROKERS $RPK_OPTS || true
 
                             # Vector: Logs Write
                             rpk security acl create --allow-principal User:vector --operation write,describe \
