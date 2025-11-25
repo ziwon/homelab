@@ -104,22 +104,22 @@ apps:
                         image: redpandadata/redpanda:latest
                         env:
                           - name: SUPERUSER_NAME
+                            value: "kubernetes-controller"
+
+                          - name: SUPERUSER_PASSWORD
                             valueFrom:
                               secretKeyRef:
-                                name: redpanda-managed-secrets
-                                key: superuser-name
+                                name: redpanda-bootstrap-user
+                                key: password
 
-                          - name: SUPERUSER_PASS
+                          - name: SUPERUSER_AUTHENTICATION_MECHANISM
+                            value: SCRAM-SHA-256
+
+                          - name: ADMIN_PASSWORD
                             valueFrom:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
                                 key: superuser-password
-
-                          - name: SUPERUSER_AUTHENTICATION_MECHANISM
-                            valueFrom:
-                              secretKeyRef:
-                                name: redpanda-managed-secrets
-                                key: superuser-authentication-mechanism
 
                           - name: VECTOR_PASSWORD
                             valueFrom:
@@ -138,6 +138,7 @@ apps:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
                                 key: authentication-mechanism
+                            
                         volumeMounts:
                           - name: tls
                             mountPath: /etc/tls/certs/default
@@ -152,75 +153,34 @@ apps:
                             BROKERS="redpanda.redpanda.svc.cluster.local:9093"
                             CA_CERT="/etc/tls/certs/default/ca.crt"
 
-                            until rpk cluster info --brokers $BROKERS -X tls.enabled=true -X tls.ca=$CA_CERT >/dev/null 2>&1; do
-                              echo "Redpanda not ready yet..."
+                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASS -X sasl.mechanism=$SUPERUSER_AUTHENTICATION_MECHANISM --brokers $BROKERS"
+
+                            echo "Waiting for Redpanda cluster..."
+                            until rpk cluster info $RPK_OPTS >/dev/null 2>&1; do
+                              echo "Redpanda not ready yet or auth failed..."
                               sleep 5
                             done
+                            
+                            echo "Connected as Bootstrap User: $SUPERUSER_NAME"
+                            
+                            echo "Creating custom users..."
+                            rpk security user create admin -p "$ADMIN_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM $RPK_OPTS || echo "User admin might already exist"
+                            rpk security user create vector -p "$VECTOR_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM $RPK_OPTS || echo "User vector might already exist"
+                            rpk security user create quickwit -p "$QUICKWIT_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM $RPK_OPTS || echo "User quickwit might already exist"
 
                             echo "Creating ACLs..."
+                            # Admin: Full Control
+                            rpk security acl create --allow-principal User:admin --operation all --cluster $RPK_OPTS || true
+                            rpk security acl create --allow-principal User:admin --operation all --topic "*" $RPK_OPTS || true
+                            rpk security acl create --allow-principal User:admin --operation all --group "*" $RPK_OPTS || true
 
-                            # 1. Admin: Cluster Full Control
-                            rpk security acl create \
-                              --allow-principal User:admin \
-                              --operation all \
-                              --cluster \
-                              -X user="$SUPERUSER_NAME" \
-                              -X pass="$SUPERUSER_PASS" \
-                              -X sasl.mechanism="$SUPERUSER_AUTHENTICATION_MECHANISM" \
-                              -X tls.enabled=true \
-                              -X tls.ca=$CA_CERT \
-                              --brokers $BROKERS || true
+                            # Vector: Logs Write
+                            rpk security acl create --allow-principal User:vector --operation write,describe --topic "logs-*" $RPK_OPTS || true
 
-                            # 2. Admin: Topic Full Control (Wildcard)
-                            rpk security acl create \
-                              --allow-principal User:admin \
-                              --operation all \
-                              --topic "*" \
-                              -X user="$SUPERUSER_NAME" \
-                              -X pass="$SUPERUSER_PASS" \
-                              -X sasl.mechanism="$SUPERUSER_AUTHENTICATION_MECHANISM" \
-                              -X tls.enabled=true \
-                              -X tls.ca=$CA_CERT \
-                              --brokers $BROKERS || true
+                            # Quickwit: Logs Read
+                            rpk security acl create --allow-principal User:quickwit --operation read,describe --topic "logs-*" --group "quickwit-*" $RPK_OPTS || true
 
-                            # 3. Admin: Group Full Control (Wildcard)
-                            rpk security acl create \
-                              --allow-principal User:admin \
-                              --operation all \
-                              --group "*" \
-                              -X user="$SUPERUSER_NAME" \
-                              -X pass="$SUPERUSER_PASS" \
-                              -X sasl.mechanism="$SUPERUSER_AUTHENTICATION_MECHANISM" \
-                              -X tls.enabled=true \
-                              -X tls.ca=$CA_CERT \
-                              --brokers $BROKERS || true
-
-                            # 4. Vector: Logs Write Only
-                            rpk security acl create \
-                              --allow-principal User:vector \
-                              --operation write,describe \
-                              --topic "logs-*" \
-                              -X user="vector" \
-                              -X pass="$VECTOR_PASSWORD" \
-                              -X sasl.mechanism="$AUTHENTICATION_MECHANISM" \
-                              -X tls.enabled=true \
-                              -X tls.ca=$CA_CERT \
-                              --brokers $BROKERS || true
-
-                            # 5. Quickwit: Logs Read Only
-                            rpk security acl create \
-                              --allow-principal User:quickwit \
-                              --operation read,describe \
-                              --topic "logs-*" \
-                              --group "quickwit-*" \
-                              -X user="quickwit" \
-                              -X pass="$QUICKWIT_PASSWORD" \
-                              -X sasl.mechanism="$AUTHENTICATION_MECHANISM" \
-                              -X tls.enabled=true \
-                              -X tls.ca=$CA_CERT \
-                              --brokers $BROKERS || true
-
-                            echo "ACL init done."
+                            echo "All done."
 
                     volumes:
                       - name: tls
