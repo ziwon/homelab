@@ -85,6 +85,14 @@ apps:
 
                   console:
                     enabled: true
+                    authentication:
+                      sasl:
+                        enabled: true
+                        mechanism: scram-sha-512
+                        username: admin
+                        passwordSecretRef:
+                          name: redpanda-managed-secrets
+                          key: superuser-password
 
                   monitoring:
                     enabled: true
