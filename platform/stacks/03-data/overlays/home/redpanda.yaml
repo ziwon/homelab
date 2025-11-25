@@ -1,4 +1,5 @@
 apps:
+  # Install Redpanda Operator
   - name: redpanda-operator
     namespace: redpanda
     project: dev
@@ -13,6 +14,7 @@ apps:
           crds:
             enabled: true
 
+  # Install Redpanda ClusterCRD + InfisicalSecret + ACL Init Job + HTTPRoute
   - name: redpanda-raw
     namespace: redpanda
     project: dev
@@ -66,17 +68,29 @@ apps:
                   auth:
                     sasl:
                       enabled: true
-                      secretRef: redpanda-managed-secrets
                       users:
-                       - name: admin
-                         password: "$(superusers.admin.password)"
-                         mechanism: scram-sha-512
+                        - name: admin
+                          passwordSecretRef:
+                            name: redpanda-managed-secrets
+                            key: admin.password
+                          mechanism: scram-sha-512
+
+                        - name: vector
+                          passwordSecretRef:
+                            name: redpanda-managed-secrets
+                            key: vector.password
+                          mechanism: scram-sha-512
+
+                        - name: quickwit
+                          passwordSecretRef:
+                            name: redpanda-managed-secrets
+                            key: quickwit.password
+                          mechanism: scram-sha-512
 
                   statefulset:
                     initContainers:
                       setDataDirOwnership:
                         enabled: true
-
                     replicas: 1
 
                   storage:
@@ -124,16 +138,47 @@ apps:
                           - /bin/sh
                           - -c
                           - |
+                            set -e
+
+                            echo "Waiting for Redpanda cluster to be ready..."
+                            until rpk cluster info --brokers redpanda.redpanda.svc.cluster.local:9092 >/dev/null 2>&1; do
+                              echo "Redpanda not ready yet, sleeping..."
+                              sleep 5
+                            done
+
+                            echo "Creating ACLs with superuser $SUPERUSER_NAME"
+
+                            # Create ACLs for the superuser
                             rpk security acl create \
-                              --allow-principal User:myuser \
-                              --operation create,describe \
+                              --allow-principal User:admin \
+                              --operation create,describe,alter,alter-config \
                               --cluster \
-                              -X user=$SUPERUSER_NAME \
-                              -X pass="$SUPERUSER_PASS" \
-                              -X sasl.mechanism=$SUPERUSER_MECHANISM \
-                              -X security.protocol=SASL_PLAINTEXT \
-                              -X sasl.username=$SUPERUSER_NAME \
-                              -X bootstrap.servers=redpanda.redpanda.svc.cluster.local:9092
+                              --user "$SUPERUSER_NAME" \
+                              --password "$SUPERUSER_PASS" \
+                              --sasl-mechanism "$SUPERUSER_MECHANISM" \
+                              --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+
+                            # Create ACLs for vector
+                            rpk security acl create \
+                              --allow-principal User:vector \
+                              --operation write,describe \
+                              --topic logs-* \
+                              --user "$SUPERUSER_NAME" \
+                              --password "$SUPERUSER_PASS" \
+                              --sasl-mechanism "$SUPERUSER_MECHANISM" \
+                              --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+
+                            # Create ACLs for quickwit
+                            rpk security acl create \
+                              --allow-principal User:quickwit \
+                              --operation read,describe \
+                              --topic logs-* \
+                              --user "$SUPERUSER_NAME" \
+                              --password "$SUPERUSER_PASS" \
+                              --sasl-mechanism "$SUPERUSER_MECHANISM" \
+                              --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+
+                            echo "ACL init done."
 
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
@@ -149,5 +194,4 @@ apps:
                   - redpanda.home.lab
                 rules:
                   - backendRefs:
-                      - name: redpanda-console
-                        port: 8080
+                      - name: redpand
