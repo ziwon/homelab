@@ -68,6 +68,13 @@ apps:
                         issuerRef:
                           name: homelab-ca
                           kind: ClusterIssuer
+                        dnsNames:
+                          - redpanda.home.lab
+                          - "*.redpanda.home.lab"
+                          - redpanda.redpanda.svc
+                          - redpanda.redpanda.svc.cluster.local
+                          - "*.redpanda.redpanda.svc"
+                          - "*.redpanda.redpanda.svc.cluster.local"
 
                   auth:
                     sasl:
