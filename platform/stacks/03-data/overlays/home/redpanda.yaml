@@ -61,9 +61,17 @@ apps:
                 name: redpanda
                 namespace: redpanda
               spec:
+                chartRef: {}
                 clusterSpec:
                   external:
                     domain: redpanda.home.lab
+                  tls:
+                    enabled: true
+                    certs:
+                      default:
+                        issuerRef:
+                          name: homelab-ca
+                          kind: ClusterIssuer
 
                   auth:
                     sasl:
