@@ -153,7 +153,7 @@ apps:
                             BROKERS="redpanda.redpanda.svc.cluster.local:9093"
                             CA_CERT="/etc/tls/certs/default/ca.crt"
 
-                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASS -X sasl.mechanism=$SUPERUSER_AUTHENTICATION_MECHANISM --brokers $BROKERS"
+                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASSWORD -X sasl.mechanism=$SUPERUSER_AUTHENTICATION_MECHANISM --brokers $BROKERS"
 
                             echo "Waiting for Redpanda cluster..."
                             until rpk cluster info $RPK_OPTS >/dev/null 2>&1; do
