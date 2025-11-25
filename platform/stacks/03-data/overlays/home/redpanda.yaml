@@ -68,7 +68,7 @@ apps:
                   auth:
                     sasl:
                       enabled: true
-                      secretKeyRef: redpanda-managed-secrets
+                      secretRef: redpanda-managed-secrets
                       users: []
 
                   statefulset:
