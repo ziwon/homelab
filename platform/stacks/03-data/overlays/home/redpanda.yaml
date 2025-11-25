@@ -194,7 +194,7 @@ apps:
                     volumes:
                       - name: tls
                         secret:
-                          secretName: redpanda-default-cert
+                          secretName: redpanda-default-root-certificate
                           defaultMode: 420
 
             - apiVersion: gateway.networking.k8s.io/v1
