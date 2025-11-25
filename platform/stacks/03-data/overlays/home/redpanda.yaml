@@ -91,7 +91,7 @@ apps:
                     enabled: true
 
                   monitoring:
-                    enabled: true
+                    enabled: false
                     scrapeInterval: 30s
 
             - apiVersion: batch/v1
