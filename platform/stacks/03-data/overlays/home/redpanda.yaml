@@ -68,24 +68,8 @@ apps:
                   auth:
                     sasl:
                       enabled: true
-                      users:
-                        - name: admin
-                          passwordSecretRef:
-                            name: redpanda-managed-secrets
-                            key: admin.password
-                          mechanism: scram-sha-512
-
-                        - name: vector
-                          passwordSecretRef:
-                            name: redpanda-managed-secrets
-                            key: vector.password
-                          mechanism: scram-sha-512
-
-                        - name: quickwit
-                          passwordSecretRef:
-                            name: redpanda-managed-secrets
-                            key: quickwit.password
-                          mechanism: scram-sha-512
+                      secretKeyRef: redpanda-managed-secrets
+                      users: []
 
                   statefulset:
                     initContainers:
