@@ -69,19 +69,7 @@ apps:
                     sasl:
                       enabled: true
                       secretRef: redpanda-managed-secrets
-                      users:
-                        - name: admin
-                          passwordSecretRef:
-                            name: redpanda-managed-secrets
-                            key: superuser-password
-                        - name: vector
-                          passwordSecretRef:
-                            name: redpanda-managed-secrets
-                            key: vector-password
-                        - name: quickwit
-                          passwordSecretRef:
-                            name: redpanda-managed-secrets
-                            key: quickwit-password
+                      users: []
 
                   statefulset:
                     initContainers:
@@ -97,7 +85,7 @@ apps:
 
                   console:
                     enabled: true
-                    
+
                   monitoring:
                     enabled: true
                     scrapeInterval: 30s
@@ -120,16 +108,37 @@ apps:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
                                 key: superuser-name
+
                           - name: SUPERUSER_PASS
                             valueFrom:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
                                 key: superuser-password
-                          - name: SUPERUSER_MECHANISM
+
+                          - name: SUPERUSER_AUTHENTICATION_MECHANISM
                             valueFrom:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
-                                key: superuser-mechanism
+                                key: superuser-authentication-mechanism
+
+                          - name: VECTOR_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: vector-password
+
+                          - name: QUICKWIT_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: quickwit-password
+
+                          - name: AUTHENTICATION_MECHANISM
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: authentication-mechanism
+
                         command:
                           - /bin/sh
                           - -c
@@ -142,33 +151,58 @@ apps:
                               sleep 5
                             done
 
-                            echo "Creating ACLs with superuser $SUPERUSER_NAME"
+                            echo "Creating ACLs using Superuser: $SUPERUSER_NAME"
 
-                            # Create ACLs for the superuser
-                            echo "Creating FULL Admin ACLs..."
-                            rpk security acl create --allow-principal User:admin --operation all --cluster --user "$SUPERUSER_NAME" --password "$SUPERUSER_PASS" --sasl-mechanism "$SUPERUSER_MECHANISM" --brokers redpanda.redpanda.svc.cluster.local:9092 || true
-                            rpk security acl create --allow-principal User:admin --operation all --topic "*" --user "$SUPERUSER_NAME" --password "$SUPERUSER_PASS" --sasl-mechanism "$SUPERUSER_MECHANISM" --brokers redpanda.redpanda.svc.cluster.local:9092 || true
-                            rpk security acl create --allow-principal User:admin --operation all --group "*" --user "$SUPERUSER_NAME" --password "$SUPERUSER_PASS" --sasl-mechanism "$SUPERUSER_MECHANISM" --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+                            # 1. Admin: Cluster Full Control
+                            rpk security acl create \
+                              --allow-principal User:admin \
+                              --operation all \
+                              --cluster \
+                              -X user="$SUPERUSER_NAME" \
+                              -X pass="$SUPERUSER_PASS" \
+                              -X sasl.mechanism="$SUPERUSER_AUTHENTICATION_MECHANISM" \
+                              --brokers $BROKERS || true
 
-                            # Create ACLs for vector
+                            # 2. Admin: Topic Full Control (Wildcard)
+                            rpk security acl create \
+                              --allow-principal User:admin \
+                              --operation all \
+                              --topic "*" \
+                              -X user="$SUPERUSER_NAME" \
+                              -X pass="$SUPERUSER_PASS" \
+                              -X sasl.mechanism="$SUPERUSER_AUTHENTICATION_MECHANISM" \
+                              --brokers $BROKERS || true
+
+                            # 3. Admin: Group Full Control (Wildcard)
+                            rpk security acl create \
+                              --allow-principal User:admin \
+                              --operation all \
+                              --group "*" \
+                              -X user="$SUPERUSER_NAME" \
+                              -X pass="$SUPERUSER_PASS" \
+                              -X sasl.mechanism="$SUPERUSER_AUTHENTICATION_MECHANISM" \
+                              --brokers $BROKERS || true
+
+                            # 4. Vector: Logs Write Only
                             rpk security acl create \
                               --allow-principal User:vector \
                               --operation write,describe \
-                              --topic logs-* \
-                              --user "$SUPERUSER_NAME" \
-                              --password "$SUPERUSER_PASS" \
-                              --sasl-mechanism "$SUPERUSER_MECHANISM" \
-                              --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+                              --topic "logs-*" \
+                              -X user="vector" \
+                              -X pass="$VECTOR_PASSWORD" \
+                              -X sasl.mechanism="$AUTHENTICATION_MECHANISM" \
+                              --brokers $BROKERS || true
 
-                            # Create ACLs for quickwit
+                            # 5. Quickwit: Logs Read Only
                             rpk security acl create \
                               --allow-principal User:quickwit \
                               --operation read,describe \
-                              --topic logs-* \
-                              --user "$SUPERUSER_NAME" \
-                              --password "$SUPERUSER_PASS" \
-                              --sasl-mechanism "$SUPERUSER_MECHANISM" \
-                              --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+                              --topic "logs-*" \
+                              --group "quickwit-*" \
+                              -X user="quickwit" \
+                              -X pass="$QUICKWIT_PASSWORD" \
+                              -X sasl.mechanism="$AUTHENTICATION_MECHANISM" \
+                              --brokers $BROKERS || true
 
                             echo "ACL init done."
 
