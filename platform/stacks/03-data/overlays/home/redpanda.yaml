@@ -29,10 +29,6 @@ apps:
         releaseName: redpanda-raw
         values: |
           resources:
-            - apiVersion: v1
-              kind: Namespace
-              metadata:
-                name: redpanda
 
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
