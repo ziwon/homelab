@@ -1,0 +1,153 @@
+apps:
+  - name: redpanda-operator
+    namespace: redpanda
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://charts.redpanda.com
+      chart: operator
+      targetRevision: v25.1.4
+      helm:
+        releaseName: redpanda-controller
+        values: |
+          crds:
+            enabled: true
+
+  - name: redpanda-raw
+    namespace: redpanda
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - redpanda-operator
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: redpanda-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: redpanda
+
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: redpanda-managed-secrets
+                namespace: redpanda
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /redpanda
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: redpanda-managed-secrets
+                    secretNamespace: redpanda
+                    creationPolicy: Owner
+
+            - apiVersion: cluster.redpanda.com/v1alpha2
+              kind: Redpanda
+              metadata:
+                name: redpanda
+                namespace: redpanda
+              spec:
+                clusterSpec:
+                  external:
+                    domain: redpanda.home.lab
+
+                  auth:
+                    sasl:
+                      enabled: true
+                      secretRef: redpanda-managed-secrets
+                      users:
+                       - name: admin
+                         password: "$(superusers.admin.password)"
+                         mechanism: scram-sha-512
+
+                  statefulset:
+                    initContainers:
+                      setDataDirOwnership:
+                        enabled: true
+
+                    replicas: 3
+
+                  storage:
+                    persistentVolume:
+                      enabled: true
+                      size: 20Gi
+                      storageClass: local-path
+
+                  console:
+                    enabled: true
+
+                  monitoring:
+                    enabled: true
+                    scrapeInterval: 30s
+
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: redpanda-init-acl
+                namespace: redpanda
+              spec:
+                template:
+                  spec:
+                    restartPolicy: OnFailure
+                    containers:
+                      - name: rpk-acl
+                        image: docker.redpanda.com/vectorized/rpk:latest
+                        env:
+                          - name: SUPERUSER_NAME
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: superuser-name
+                          - name: SUPERUSER_PASS
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: superuser-password
+                          - name: SUPERUSER_MECHANISM
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: superuser-mechanism
+                        command:
+                          - /bin/sh
+                          - -c
+                          - |
+                            rpk security acl create \
+                              --allow-principal User:myuser \
+                              --operation create,describe \
+                              --cluster \
+                              -X user=$SUPERUSER_NAME \
+                              -X pass="$SUPERUSER_PASS" \
+                              -X sasl.mechanism=$SUPERUSER_MECHANISM \
+                              -X security.protocol=SASL_PLAINTEXT \
+                              -X sasl.username=$SUPERUSER_NAME \
+                              -X bootstrap.servers=redpanda.redpanda.svc.cluster.local:9092
+
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: redpanda-console
+                namespace: redpanda
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - redpanda.home.lab
+                rules:
+                  - backendRefs:
+                      - name: redpanda-console
+                        port: 8080
