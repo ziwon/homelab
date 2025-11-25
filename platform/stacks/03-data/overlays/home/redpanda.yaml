@@ -103,7 +103,7 @@ apps:
                     restartPolicy: OnFailure
                     containers:
                       - name: rpk-acl
-                        image: docker.redpanda.com/vectorized/rpk:latest
+                        image: redpandadata/redpanda:latest
                         env:
                           - name: SUPERUSER_NAME
                             valueFrom:
