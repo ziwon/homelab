@@ -69,7 +69,10 @@ apps:
                     sasl:
                       enabled: true
                       secretRef: redpanda-managed-secrets
-                      users: []
+                      users:
+                        - admin
+                        - vector
+                        - quickwit
 
                   statefulset:
                     initContainers:
@@ -141,14 +144,10 @@ apps:
                             echo "Creating ACLs with superuser $SUPERUSER_NAME"
 
                             # Create ACLs for the superuser
-                            rpk security acl create \
-                              --allow-principal User:admin \
-                              --operation create,describe,alter,alter-config \
-                              --cluster \
-                              --user "$SUPERUSER_NAME" \
-                              --password "$SUPERUSER_PASS" \
-                              --sasl-mechanism "$SUPERUSER_MECHANISM" \
-                              --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+                            echo "Creating FULL Admin ACLs..."
+                            rpk security acl create --allow-principal User:admin --operation all --cluster --user "$SUPERUSER_NAME" --password "$SUPERUSER_PASS" --sasl-mechanism "$SUPERUSER_MECHANISM" --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+                            rpk security acl create --allow-principal User:admin --operation all --topic "*" --user "$SUPERUSER_NAME" --password "$SUPERUSER_PASS" --sasl-mechanism "$SUPERUSER_MECHANISM" --brokers redpanda.redpanda.svc.cluster.local:9092 || true
+                            rpk security acl create --allow-principal User:admin --operation all --group "*" --user "$SUPERUSER_NAME" --password "$SUPERUSER_PASS" --sasl-mechanism "$SUPERUSER_MECHANISM" --brokers redpanda.redpanda.svc.cluster.local:9092 || true
 
                             # Create ACLs for vector
                             rpk security acl create \
@@ -186,7 +185,7 @@ apps:
                   - redpanda-console.home.lab
                 rules:
                   - backendRefs:
-                      - name: redpand-console
+                      - name: redpanda-console
                         port: 8080
 
             - apiVersion: gateway.networking.k8s.io/v1
