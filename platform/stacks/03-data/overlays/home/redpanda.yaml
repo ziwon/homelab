@@ -33,7 +33,7 @@ apps:
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
-                name: redpanda-users
+                name: redpanda-managed-secrets
                 namespace: redpanda
               spec:
                 hostAPI: https://app.infisical.com/api
@@ -47,7 +47,7 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
                 managedKubeSecretReferences:
-                  - secretName: redpanda-users
+                  - secretName: redpanda-managed-secrets
                     secretNamespace: redpanda
                     creationPolicy: Owner
 
@@ -67,7 +67,7 @@ apps:
                   auth:
                     sasl:
                       enabled: true
-                      secretRef: redpanda-users
+                      secretRef: redpanda-managed-secrets
                       users: [] # Use to InfisicalSecret to set password
                   
                   statefulset:
@@ -84,10 +84,63 @@ apps:
 
                   console:
                     enabled: true
+                    podTemplate:
+                      spec:
+                        containers:
+                          - name: console
+                            command:
+                              - /app/console
+                            args:
+                              - "--config.filepath=/etc/console/configs/config.yaml"
+                            env:
+                              - name: KAFKA_BROKERS
+                                value: "redpanda.redpanda.svc.cluster.local:9093"
+
+                              - name: KAFKA_SASL_ENABLED
+                                value: "true"
+                              - name: KAFKA_SASL_MECHANISM
+                                value: "SCRAM-SHA-256"
+                              - name: KAFKA_SASL_USERNAME
+                                valueFrom:
+                                  secretKeyRef:
+                                    name: redpanda-managed-secrets
+                                    key: admin-username
+                              - name: KAFKA_SASL_PASSWORD
+                                valueFrom:
+                                  secretKeyRef:
+                                    name: redpanda-managed-secrets
+                                    key: admin-password
+
+                              - name: KAFKA_TLS_ENABLED
+                                value: "true"
+                              - name: KAFKA_TLS_CA
+                                value: /etc/tls/certs/default/ca.crt
+
+                              - name: REDPANDA_ADMINAPI_ADDRS
+                                value: "https://redpanda.redpanda.svc.cluster.local:9644"
+                              - name: REDPANDA_ADMINAPI_TLS_ENABLED
+                                value: "true"
+                              - name: REDPANDA_ADMINAPI_USERNAME
+                                valueFrom:
+                                  secretKeyRef:
+                                    name: redpanda-managed-secrets
+                                    key: admin-username
+                              - name: REDPANDA_ADMINAPI_PASSWORD
+                                valueFrom:
+                                  secretKeyRef:
+                                    name: redpanda-managed-secrets
+                                    key: admin-password
+                        volumeMounts:
+                          - name: configs
+                            mountPath: /etc/console/configs
+                            readOnly: true
+                          - name: redpanda-default-cert
+                            mountPath: /etc/tls/certs/default
+                            readOnly: true
 
                   monitoring:
                     enabled: false
-                    scrapeInterval: 30s
+                    scrapeInterval: 29s
 
             - apiVersion: batch/v1
               kind: Job
@@ -117,25 +170,25 @@ apps:
                           - name: ADMIN_PASSWORD
                             valueFrom:
                               secretKeyRef:
-                                name: redpanda-users
+                                name: redpanda-managed-secrets
                                 key: superuser-password
 
                           - name: VECTOR_PASSWORD
                             valueFrom:
                               secretKeyRef:
-                                name: redpanda-users
+                                name: redpanda-managed-secrets
                                 key: vector-password
 
                           - name: QUICKWIT_PASSWORD
                             valueFrom:
                               secretKeyRef:
-                                name: redpanda-users
+                                name: redpanda-managed-secrets
                                 key: quickwit-password
 
                           - name: AUTHENTICATION_MECHANISM
                             valueFrom:
                               secretKeyRef:
-                                name: redpanda-users
+                                name: redpanda-managed-secrets
                                 key: authentication-mechanism
                             
                         volumeMounts:
