@@ -370,7 +370,7 @@ apps:
                   cleanup.policy: "delete"       
                   retention.ms: "604800000"      # 7 days
                   retention.bytes: "21474836480" # 20G
-                  segment.bytes: "536870912"     # 512MB
+                  segment.bytes: "67108864"      # 64MB, optmized for homelab
                 
                 kafkaApiSpec:
                   brokers:

@@ -141,18 +141,31 @@ apps:
                   }
 
                   # Drop kube-system and monitoring namespace logs
-                  if exists(.kubernetes) && (.kubernetes.namespace_name == "kube-system" || .kubernetes.namespace_name == "monitoring") {
+                  if exists(.kubernetes) && (
+                    .kubernetes.namespace_name == "kube-system" || 
+                    .kubernetes.namespace_name == "monitoring"
+                  ) {
                     abort
                   }
 
-                  # Clean up metadata
-                  del(.file)
-
+                  # Flatten Kubernetes metadata
                   if exists(.kubernetes) {
-                    del(.kubernetes.pod_owner)
-                    del(.kubernetes.labels)
-                    del(.kubernetes.annotations)
+                    .k8s = {
+                      "ns":    .kubernetes.pod_namespace,
+                      "pod":   .kubernetes.pod_name,
+                      "node":  .kubernetes.pod_node_name,
+                      "ct":    .kubernetes.container_name,
+                    }
+
+                    .k8s.app = .kubernetes.pod_labels."app.kubernetes.io/name" ??
+                               .kubernetes.pod_labels.app ??
+                               .kubernetes.pod_labels.name ??
+                               .kubernetes.container_name
                   }
+
+                  # Remove heavy original data
+                  del(.file)
+                  del(.kubernetes)
 
             sinks:
               redpanda:
