@@ -133,16 +133,33 @@ apps:
                 type: "remap"
                 inputs: ["k8s_logs"]
                 source: |
-                  . = parse_json(.message) ?? .
+                  # Parse JSON from .message if possible
+                  parsed, err = parse_json(.message)
+                  if err == null {
+                    .log = parsed
+                    del(.message)
+                  }
+
+                  # Drop kube-system and monitoring namespace logs
+                  if exists(.kubernetes) && (.kubernetes.namespace_name == "kube-system" || .kubernetes.namespace_name == "monitoring") {
+                    abort
+                  }
+
+                  # Clean up metadata
                   del(.file)
-                  del(.kubernetes.pod_owner)
+
+                  if exists(.kubernetes) {
+                    del(.kubernetes.pod_owner)
+                    del(.kubernetes.labels)
+                    del(.kubernetes.annotations)
+                  }
 
             sinks:
               redpanda:
                 type: "kafka"
                 inputs: ["remap_logs"]
                 bootstrap_servers: "redpanda.redpanda.svc.cluster.local:9093"
-                topic: "logs-kubernetes"
+                topic: "logs.k8s.all"
                 
                 encoding:
                   codec: "json"
