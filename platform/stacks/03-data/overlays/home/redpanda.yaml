@@ -87,7 +87,7 @@ apps:
 
                   monitoring:
                     enabled: false
-                    scrapeInterval: 29s
+                    scrapeInterval: 30s
 
             - apiVersion: apps/v1
               kind: Deployment
@@ -162,6 +162,46 @@ apps:
                       - name: redpanda-default-cert
                         secret:
                           secretName: redpanda-default-cert
+
+            - apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: redpanda-console-config
+                namespace: redpanda
+              data:
+                config.yaml: |-
+                  kafka:
+                    brokers:
+                      - redpanda.redpanda.svc.cluster.local:9093
+                    sasl:
+                      enabled: true
+                    schemaRegistry:
+                      enabled: true
+                      tls:
+                        caFilepath: /etc/tls/certs/default/ca.crt
+                        certFilepath: ""
+                        enabled: true
+                        insecureSkipTlsVerify: false
+                        keyFilepath: ""
+                      urls:
+                        - https://redpanda-0.redpanda.redpanda.svc.cluster.local.:8081
+                    tls:
+                      caFilepath: /etc/tls/certs/default/ca.crt
+                      certFilepath: ""
+                      enabled: true
+                      insecureSkipTlsVerify: false
+                      keyFilepath: ""
+                  redpanda:
+                    adminApi:
+                      enabled: true
+                      tls:
+                        caFilepath: /etc/tls/certs/default/ca.crt
+                        certFilepath: ""
+                        enabled: true
+                        insecureSkipTlsVerify: false
+                        keyFilepath: ""
+                      urls:
+                        - https://redpanda.redpanda.svc.cluster.local.:9644
 
             - apiVersion: v1
               kind: Service
