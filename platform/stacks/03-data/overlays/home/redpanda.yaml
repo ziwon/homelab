@@ -85,19 +85,18 @@ apps:
                   console:
                     enabled: true
                     # We're not using operator to create users due to the way InfisicalSecret works, so we need to set it explicitly
-                    extraEnv:
-                      - name: KAFKA_SASL_USERNAME
-                        value: "admin"
-                      - name: KAFKA_SASL_PASSWORD
-                        valueFrom:
-                          secretKeyRef:
-                            name: redpanda-managed-secrets
-                            key: superuser-password
-                      - name: KAFKA_SASL_MECHANISM
-                        valueFrom:
-                          secretKeyRef:
-                            name: redpanda-managed-secrets
-                            key: authentication-mechanism
+                    extraVolumes:
+                      - name: users
+                        secret:
+                          secretName: redpanda-managed-secrets
+                          items:
+                            - key: admin
+                              path: admin
+                              
+                    extraVolumeMounts:
+                      - name: users
+                        mountPath: /mnt/users
+                        readOnly: true
 
                   monitoring:
                     enabled: false
