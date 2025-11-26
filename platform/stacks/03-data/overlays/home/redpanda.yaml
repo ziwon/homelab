@@ -68,7 +68,7 @@ apps:
                     sasl:
                       enabled: true
                       secretRef: redpanda-managed-secrets
-                      users: [] # Use to InfisicalSecret to set password
+                      users: [] # Use InfisicalSecret to set password
                   
                   statefulset:
                     initContainers:
@@ -83,53 +83,71 @@ apps:
                       storageClass: local-path
 
                   console:
-                    enabled: true
-                    podTemplate:
-                      spec:
-                        containers:
-                          - name: console
-                            command:
-                              - /app/console
-                            args:
-                              - "--config.filepath=/etc/console/configs/config.yaml"
-                            env:
-                              - name: KAFKA_BROKERS
-                                value: "redpanda.redpanda.svc.cluster.local:9093"
+                    enabled: false
 
-                              - name: KAFKA_SASL_ENABLED
-                                value: "true"
-                              - name: KAFKA_SASL_MECHANISM
-                                value: "SCRAM-SHA-256"
-                              - name: KAFKA_SASL_USERNAME
-                                valueFrom:
-                                  secretKeyRef:
-                                    name: redpanda-managed-secrets
-                                    key: admin-username
-                              - name: KAFKA_SASL_PASSWORD
-                                valueFrom:
-                                  secretKeyRef:
-                                    name: redpanda-managed-secrets
-                                    key: admin-password
+                  monitoring:
+                    enabled: false
+                    scrapeInterval: 29s
 
-                              - name: KAFKA_TLS_ENABLED
-                                value: "true"
-                              - name: KAFKA_TLS_CA
-                                value: /etc/tls/certs/default/ca.crt
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: redpanda-console
+                namespace: redpanda
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: redpanda-console
+                template:
+                  metadata:
+                    labels:
+                      app: redpanda-console
+                  spec:
+                    containers:
+                      - name: console
+                        image: docker.redpanda.com/redpandadata/console:v2.8.0
+                        args:
+                          - "--config.filepath=/etc/console/configs/config.yaml"
+                        env:
+                          - name: KAFKA_BROKERS
+                            value: "redpanda.redpanda.svc.cluster.local:9093"
 
-                              - name: REDPANDA_ADMINAPI_ADDRS
-                                value: "https://redpanda.redpanda.svc.cluster.local:9644"
-                              - name: REDPANDA_ADMINAPI_TLS_ENABLED
-                                value: "true"
-                              - name: REDPANDA_ADMINAPI_USERNAME
-                                valueFrom:
-                                  secretKeyRef:
-                                    name: redpanda-managed-secrets
-                                    key: admin-username
-                              - name: REDPANDA_ADMINAPI_PASSWORD
-                                valueFrom:
-                                  secretKeyRef:
-                                    name: redpanda-managed-secrets
-                                    key: admin-password
+                          - name: KAFKA_SASL_ENABLED
+                            value: "true"
+                          - name: KAFKA_SASL_MECHANISM
+                            value: "SCRAM-SHA-256"
+                          - name: KAFKA_SASL_USERNAME
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: admin-username
+                          - name: KAFKA_SASL_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: admin-password
+
+                          - name: KAFKA_TLS_ENABLED
+                            value: "true"
+                          - name: KAFKA_TLS_CA
+                            value: "/etc/tls/certs/default/ca.crt"
+
+                          - name: REDPANDA_ADMINAPI_ADDRS
+                            value: "https://redpanda.redpanda.svc.cluster.local:9644"
+                          - name: REDPANDA_ADMINAPI_TLS_ENABLED
+                            value: "true"
+                          - name: REDPANDA_ADMINAPI_USERNAME
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: admin-username
+                          - name: REDPANDA_ADMINAPI_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: admin-password
+
                         volumeMounts:
                           - name: configs
                             mountPath: /etc/console/configs
@@ -137,10 +155,26 @@ apps:
                           - name: redpanda-default-cert
                             mountPath: /etc/tls/certs/default
                             readOnly: true
+                    volumes:
+                      - name: configs
+                        configMap:
+                          name: redpanda-console-config  
+                      - name: redpanda-default-cert
+                        secret:
+                          secretName: redpanda-default-cert
 
-                  monitoring:
-                    enabled: false
-                    scrapeInterval: 29s
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: redpanda-console
+                namespace: redpanda
+              spec:
+                selector:
+                  app: redpanda-console
+                ports:
+                  - name: http
+                    port: 8080
+                    targetPort: 8080 
 
             - apiVersion: batch/v1
               kind: Job
