@@ -155,9 +155,6 @@ apps:
               metadata:
                 name: quickwit-index-init
                 namespace: monitoring
-                annotations:
-                  argocd.argoproj.io/hook: PostSync
-                  argocd.argoproj.io/hook-delete-policy: hook-succeeded
               spec:
                 ttlSecondsAfterFinished: 3600
                 template:
