@@ -128,7 +128,7 @@ apps:
                                 name: redpanda-managed-secrets
                                 key: superuser-password
                           - name: KAFKA_SASL_MECHANISM
-                            value: "SCRAM-SHA-512"
+                            value: "SCRAM-SHA-256"
                           - name: KAFKA_TLS_ENABLED
                             value: "true"
                           - name: KAFKA_TLS_CAFILEPATH
