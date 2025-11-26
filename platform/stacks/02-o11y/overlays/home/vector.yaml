@@ -1,0 +1,115 @@
+apps:
+  - name: vector-raw
+    namespace: monitoring
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: vector-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: redpanda-managed-secrets
+                namespace: monitoring
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /redpanda 
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: redpanda-managed-secrets
+                    secretNamespace: monitoring
+                    creationPolicy: Owner
+            
+  - name: vector
+    namespace: monitoring
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - vector-raw
+    source:
+      repoURL: https://helm.vector.dev
+      chart: vector
+      targetRevision: 0.51.1-distroless-libc
+      helm:
+        releaseName: vector
+        values: |
+          role: Agent
+          dataDir: /var/lib/vector
+
+          customConfig:
+            sources:
+              k8s_logs:
+                type: "kubernetes_logs"
+            
+            transforms:
+              remap_logs:
+                type: "remap"
+                inputs: ["k8s_logs"]
+                source: |
+                  . = parse_json(.message) ?? .
+                  del(.file)
+                  del(.kubernetes.pod_owner)
+
+            sinks:
+              redpanda:
+                type: "kafka"
+                inputs: ["remap_logs"]
+                bootstrap_servers: "redpanda.redpanda.svc.cluster.local:9093"
+                topic: "logs-kubernetes"
+                
+                encoding:
+                  codec: "json"
+
+                sasl:
+                  enabled: true
+                  mechanism: "SCRAM-SHA-256"
+                  username: "vector"
+                  password: "${VECTOR_PASSWORD}"
+
+                tls:
+                  enabled: true
+                  ca_file: "/etc/tls/certs/ca.crt"
+                  verify_certificate: true 
+                  verify_hostname: false
+
+          env:
+            - name: VECTOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redpanda-managed-secrets
+                  key: vector-password
+
+          extraVolumes:
+            - name: ca-cert
+              secret:
+                secretName: redpanda-default-root-certificate
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+
+          extraVolumeMounts:
+            - name: ca-cert
+              mountPath: /etc/tls/certs
+              readOnly: true
+
+          podSecurityContext:
+            runAsUser: 0 
+          
+          securityContext:
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+    
