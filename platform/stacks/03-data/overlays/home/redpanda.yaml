@@ -74,7 +74,7 @@ apps:
                     initContainers:
                       setDataDirOwnership:
                         enabled: true
-                    replicas: 1
+                    replica: 1
 
                   storage:
                     persistentVolume:
@@ -152,8 +152,7 @@ apps:
                             BROKERS="redpanda.redpanda.svc.cluster.local:9093"
                             ADMIN_API_URL="https://redpanda.redpanda.svc.cluster.local:9644"
                             CA_CERT="/etc/tls/certs/default/ca.crt"
-
-                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASSWORD -X sasl.mechanism=$SUPERUSER_MECHANISM -X tls.insecure_skip_verify=true"
+                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SUPERUSER_NAME -X pass=$SUPERUSER_PASSWORD -X sasl.mechanism=$SUPERUSER_MECHANISM"
 
                             echo "Waiting for Redpanda cluster..."
                             until rpk cluster info --brokers $BROKERS $RPK_OPTS >/dev/null 2>&1; do
@@ -164,9 +163,9 @@ apps:
                             echo "Connected as Bootstrap User: $SUPERUSER_NAME"
                             
                             echo "Creating custom users..."
-                            rpk security user create admin -p "$ADMIN_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" $RPK_OPTS || echo "User admin might already exist"
-                            rpk security user create vector -p "$VECTOR_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" $RPK_OPTS || echo "User vector might already exist"
-                            rpk security user create quickwit -p "$QUICKWIT_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" $RPK_OPTS || echo "User quickwit might already exist"
+                            rpk security user create admin -p "$ADMIN_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User admin might already exist"
+                            rpk security user create vector -p "$VECTOR_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User vector might already exist"
+                            rpk security user create quickwit -p "$QUICKWIT_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User quickwit might already exist"
 
                             echo "Creating ACLs..."
                             # Admin: Full Control
