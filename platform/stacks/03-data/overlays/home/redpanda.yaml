@@ -68,13 +68,13 @@ apps:
                     sasl:
                       enabled: true
                       secretRef: redpanda-managed-secrets
-                      users: []
-
+                      users: [] # Use to InfisicalSecret to set password
+                  
                   statefulset:
                     initContainers:
                       setDataDirOwnership:
                         enabled: true
-                    replica: 1
+                    replicas: 1
 
                   storage:
                     persistentVolume:
@@ -84,6 +84,20 @@ apps:
 
                   console:
                     enabled: true
+                    # We're not using operator to create users due to the way InfisicalSecret works, so we need to set it explicitly
+                    extraEnv:
+                      - name: KAFKA_SASL_USERNAME
+                        value: "admin"
+                      - name: KAFKA_SASL_PASSWORD
+                        valueFrom:
+                          secretKeyRef:
+                            name: redpanda-managed-secrets
+                            key: superuser-password
+                      - name: KAFKA_SASL_MECHANISM
+                        valueFrom:
+                          secretKeyRef:
+                            name: redpanda-managed-secrets
+                            key: authentication-mechanism
 
                   monitoring:
                     enabled: false
