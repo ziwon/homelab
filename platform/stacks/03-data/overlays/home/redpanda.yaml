@@ -117,7 +117,9 @@ apps:
                             name: http
                         env:
                           - name: KAFKA_BROKERS
-                            value: "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
+                            value: "redpanda.redpanda.svc.cluster.local:9093"
+                          - name: KAFKA_VERSION
+                            value: "3.7.0"
                           - name: KAFKA_SASL_ENABLED
                             value: "true"
                           - name: KAFKA_SASL_USERNAME
@@ -136,7 +138,7 @@ apps:
                           - name: KAFKA_SCHEMAREGISTRY_ENABLED
                             value: "true"
                           - name: KAFKA_SCHEMAREGISTRY_URLS
-                            value: "https://redpanda-0.redpanda.redpanda.svc.cluster.local:8081"
+                            value: "https://redpanda.redpanda.svc.cluster.local:8081"
                           - name: KAFKA_SCHEMAREGISTRY_TLS_ENABLED
                             value: "true"
                           - name: KAFKA_SCHEMAREGISTRY_TLS_CAFILEPATH
