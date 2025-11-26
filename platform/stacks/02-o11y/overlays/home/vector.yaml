@@ -120,16 +120,6 @@ apps:
           role: Agent
           dataDir: /var/lib/vector
 
-          extraVolumes:
-            - name: vector-data
-              hostPath:
-                path: /data/vector
-                type: DirectoryOrCreate
-
-          extraVolumeMounts:
-            - name: vector-data
-              mountPath: /var/lib/vector
-
           securityContext:
             readOnlyRootFilesystem: false
 
@@ -184,10 +174,26 @@ apps:
                   - key: ca.crt
                     path: ca.crt
 
+            - name: vector-data
+              hostPath:
+                path: /data/vector
+                type: DirectoryOrCreate
+
           extraVolumeMounts:
             - name: ca-cert
               mountPath: /etc/tls/certs
               readOnly: true
+
+            - name: vector-data
+              mountPath: /var/lib/vector
+
+          service:
+            enabled: true
+            ports:
+              - name: http
+                port: 8686
+                targetPort: 8686
+                protocol: TCP
 
           podSecurityContext:
             runAsUser: 0 
@@ -197,4 +203,3 @@ apps:
             capabilities:
               drop:
                 - ALL
-    
