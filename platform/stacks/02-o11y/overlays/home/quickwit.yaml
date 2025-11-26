@@ -69,7 +69,6 @@ apps:
               s3:
                 flavor: minio
                 endpoint: ${MINIO_ENDPOINT}
-                bucket: quickwit
                 region: ${AWS_REGION}
                 access_key_id: ${MINIO_ACCESS_KEY_ID}
                 secret_access_key: ${MINIO_SECRET_ACCESS_KEY}
