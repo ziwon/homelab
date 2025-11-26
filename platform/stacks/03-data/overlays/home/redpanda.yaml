@@ -92,10 +92,11 @@ apps:
                           items:
                             - key: admin
                               path: admin
-                              
+
                     extraVolumeMounts:
                       - name: users
-                        mountPath: /mnt/users
+                        mountPath: /mnt/users/admin
+                        subPath: admin
                         readOnly: true
 
                   monitoring:
