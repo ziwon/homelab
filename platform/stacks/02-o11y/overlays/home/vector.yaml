@@ -120,6 +120,14 @@ apps:
           role: Agent
           dataDir: /var/lib/vector
 
+          extraVolumes:
+            - name: vector-data
+              emptyDir: {} 
+
+          extraVolumeMounts:
+            - name: vector-data
+              mountPath: /var/lib/vector
+
           customConfig:
             sources:
               k8s_logs:
@@ -146,7 +154,7 @@ apps:
 
                 sasl:
                   enabled: true
-                  mechanism: "SCRAM-SHA-256"
+                  mechanism: "SCRAM-SHA-512"
                   username: "vector"
                   password: "${VECTOR_PASSWORD}"
 
