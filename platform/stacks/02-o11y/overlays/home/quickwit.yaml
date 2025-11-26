@@ -1,0 +1,220 @@
+apps:
+  # -----------------------------------------------------------
+  # Quickwit Prerequisites (Secrets)
+  # -----------------------------------------------------------
+  - name: quickwit-raw
+    namespace: monitoring
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: quickwit-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: quickwit-managed-secrets
+                namespace: monitoring
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /quickwit
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: quickwit-managed-secrets
+                    secretNamespace: monitoring
+                    creationPolicy: Owner
+
+  # -----------------------------------------------------------
+  # Quickwit Main Deployment
+  # -----------------------------------------------------------
+  - name: quickwit
+    namespace: monitoring
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - quickwit-raw
+    source:
+      repoURL: https://helm.quickwit.io
+      chart: quickwit
+      targetRevision: 0.7.21
+      helm:
+        releaseName: quickwit
+        values: |
+          image:
+            repository: quickwit/quickwit
+            tag: 0.8.2
+
+          environmentFrom:
+            - secretRef:
+                name: quickwit-managed-secrets
+
+          config:
+            version: 0.8
+
+            metastore_uri: ${QW_METASTORE_URI}
+            default_index_root_uri: ${QW_DEFAULT_INDEX_ROOT_URI}
+
+            storage:
+              s3:
+                flavor: minio
+                endpoint: ${MINIO_ENDPOINT}
+                bucket: quickwit
+                region: ${AWS_REGION}
+                access_key_id: ${MINIO_ACCESS_KEY_ID}
+                secret_access_key: ${MINIO_SECRET_ACCESS_KEY}
+                force_path_style_access: true
+
+          searcher:
+            replicaCount: 1
+
+          indexer:
+            replicaCount: 1
+
+          metastore:
+            replicaCount: 1
+
+          janitor:
+            replicaCount: 1
+
+          control_plane:
+            enabled: true
+
+          extraVolumes:
+            - name: ca-cert
+              secret:
+                secretName: redpanda-default-root-certificate
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+
+          extraVolumeMounts:
+            - name: ca-cert
+              mountPath: /etc/tls/certs
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+
+  # -----------------------------------------------------------
+  # Quickwit Setup (Index & Source Creation)
+  # -----------------------------------------------------------
+  - name: quickwit-setup
+    namespace: monitoring
+    project: dev
+    syncWave: "15"
+    dependencies:
+      - quickwit
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: quickwit-setup
+        values: |
+          resources:
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: quickwit-index-init
+                namespace: monitoring
+                annotations:
+                  argocd.argoproj.io/hook: PostSync
+                  argocd.argoproj.io/hook-delete-policy: hook-succeeded
+              spec:
+                ttlSecondsAfterFinished: 3600
+                template:
+                  spec:
+                    restartPolicy: OnFailure
+                    containers:
+                      - name: init
+                        image: curlimages/curl:latest
+                        env:
+                          - name: REDPANDA_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: quickwit-password
+                          - name: REDPANDA_USERNAME
+                            value: quickwit
+                        command:
+                          - /bin/sh
+                          - -c
+                          - |
+                            echo "Waiting for Quickwit to be ready..."
+                            until curl -s http://quickwit-searcher.monitoring.svc:7280/api/v1/version; do
+                              sleep 5
+                            done
+                            
+                            echo "Creating Index (k8s-logs)..."
+                            curl -X POST \
+                              -H "Content-Type: application/yaml" \
+                              http://quickwit-searcher.monitoring.svc:7280/api/v1/indexes \
+                              --data-binary @- <<EOF
+                            version: 0.8
+                            index_id: k8s-logs
+                            doc_mapping:
+                              mode: dynamic
+                              timestamp_field: timestamp
+                              field_mappings:
+                                - name: timestamp
+                                  type: datetime
+                                  input_formats: [unix_timestamp, iso8601]
+                                  output_format: iso8601
+                                  fast: true
+                                - name: k8s
+                                  type: object
+                                - name: log
+                                  type: json
+                                  stored: true
+                                  indexed: true
+                            EOF
+
+                            echo "Creating Kafka Source..."
+                            curl -X POST \
+                              -H "Content-Type: application/yaml" \
+                              http://quickwit-searcher.monitoring.svc:7280/api/v1/indexes/k8s-logs/sources \
+                              --data-binary @- <<EOF
+                            version: 0.8
+                            source_id: redpanda-source
+                            source_type: kafka
+                            params:
+                              bootstrap_servers: "redpanda.redpanda.svc.cluster.local:9093"
+                              topic: "logs.k8s.all"
+                              group_id: "quickwit-group"
+                              auto_offset_reset: "earliest"
+                              security_protocol: "SASL_SSL"
+                              sasl_mechanism: "SCRAM-SHA-512"
+                              sasl_username: "${REDPANDA_USERNAME}"
+                              sasl_password: "${REDPANDA_PASSWORD}"
+                              ssl_ca_location: "/etc/tls/certs/ca.crt"
+                            EOF
+                            
+                            echo "Quickwit Setup Complete!"
+
+                        volumeMounts:
+                          - name: ca-cert
+                            mountPath: /etc/tls/certs
+                            readOnly: true
+                    volumes:
+                      - name: ca-cert
+                        secret:
+                          secretName: redpanda-default-root-certificate
+                          items:
+                            - key: ca.crt
+                              path: ca.crt
