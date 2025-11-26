@@ -122,11 +122,16 @@ apps:
 
           extraVolumes:
             - name: vector-data
-              emptyDir: {} 
+              hostPath:
+                path: /data/vector
+                type: DirectoryOrCreate
 
           extraVolumeMounts:
             - name: vector-data
               mountPath: /var/lib/vector
+
+          securityContext:
+            readOnlyRootFilesystem: false
 
           customConfig:
             sources:
