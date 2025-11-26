@@ -41,7 +41,7 @@ apps:
     source:
       repoURL: https://helm.vector.dev
       chart: vector
-      targetRevision: 0.51.1-distroless-libc
+      targetRevision: 0.48.0
       helm:
         releaseName: vector
         values: |
