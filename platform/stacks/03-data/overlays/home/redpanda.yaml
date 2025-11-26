@@ -363,8 +363,25 @@ apps:
                 name: logs.k8s.all
                 namespace: redpanda
               spec:
-                partitions: 12
+                partitions: 3       
                 replicationFactor: 1
-                config:
-                  cleanup.policy: delete
-                  retention.ms: "604800000"
+                
+                additionalConfig:
+                  cleanup.policy: "delete"       
+                  retention.ms: "604800000"      # 7 days
+                  retention.bytes: "21474836480" # 20G
+                  segment.bytes: "536870912"     # 512MB
+                
+                kafkaApiSpec:
+                  brokers:
+                    - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
+                  tls:
+                    caCertSecretRef:
+                      name: "redpanda-default-cert"
+                      key: "ca.crt"
+                  sasl:
+                    mechanism: "SCRAM-SHA-256"
+                    username: "admin"
+                    passwordSecretRef:
+                      name: "redpanda-managed-secrets"
+                      key: "superuser-password"
