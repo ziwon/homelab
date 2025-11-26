@@ -94,6 +94,8 @@ apps:
               metadata:
                 name: redpanda-console
                 namespace: redpanda
+                labels:
+                  app: redpanda-console
               spec:
                 replicas: 1
                 selector:
@@ -107,101 +109,66 @@ apps:
                     containers:
                       - name: console
                         image: docker.redpanda.com/redpandadata/console:v2.8.0
+                        imagePullPolicy: IfNotPresent
                         args:
-                          - "--config.filepath=/etc/console/configs/config.yaml"
+                          - "--config.filepath=" 
+                        ports:
+                          - containerPort: 8080
+                            name: http
                         env:
                           - name: KAFKA_BROKERS
-                            value: "redpanda.redpanda.svc.cluster.local:9093"
-
+                            value: "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
                           - name: KAFKA_SASL_ENABLED
                             value: "true"
-                          - name: KAFKA_SASL_MECHANISM
-                            value: "SCRAM-SHA-256"
                           - name: KAFKA_SASL_USERNAME
-                            valueFrom:
-                              secretKeyRef:
-                                name: redpanda-managed-secrets
-                                key: admin-username
+                            value: "admin"
                           - name: KAFKA_SASL_PASSWORD
                             valueFrom:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
-                                key: admin-password
-
+                                key: superuser-password
+                          - name: KAFKA_SASL_MECHANISM
+                            value: "SCRAM-SHA-512"
                           - name: KAFKA_TLS_ENABLED
                             value: "true"
-                          - name: KAFKA_TLS_CA
-                            value: "/etc/tls/certs/default/ca.crt"
-
-                          - name: REDPANDA_ADMINAPI_ADDRS
-                            value: "https://redpanda.redpanda.svc.cluster.local:9644"
-                          - name: REDPANDA_ADMINAPI_TLS_ENABLED
+                          - name: KAFKA_TLS_CAFILEPATH
+                            value: "/etc/tls/certs/ca.crt"
+                          - name: KAFKA_SCHEMAREGISTRY_ENABLED
                             value: "true"
-                          - name: REDPANDA_ADMINAPI_USERNAME
+                          - name: KAFKA_SCHEMAREGISTRY_URLS
+                            value: "https://redpanda-0.redpanda.redpanda.svc.cluster.local:8081"
+                          - name: KAFKA_SCHEMAREGISTRY_TLS_ENABLED
+                            value: "true"
+                          - name: KAFKA_SCHEMAREGISTRY_TLS_CAFILEPATH
+                            value: "/etc/tls/certs/ca.crt"
+                          - name: KAFKA_SCHEMAREGISTRY_USERNAME
+                            value: "admin"
+                          - name: KAFKA_SCHEMAREGISTRY_PASSWORD
                             valueFrom:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
-                                key: admin-username
-                          - name: REDPANDA_ADMINAPI_PASSWORD
-                            valueFrom:
-                              secretKeyRef:
-                                name: redpanda-managed-secrets
-                                key: admin-password
-
+                                key: superuser-password
                         volumeMounts:
-                          - name: configs
-                            mountPath: /etc/console/configs
+                          - name: ca-cert
+                            mountPath: /etc/tls/certs
                             readOnly: true
-                          - name: redpanda-default-cert
-                            mountPath: /etc/tls/certs/default
-                            readOnly: true
+                        livenessProbe:
+                          httpGet:
+                            path: /admin/health
+                            port: http
+                          initialDelaySeconds: 10
+                        readinessProbe:
+                          httpGet:
+                            path: /admin/health
+                            port: http
+                          initialDelaySeconds: 10
                     volumes:
-                      - name: configs
-                        configMap:
-                          name: redpanda-console-config  
-                      - name: redpanda-default-cert
+                      - name: ca-cert
                         secret:
                           secretName: redpanda-default-cert
-
-            - apiVersion: v1
-              kind: ConfigMap
-              metadata:
-                name: redpanda-console-config
-                namespace: redpanda
-              data:
-                config.yaml: |-
-                  kafka:
-                    brokers:
-                      - redpanda.redpanda.svc.cluster.local:9093
-                    sasl:
-                      enabled: true
-                    schemaRegistry:
-                      enabled: true
-                      tls:
-                        caFilepath: /etc/tls/certs/default/ca.crt
-                        certFilepath: ""
-                        enabled: true
-                        insecureSkipTlsVerify: false
-                        keyFilepath: ""
-                      urls:
-                        - https://redpanda-0.redpanda.redpanda.svc.cluster.local.:8081
-                    tls:
-                      caFilepath: /etc/tls/certs/default/ca.crt
-                      certFilepath: ""
-                      enabled: true
-                      insecureSkipTlsVerify: false
-                      keyFilepath: ""
-                  redpanda:
-                    adminApi:
-                      enabled: true
-                      tls:
-                        caFilepath: /etc/tls/certs/default/ca.crt
-                        certFilepath: ""
-                        enabled: true
-                        insecureSkipTlsVerify: false
-                        keyFilepath: ""
-                      urls:
-                        - https://redpanda.redpanda.svc.cluster.local.:9644
+                          items:
+                            - key: ca.crt
+                              path: ca.crt
 
             - apiVersion: v1
               kind: Service
