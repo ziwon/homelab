@@ -176,10 +176,10 @@ apps:
                           - -c
                           - |
                             echo "Waiting for Quickwit to be ready..."
-                            until curl -s http://quickwit-searcher.monitoring.svc:7280/api/v1/version; do
+                            until curl -s http://quickwit-searcher.monitoring.svc:7280/api/v1/version > /dev/null; do
                               sleep 5
                             done
-                            
+
                             echo "Creating Index (k8s-logs)..."
                             curl -X POST \
                               -H "Content-Type: application/yaml" \
@@ -193,11 +193,11 @@ apps:
                               field_mappings:
                                 - name: timestamp
                                   type: datetime
-                                  input_formats: [unix_timestamp, iso8601]
+                                  input_formats:
+                                    - unix_timestamp
+                                    - iso8601
                                   output_format: iso8601
                                   fast: true
-                                - name: k8s
-                                  type: object
                                 - name: log
                                   type: json
                                   stored: true
@@ -212,20 +212,21 @@ apps:
                             version: 0.8
                             source_id: redpanda-source
                             source_type: kafka
+                            num_pipelines: 1
                             params:
-                              bootstrap_servers: "redpanda.redpanda.svc.cluster.local:9093"
                               topic: "logs.k8s.all"
-                              group_id: "quickwit-group"
-                              auto_offset_reset: "earliest"
-                              security_protocol: "SASL_SSL"
-                              sasl_mechanism: "SCRAM-SHA-512"
-                              sasl_username: "${REDPANDA_USERNAME}"
-                              sasl_password: "${REDPANDA_PASSWORD}"
-                              ssl_ca_location: "/etc/tls/certs/ca.crt"
+                              client_params:
+                                bootstrap.servers: "redpanda.redpanda.svc.cluster.local:9093"
+                                group.id: "quickwit-group"
+                                auto.offset.reset: "earliest"
+                                security.protocol: "SASL_SSL"
+                                sasl.mechanism: "SCRAM-SHA-512"
+                                sasl.username: "${REDPANDA_USERNAME}"
+                                sasl.password: "${REDPANDA_PASSWORD}"
+                                ssl.ca.location: "/etc/tls/certs/ca.crt"
                             EOF
-                            
-                            echo "Quickwit Setup Complete!"
 
+                            echo "Quickwit Setup Complete!"
                         volumeMounts:
                           - name: ca-cert
                             mountPath: /etc/tls/certs
