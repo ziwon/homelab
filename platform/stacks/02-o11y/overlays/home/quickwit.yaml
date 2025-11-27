@@ -98,10 +98,32 @@ apps:
 
           searcher:
             replicaCount: 1
+            extraVolumes:
+            - name: ca-cert
+              secret:
+                secretName: redpanda-default-root-certificate
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+            extraVolumeMounts:
+            - name: ca-cert
+              mountPath: /etc/tls/certs
+              readOnly: true
 
           indexer:
             enable_otlp_endpoint: true
             replicaCount: 1
+            extraVolumes:
+            - name: ca-cert
+              secret:
+                secretName: redpanda-default-root-certificate
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+            extraVolumeMounts:
+            - name: ca-cert
+              mountPath: /etc/tls/certs
+              readOnly: true
 
           metastore:
             replicaCount: 1
@@ -111,19 +133,6 @@ apps:
 
           control_plane:
             enabled: true
-
-          extraVolumes:
-            - name: ca-cert
-              secret:
-                secretName: redpanda-default-root-certificate
-                items:
-                  - key: ca.crt
-                    path: ca.crt
-
-          extraVolumeMounts:
-            - name: ca-cert
-              mountPath: /etc/tls/certs
-              readOnly: true
 
           resources:
             requests:
