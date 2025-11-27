@@ -86,7 +86,7 @@ apps:
 
           grafana:
             enabled: false
-            forceDeployDatasource: true 
+            forceDeployDatasource: false 
 
           defaultDashboards:
             enabled: true
