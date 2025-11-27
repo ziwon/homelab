@@ -233,6 +233,7 @@ apps:
                                 sasl.username: "${REDPANDA_USERNAME}"
                                 sasl.password: "${REDPANDA_PASSWORD}"
                                 ssl.ca.location: "/etc/tls/certs/ca.crt"
+                                ssl.endpoint.identification.algorithm: "none"
                             EOF
 
                             echo "Quickwit Setup Complete!"
