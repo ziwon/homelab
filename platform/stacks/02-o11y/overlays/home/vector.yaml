@@ -141,12 +141,13 @@ apps:
                   }
 
                   # Drop kube-system and monitoring namespace logs
-                  if exists(.kubernetes) {
-                     if .kubernetes.namespace_name == "kube-system" || .kubernetes.namespace_name == "monitoring" {
-                       abort
-                     }
+                  if exists(.kubernetes) && exists(.kubernetes.pod_namespace) {
+                    ns = .kubernetes.pod_namespace
+                    if ns == "kube-system" || ns == "monitoring" {
+                      abort
+                    }
                   }
-
+                  
                   # Flatten Kubernetes metadata
                   if exists(.kubernetes) {
                     .k8s = {
