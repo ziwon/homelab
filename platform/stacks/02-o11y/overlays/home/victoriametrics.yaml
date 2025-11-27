@@ -86,7 +86,7 @@ apps:
 
           grafana:
             enabled: false
-            forceDeployDatasource: false 
+            forceDeployDatasource: false # The default datasouce managed from grafana, not vm-stack
 
           defaultDashboards:
             enabled: true
@@ -157,8 +157,10 @@ apps:
             labels:
               cluster: homelab
 
-          kubelet:
-            enabled: true
+          # Use chart default scrape configs for pods/containers
+          # kubelet:
+          #   enabled: true 
+
           kubeApiServer:
             enabled: true
           kubeControllerManager:
