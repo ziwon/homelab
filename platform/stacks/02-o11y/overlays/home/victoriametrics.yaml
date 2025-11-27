@@ -33,7 +33,7 @@ apps:
                           type: PathPrefix
                           value: /
                     backendRefs:
-                      - name: vmsingle-vm-stack
+                      - name: vmsingle-vm-stack-victoria-metrics-k8s-stack 
                         port: 8428
 
   # -----------------------------------------------------------
