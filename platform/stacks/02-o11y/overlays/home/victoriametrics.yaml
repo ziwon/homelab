@@ -49,7 +49,7 @@ apps:
     source:
       repoURL: https://victoriametrics.github.io/helm-charts/
       chart: victoria-metrics-operator
-      targetRevision: 0.44.0
+      targetRevision: 0.56.4
       helm:
         releaseName: vm-operator
         values: |
@@ -76,7 +76,7 @@ apps:
     source:
       repoURL: https://victoriametrics.github.io/helm-charts/
       chart: victoria-metrics-k8s-stack
-      targetRevision: 0.39.0
+      targetRevision: 0.63.6
       helm:
         releaseName: vm-stack
         values: |
