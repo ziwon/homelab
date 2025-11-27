@@ -3,7 +3,7 @@ apps:
   # Component A: Prerequisites (Routes)
   # SyncWave: 0
   # -----------------------------------------------------------
-  - name: monitoring-prereqs
+  - name: vm-raw
     namespace: monitoring
     project: dev
     syncWave: "0"
@@ -12,7 +12,7 @@ apps:
       chart: raw
       targetRevision: 2.0.2
       helm:
-        releaseName: monitoring-prereqs
+        releaseName: vm-raw
         values: |
           resources:
             - apiVersion: gateway.networking.k8s.io/v1
@@ -45,7 +45,7 @@ apps:
     project: dev
     syncWave: "5"
     dependencies:
-      - monitoring-prereqs
+      - vm-raw
     source:
       repoURL: https://victoriametrics.github.io/helm-charts/
       chart: victoria-metrics-operator
@@ -184,7 +184,7 @@ apps:
   # Component D: Pipeline Integrations (VMServiceScrapes)
   # SyncWave: 15
   # -----------------------------------------------------------
-  - name: monitoring-integrations
+  - name: vm-stack-scrapes
     namespace: monitoring
     project: dev
     syncWave: "15"
@@ -195,7 +195,7 @@ apps:
       chart: raw
       targetRevision: 2.0.2
       helm:
-        releaseName: monitoring-integrations
+        releaseName: vm-stack-scrapes
         values: |
           resources:
             # Vector Metrics
