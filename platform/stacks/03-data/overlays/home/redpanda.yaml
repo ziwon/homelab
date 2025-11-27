@@ -1,5 +1,7 @@
 apps:
-  # Install Redpanda Operator
+  # -----------------------------------------------------------
+  # Redpanda Operator Install
+  # -----------------------------------------------------------
   - name: redpanda-operator
     namespace: redpanda
     project: dev
@@ -14,7 +16,9 @@ apps:
           crds:
             enabled: true
 
-  # Install Redpanda ClusterCRD + InfisicalSecret + ACL Init Job + HTTPRoute
+  # -----------------------------------------------------------
+  # Redpanda Cluster Bootstrap
+  # -----------------------------------------------------------
   - name: redpanda-raw
     namespace: redpanda
     project: dev
@@ -30,6 +34,9 @@ apps:
         values: |
           resources:
 
+            # -----------------------------------------------------------
+            # Redpanda Managed Secrets
+            # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
@@ -51,6 +58,9 @@ apps:
                     secretNamespace: redpanda
                     creationPolicy: Owner
 
+            # -----------------------------------------------------------
+            # Redpanda Cluster
+            # -----------------------------------------------------------
             - apiVersion: cluster.redpanda.com/v1alpha2
               kind: Redpanda
               metadata:
@@ -89,6 +99,9 @@ apps:
                     enabled: false
                     scrapeInterval: 30s
 
+            # -----------------------------------------------------------
+            # Redpanda Console
+            # -----------------------------------------------------------
             - apiVersion: apps/v1
               kind: Deployment
               metadata:
@@ -185,6 +198,9 @@ apps:
                     port: 8080
                     targetPort: 8080 
 
+            # -----------------------------------------------------------
+            # Redpanda User ACL Init Job
+            # -----------------------------------------------------------
             - apiVersion: batch/v1
               kind: Job
               metadata:
@@ -291,6 +307,9 @@ apps:
                           secretName: redpanda-default-root-certificate
                           defaultMode: 420
 
+            # -----------------------------------------------------------
+            # Redpanda Console HTTPRoute
+            # -----------------------------------------------------------
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
@@ -308,6 +327,9 @@ apps:
                       - name: redpanda-console
                         port: 8080
 
+            # -----------------------------------------------------------
+            # Redpanda Schema Registry HTTPRoute
+            # -----------------------------------------------------------
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
@@ -325,6 +347,9 @@ apps:
                       - name: redpanda
                         port: 8081
 
+            # -----------------------------------------------------------
+            # Redpanda HTTP Proxy HTTPRoute
+            # -----------------------------------------------------------
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
@@ -341,7 +366,10 @@ apps:
                   - backendRefs:
                       - name: redpanda
                         port: 8082
-
+  
+  # -----------------------------------------------------------
+  # Redpanda Topics
+  # -----------------------------------------------------------
   - name: redpanda-topics
     namespace: redpanda
     project: dev
