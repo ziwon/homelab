@@ -1,0 +1,242 @@
+apps:
+  # -----------------------------------------------------------
+  # Component A: Prerequisites (Routes)
+  # SyncWave: 0
+  # -----------------------------------------------------------
+  - name: monitoring-prereqs
+    namespace: monitoring
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: monitoring-prereqs
+        values: |
+          resources:
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: vmsingle
+                namespace: monitoring
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - vm.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: vmsingle-vm-stack
+                        port: 8428
+
+  # -----------------------------------------------------------
+  # Component B: Control Plane (VictoriaMetrics Operator)
+  # SyncWave: 5
+  # -----------------------------------------------------------
+  - name: vm-operator
+    namespace: monitoring
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - monitoring-prereqs
+    source:
+      repoURL: https://victoriametrics.github.io/helm-charts/
+      chart: victoria-metrics-operator
+      targetRevision: 0.44.0
+      helm:
+        releaseName: vm-operator
+        values: |
+          crds:
+            plain: true
+            cleanup:
+              enabled: true
+          operator:
+            disable_prometheus_converter: false
+            useCustomConfigReloader: true
+          serviceMonitor:
+            enabled: true
+
+  # -----------------------------------------------------------
+  # Component C: Data & Content Engine (VM Stack - Headless)
+  # SyncWave: 10
+  # -----------------------------------------------------------
+  - name: vm-stack
+    namespace: monitoring
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - vm-operator
+    source:
+      repoURL: https://victoriametrics.github.io/helm-charts/
+      chart: victoria-metrics-k8s-stack
+      targetRevision: 0.39.0
+      helm:
+        releaseName: vm-stack
+        values: |
+          # Operator & Grafana disabled (managed separately)
+          victoria-metrics-operator:
+            enabled: false
+
+          grafana:
+            enabled: false
+            forceDeployDatasource: true 
+
+          defaultDashboards:
+            enabled: true
+            defaultTimezone: Asia/Seoul
+            labels:
+              grafana_dashboard: "1"
+
+          vmsingle:
+            enabled: true
+            spec:
+              retentionPeriod: "30d"
+              replicaCount: 1
+              extraArgs:
+                dedup.minScrapeInterval: "30s"
+              storage:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 50Gi
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 512Mi
+                limits:
+                  cpu: 2000m
+                  memory: 4Gi
+
+          vmagent:
+            enabled: true
+            spec:
+              selectAllByDefault: true
+              scrapeInterval: 30s
+              externalLabels:
+                cluster: homelab
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 1000m
+                  memory: 1Gi
+
+          vmalert:
+            enabled: true
+            spec:
+              evaluationInterval: 30s
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+
+          alertmanager:
+            enabled: true
+            spec:
+              replicaCount: 1
+            config:
+              route:
+                receiver: blackhole
+              receivers:
+                - name: blackhole
+
+          defaultRules:
+            create: true
+            labels:
+              cluster: homelab
+
+          kubelet:
+            enabled: true
+          kubeApiServer:
+            enabled: true
+          kubeControllerManager:
+            enabled: true
+          kubeScheduler:
+            enabled: true
+          kubeEtcd:
+            enabled: true
+          coreDns:
+            enabled: true
+          kubeProxy:
+            enabled: false  # Cilium
+
+          # Dependencies
+          prometheus-node-exporter:
+            enabled: true
+          kube-state-metrics:
+            enabled: true
+
+  # -----------------------------------------------------------
+  # Component D: Pipeline Integrations (VMServiceScrapes)
+  # SyncWave: 15
+  # -----------------------------------------------------------
+  - name: monitoring-integrations
+    namespace: monitoring
+    project: dev
+    syncWave: "15"
+    dependencies:
+      - vm-stack
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: monitoring-integrations
+        values: |
+          resources:
+            # Vector Metrics
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: vector-metrics
+                namespace: monitoring
+              spec:
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: vector
+                endpoints:
+                  - port: http
+                    path: /metrics
+
+            # Quickwit Metrics
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: quickwit-metrics
+                namespace: monitoring
+              spec:
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: quickwit
+                endpoints:
+                  - port: rest
+                    path: /metrics
+
+            # Redpanda Metrics (cross-namespace)
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: redpanda-metrics
+                namespace: monitoring
+              spec:
+                namespaceSelector:
+                  matchNames:
+                    - redpanda
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: redpanda
+                endpoints:
+                  - port: admin
+                    path: /public_metrics

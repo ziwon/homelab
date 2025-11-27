@@ -1,0 +1,138 @@
+  apps:
+  # -----------------------------------------------------------
+  # Component A: Prerequisites (Secrets & Routes)
+  # SyncWave: 0
+  # -----------------------------------------------------------
+  - name: grafana-raw
+    namespace: monitoring
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: monitoring-prereqs
+        values: |
+          resources:
+            # Grafana credentials from Infisical
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: grafana-managed-secrets
+                namespace: monitoring
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /grafana
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: grafana-managed-secrets
+                    secretNamespace: monitoring
+                    creationPolicy: Owner
+
+            # HTTPRoutes
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: grafana
+                namespace: monitoring
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - grafana.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: grafana
+                        port: 80
+
+  # -----------------------------------------------------------
+  # Component B: Visualization Layer (Grafana Standalone)
+  # SyncWave: 5
+  # -----------------------------------------------------------
+  - name: grafana
+    namespace: monitoring
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - vm-stack
+    source:
+      repoURL: https://grafana.github.io/helm-charts
+      chart: grafana
+      targetRevision: 8.5.1
+      helm:
+        releaseName: grafana
+        values: |
+          admin:
+            existingSecret: grafana-managed-secrets
+            userKey: admin-user
+            passwordKey: admin-password
+
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: ALL
+              folderAnnotation: grafana_folder
+              provider:
+                foldersFromFilesStructure: true
+            datasources:
+              enabled: true
+              label: grafana_datasource
+
+          # Add VictoriaMetrics & Quickwit datasources
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+                - name: VictoriaMetrics
+                  type: prometheus
+                  url: http://vmsingle-vm-stack.monitoring.svc:8428
+                  access: proxy
+                  isDefault: true
+                - name: Quickwit
+                  type: quickwit-quickwit-datasource
+                  url: http://quickwit-searcher.monitoring.svc:7280/api/v1
+                  access: proxy
+                  jsonData:
+                    index: k8s-logs
+
+          plugins:
+            - victoriametrics-metrics-datasource
+            - victoriametrics-logs-datasource
+            - quickwit-quickwit-datasource
+
+          persistence:
+            enabled: true
+            size: 5Gi
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          grafana.ini:
+            server:
+              root_url: https://grafana.home.lab
+            analytics:
+              check_for_updates: false
+              reporting_enabled: false
+            users:
+              allow_sign_up: false
