@@ -391,6 +391,8 @@ apps:
                 name: logs.k8s.all
                 namespace: redpanda
               spec:
+                interval: 15m
+
                 partitions: 3       
                 replicationFactor: 1
                 
