@@ -140,8 +140,8 @@ apps:
                   credentials:
                     name: postgres-managed-secrets
                   schedules:
-                    full: "0 3 * * 0"                  # 일 새벽 03:00 전체백업           
-                    incremental: "0 3 * * 1-6"         # 월~토 새벽 03:00 증분백업
+                    full: "0 19 * * 0"                  # KST, 일 새벽 04:00 전체 백업           
+                    incremental: "0 19 * * 1-6"         # KST, 월 ~ 토 새벽 04:00 증분 백업
 
               global:
                 repo1-retention-full: "7"
