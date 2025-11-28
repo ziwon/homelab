@@ -165,31 +165,43 @@ apps:
                 spec:
                   honorLabels: true
                   path: /metrics/cadvisor
+                  relabelConfigs:
+                    - action: labeldrop
+                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (id|name|image_id|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                      regex: (id|name|image_id)
               kubelet:
                 spec:
                   honorLabels: true
+                  relabelConfigs:
+                    - action: labeldrop
+                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (uid|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                      regex: (uid)
               probes:
                 enabled: true
                 spec:
                   honorLabels: true
                   path: /metrics/probes
+                  relabelConfigs:
+                    - action: labeldrop
+                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (uid|id|name|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                      regex: (uid|id|name)
               resources:
                 enabled: true
                 spec:
                   honorLabels: true
                   path: /metrics/resource
+                  relabelConfigs:
+                    - action: labeldrop
+                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (uid|id|name|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                      regex: (uid|id|name)
 
           kubeControllerManager:
             enabled: true
