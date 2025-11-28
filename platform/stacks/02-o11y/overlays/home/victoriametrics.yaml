@@ -167,13 +167,30 @@ apps:
                   path: /metrics/cadvisor
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (id|name|image_id|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*)
+                      regex: (id|name|image_id|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
               kubelet:
                 spec:
                   honorLabels: true
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (uid|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*)
+                      regex: (uid|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+              probes:
+                enabled: true
+                spec:
+                  honorLabels: true
+                  path: /metrics/probes
+                  metricRelabelConfigs:
+                    - action: labeldrop
+                      regex: (uid|id|name|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+              resources:
+                enabled: true
+                spec:
+                  honorLabels: true
+                  path: /metrics/resource
+                  metricRelabelConfigs:
+                    - action: labeldrop
+                      regex: (uid|id|name|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+
           kubeControllerManager:
             enabled: true
           kubeScheduler:
