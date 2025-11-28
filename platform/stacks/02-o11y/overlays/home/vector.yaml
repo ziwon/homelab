@@ -204,9 +204,9 @@ apps:
 
                     # Align to common timestamp if log.timestamp exists (optional)
                     if exists(.log.timestamp) {
-                      .timestamp, ts_err = parse_timestamp(.log.timestamp, "%+")
-                      if ts_err != null {
-                        del(.timestamp)
+                      parsed_ts, ts_err = parse_timestamp(.log.timestamp, "%+")
+                      if ts_err == null {
+                        .timestamp = parsed_ts
                       }
                     }
 
@@ -221,9 +221,9 @@ apps:
                         .level = to_string!(parsed_log.level)
                       }
                       if exists(parsed_log.time) {
-                        .timestamp, ts_err2 = parse_timestamp(parsed_log.time, "%+")
-                        if ts_err2 != null {
-                          del(.timestamp)
+                        parsed_ts, ts_err2 = parse_timestamp(parsed_log.time, "%+")
+                        if ts_err2 == null {
+                          .timestamp = parsed_ts
                         }
                       }
                     }
@@ -275,6 +275,11 @@ apps:
                       .raw_message = .message
                       .message = truncate!(.message, limit: 400, suffix: "... [truncated]")
                     }
+                  }
+
+                  # Add timestamp if it doesn't exist
+                  if !exists(.timestamp) {
+                    .timestamp = now()
                   }
 
                   # Remove heavy original fields
