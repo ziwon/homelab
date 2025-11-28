@@ -230,6 +230,32 @@ apps:
 
                   # Others (harbor access log, etc.)
                   } else {
+                    if exists(.message) {
+                      # Pattern A: 2025-11-28T07:52:36Z INFO  ...
+                      iso, iso_err = parse_regex(
+                        r'^(?P<ts>\d{4}-\d{2}-\d{2}T[0-9:\.]+Z)\s+(?P<level>[A-Z]+)\s+(?P<msg>.*)$',
+                        .message
+                      )
+
+                      if iso_err == null {
+                        .message = iso.msg
+                        .level   = downcase(iso.level)
+                        .timestamp, _ = parse_timestamp(iso.ts, "%+")
+                      } else {
+                        # Pattern B: 2025-11-28 07:52:25,959 INFO: ...
+                        plain, plain_err = parse_regex(
+                          r'^(?P<ts>\d{4}-\d{2}-\d{2}\s+[0-9:,]+)\s+(?P<level>[A-Z]+):?\s+(?P<msg>.*)$',
+                          .message
+                        )
+
+                        if plain_err == null {
+                          .message = plain.msg
+                          .level   = downcase(plain.level)
+                          .timestamp, _ = parse_timestamp(plain.ts, "%Y-%m-%d %H:%M:%S,%3f") 
+                        }
+                      }
+                    }
+
                     # Rough level classification if status exists (use if desired)
                     if exists(.status) {
                       code, code_err = to_int(.status)
@@ -245,11 +271,11 @@ apps:
                     }
                   }
 
-                  # Truncate Argo CD server logs
+                  # Truncate the huge long message in Argo CD server logs
                   if exists(.k8s) && .k8s.ns == "argocd" && .k8s.ct == "repo-server" && exists(.message) {
                     if length!(.message) > 1000 {
                       .raw_message = .message
-                      .message = truncate(.message, limit: 400, suffix: "... [truncated]")
+                      .message = truncate!(.message, limit: 400, suffix: "... [truncated]")
                     }
                   }
 
