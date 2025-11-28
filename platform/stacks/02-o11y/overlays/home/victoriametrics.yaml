@@ -163,15 +163,14 @@ apps:
               cadvisor:
                 enabled: true
                 spec:
+                  honorLabels: false
                   path: /metrics/cadvisor
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (uid)
+                      regex: (uid|id|name|image_id)
               kubelet:
                 spec:
-                  metricRelabelConfigs:
-                    - action: labeldrop
-                      regex: (uid) 
+                  honorLabels: false 
           kubeApiServer:
             enabled: true
           kubeControllerManager:
