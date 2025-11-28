@@ -158,7 +158,12 @@ apps:
               cluster: homelab
 
           kubelet:
-            enabled: true 
+            enabled: true
+            spec:
+              honorLabels: true
+              metricRelabelConfigs:
+                - action: labeldrop
+                  regex: (uid) 
           kubeApiServer:
             enabled: true
           kubeControllerManager:
