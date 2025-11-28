@@ -245,6 +245,14 @@ apps:
                     }
                   }
 
+                  # Truncate Argo CD server logs
+                  if exists(.k8s) && .k8s.ns == "argocd" && .k8s.ct == "repo-server" && exists(.message) {
+                    if length!(.message) > 1000 {
+                      .raw_message = .message
+                      .message = truncate(.message, limit: 400, suffix: "... [truncated]")
+                    }
+                  }
+
                   # Remove heavy original fields
                   del(.file)
                   del(.kubernetes)
