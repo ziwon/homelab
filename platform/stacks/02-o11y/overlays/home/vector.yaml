@@ -232,25 +232,23 @@ apps:
                   } else {
                     if exists(.message) {
                       # Pattern A: 2025-11-28T07:52:36Z INFO  ...
-                      iso, iso_err = parse_regex(
-                        r'^(?P<ts>\d{4}-\d{2}-\d{2}T[0-9:\.]+Z)\s+(?P<level>[A-Z]+)\s+(?P<msg>.*)$',
-                        .message
+                      iso, iso_err = parse_regex(.message,
+                        r'^(?P<ts>\d{4}-\d{2}-\d{2}T[0-9:\.]+Z)\s+(?P<level>[A-Z]+)\s+(?P<msg>.*)$'
                       )
 
                       if iso_err == null {
                         .message = iso.msg
-                        .level   = downcase(iso.level)
+                        .level   = downcase!(iso.level)
                         .timestamp, _ = parse_timestamp(iso.ts, "%+")
                       } else {
                         # Pattern B: 2025-11-28 07:52:25,959 INFO: ...
-                        plain, plain_err = parse_regex(
-                          r'^(?P<ts>\d{4}-\d{2}-\d{2}\s+[0-9:,]+)\s+(?P<level>[A-Z]+):?\s+(?P<msg>.*)$',
-                          .message
+                        plain, plain_err = parse_regex(.message,
+                          r'^(?P<ts>\d{4}-\d{2}-\d{2}\s+[0-9:,]+)\s+(?P<level>[A-Z]+):?\s+(?P<msg>.*)$'
                         )
 
                         if plain_err == null {
                           .message = plain.msg
-                          .level   = downcase(plain.level)
+                          .level   = downcase!(plain.level)
                           .timestamp, _ = parse_timestamp(plain.ts, "%Y-%m-%d %H:%M:%S,%3f") 
                         }
                       }
