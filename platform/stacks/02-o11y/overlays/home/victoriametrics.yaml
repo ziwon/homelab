@@ -157,10 +157,8 @@ apps:
             labels:
               cluster: homelab
 
-          # Use chart default scrape configs for pods/containers
-          # kubelet:
-          #   enabled: true 
-
+          kubelet:
+            enabled: true 
           kubeApiServer:
             enabled: true
           kubeControllerManager:
