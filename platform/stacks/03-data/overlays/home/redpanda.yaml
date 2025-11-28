@@ -391,7 +391,7 @@ apps:
                 name: logs.k8s.all
                 namespace: redpanda
               spec:
-                interval: 15m
+                interval: 1h # even 15m too noisy for homelab
 
                 partitions: 3       
                 replicationFactor: 1
