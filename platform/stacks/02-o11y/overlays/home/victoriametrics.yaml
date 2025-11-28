@@ -159,9 +159,21 @@ apps:
 
           kubelet:
             enabled: true
-            vmScrape:
-              spec:
-                honorLabels: false
+            vmScrapes:
+              cadvisor:
+                enabled: true
+                spec:
+                  honorLabels: true
+                  path: /metrics/cadvisor
+                  metricRelabelConfigs:
+                    - action: labeldrop
+                      regex: (id|name|image_id)
+              kubelet:
+                spec:
+                  honorLabels: true
+                  metricRelabelConfigs:
+                    - action: labeldrop
+                      regex: (uid)
           kubeControllerManager:
             enabled: true
           kubeScheduler:
