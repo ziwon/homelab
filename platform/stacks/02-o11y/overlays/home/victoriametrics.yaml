@@ -159,11 +159,19 @@ apps:
 
           kubelet:
             enabled: true
-            spec:
-              honorLabels: true
-              metricRelabelConfigs:
-                - action: labeldrop
-                  regex: (uid) 
+            vmScrapes:
+              cadvisor:
+                enabled: true
+                spec:
+                  path: /metrics/cadvisor
+                  metricRelabelConfigs:
+                    - action: labeldrop
+                      regex: (uid)
+              kubelet:
+                spec:
+                  metricRelabelConfigs:
+                    - action: labeldrop
+                      regex: (uid) 
           kubeApiServer:
             enabled: true
           kubeControllerManager:
