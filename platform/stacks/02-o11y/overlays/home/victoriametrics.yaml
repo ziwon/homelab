@@ -167,13 +167,13 @@ apps:
                   path: /metrics/cadvisor
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (id|name|image_id)
+                      regex: (id|name|image_id|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*)
               kubelet:
                 spec:
                   honorLabels: true
                   metricRelabelConfigs:
                     - action: labeldrop
-                      regex: (uid)
+                      regex: (uid|feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*)
           kubeControllerManager:
             enabled: true
           kubeScheduler:
