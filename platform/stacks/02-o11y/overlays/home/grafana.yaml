@@ -104,12 +104,15 @@
                   url: http://vmsingle-vm-stack-victoria-metrics-k8s-stack:8428
                   access: proxy
                   isDefault: true
+
                 - name: Quickwit
                   type: quickwit-quickwit-datasource
-                  url: http://quickwit-searcher.monitoring.svc:7280/api/v1
+                  url: http://quickwit-searcher:7280/api/v1
                   access: proxy
                   jsonData:
                     index: k8s-logs
+                    logMessageField: message
+                    logLevelField: level
 
           plugins:
             - victoriametrics-metrics-datasource

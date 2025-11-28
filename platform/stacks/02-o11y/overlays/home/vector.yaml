@@ -129,32 +129,34 @@ apps:
                 type: "kubernetes_logs"
             
             transforms:
+              filter_ns:
+                type: "filter"
+                inputs: ["k8s_logs"]
+                condition: |
+                  if exists(.kubernetes.pod_namespace) {
+                    ns = to_string!(.kubernetes.pod_namespace)
+                    ns != "kube-system" && ns != "monitoring"
+                  } else {
+                    true
+                  }
+              
               remap_logs:
                 type: "remap"
-                inputs: ["k8s_logs"]
+                inputs: ["filter_ns"]
                 source: |
-                  # Parse JSON from .message if possible
+                  # Parse .log if it's a JSON log (authentik, etc.)
                   parsed, err = parse_json(.message)
                   if err == null {
                     .log = parsed
-                    del(.message)
                   }
 
-                  # Drop kube-system and monitoring namespace logs
-                  if exists(.kubernetes) && exists(.kubernetes.pod_namespace) {
-                    ns = .kubernetes.pod_namespace
-                    if ns == "kube-system" || ns == "monitoring" {
-                      abort
-                    }
-                  }
-                  
                   # Flatten Kubernetes metadata
                   if exists(.kubernetes) {
                     .k8s = {
-                      "ns":    .kubernetes.pod_namespace,
-                      "pod":   .kubernetes.pod_name,
-                      "node":  .kubernetes.pod_node_name,
-                      "ct":    .kubernetes.container_name,
+                      "ns":   .kubernetes.pod_namespace,
+                      "pod":  .kubernetes.pod_name,
+                      "node": .kubernetes.pod_node_name,
+                      "ct":   .kubernetes.container_name,
                     }
 
                     .k8s.app = .kubernetes.container_name
@@ -167,7 +169,83 @@ apps:
                     }
                   }
 
-                  # Remove heavy original data
+                  # Default common level
+                  if !exists(.level) {
+                    .level = "info"
+                  }
+
+                  # Normalize message/level
+                  # JSON logs with .log (authentik, etc.)
+                  if exists(.log) {
+                    # message priority: log.message > log.msg > fallback combination
+                    if exists(.log.message) {
+                      .message = .log.message
+                    } else if exists(.log.msg) {
+                      .message = .log.msg
+                    } else {
+                      msg = ""
+                      if exists(.log.method) {
+                        msg = to_string!(.log.method)
+                      }
+                      if exists(.log.domain_url) {
+                        if msg != "" { msg = msg + " " }
+                        msg = msg + to_string!(.log.domain_url)
+                      }
+                      if exists(.log.status) {
+                        if msg != "" { msg = msg + " " }
+                        msg = msg + to_string!(.log.status)
+                      }
+                      .message = msg
+                    }
+
+                    if exists(.log.level) {
+                      .level = to_string!(.log.level)
+                    }
+
+                    # Align to common timestamp if log.timestamp exists (optional)
+                    if exists(.log.timestamp) {
+                      .timestamp, ts_err = parse_timestamp(.log.timestamp, "%+")
+                      if ts_err != null {
+                        del(.timestamp)
+                      }
+                    }
+
+                  # logfmt format (repo-server: time="..." level=.. msg="...")
+                  } else if exists(.message) && contains!(.message, " level=") && contains!(.message, " msg=") {
+                    parsed_log, err2 = parse_logfmt(.message)
+                    if err2 == null {
+                      if exists(parsed_log.msg) {
+                        .message = parsed_log.msg
+                      }
+                      if exists(parsed_log.level) {
+                        .level = to_string!(parsed_log.level)
+                      }
+                      if exists(parsed_log.time) {
+                        .timestamp, ts_err2 = parse_timestamp(parsed_log.time, "%+")
+                        if ts_err2 != null {
+                          del(.timestamp)
+                        }
+                      }
+                    }
+
+                  # Others (harbor access log, etc.)
+                  } else {
+                    # Rough level classification if status exists (use if desired)
+                    if exists(.status) {
+                      code, code_err = to_int(.status)
+                      if code_err == null {
+                        if code >= 500 {
+                          .level = "error"
+                        } else if code >= 400 {
+                          .level = "warn"
+                        } else {
+                          .level = "info"
+                        }
+                      }
+                    }
+                  }
+
+                  # Remove heavy original fields
                   del(.file)
                   del(.kubernetes)
 
