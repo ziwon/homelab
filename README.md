@@ -3,6 +3,20 @@
 A modular Kubernetes homelab that evolves from GitOps automation to AI-driven orchestration, enabling reproducible, adaptive deployments across local and edge clusters.
 (K3s + Helmfile + Argo CD + AIOps workflows)
 
+## Why a Homelab?
+
+> Motivation: I bought a powerful desktop, only to realize the CPU and GPU were spending most of their time doing absolutely nothing. As an engineer, that kind of idle hardware triggers a deep urge to fix things. So this homelab was born:
+> 
+> A comparable AWS [g6.8xlarge](https://instances.vantage.sh/aws/ec2/g6.8xlarge?currency=USD&region=ap-northeast-2) runs $1,783/month On-Demand. My homelab cost less than that.
+
+### Hardware Specs
+- **CPU:** Intel Core Ultra 9 285K (2P + 8E + 14 LP-E cores @ 5.70 GHz)  
+- **GPU:** NVIDIA Geforce RTX 5080 (84 SM for 10,752 CUDA cores)
+- **NPU:** Intel AI Boost (Gen 3) — for when the GPU is busy and the CPU wants to pretend it's useful
+- **RAM:** SANSUNG DDR5 5600 128 GB (32 GB x 4) — for peace of mind and aggressive multitasking
+
+
+
 ---
 
 ## Overview
