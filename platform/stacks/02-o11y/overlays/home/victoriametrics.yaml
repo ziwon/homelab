@@ -35,6 +35,27 @@ apps:
                     backendRefs:
                       - name: vmsingle-vm-stack-victoria-metrics-k8s-stack 
                         port: 8428
+                      
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: monitoring-managed-secrets
+                namespace: monitoring
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /monitoring
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: monitoring-managed-secrets
+                    secretNamespace: monitoring
+                    creationPolicy: Owner
 
   # -----------------------------------------------------------
   # Component B: Control Plane (VictoriaMetrics Operator)
@@ -146,11 +167,13 @@ apps:
             enabled: true
             spec:
               replicaCount: 1
-            config:
-              route:
-                receiver: blackhole
-              receivers:
-                - name: blackhole
+              configSecret: monitoring-managed-secrets  # Alertmanager config from managed secrets
+            
+            templates:
+              - "/etc/vm/configs/**/*.tmpl"
+
+            monzoTemplate:
+              enabled: true
 
           defaultRules:
             create: true
