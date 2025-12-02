@@ -288,7 +288,7 @@ apps:
                 endpoints:
                   - port: metrics
                     path: /metrics
-                    internval: 30s
+                    interval: 30s
 
             # Quickwit Metrics
             - apiVersion: operator.victoriametrics.com/v1beta1
@@ -322,3 +322,6 @@ apps:
                   - port: admin
                     path: /public_metrics
                     interval: 30s
+                    scheme: https
+                    tlsConfig:
+                      insecureSkipVerify: true
