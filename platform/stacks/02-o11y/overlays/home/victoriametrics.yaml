@@ -35,27 +35,28 @@ apps:
                     backendRefs:
                       - name: vmsingle-vm-stack-victoria-metrics-k8s-stack 
                         port: 8428
-                      
-            - apiVersion: secrets.infisical.com/v1alpha1
-              kind: InfisicalSecret
-              metadata:
-                name: monitoring-managed-secrets
-                namespace: monitoring
-              spec:
-                hostAPI: https://app.infisical.com/api
-                authentication:
-                  universalAuth:
-                    secretsScope:
-                      projectSlug: home-lab
-                      envSlug: "hme"
-                      secretsPath: /monitoring
-                    credentialsRef:
-                      secretName: infisical-secrets
-                      secretNamespace: infisical
-                managedKubeSecretReferences:
-                  - secretName: monitoring-managed-secrets
-                    secretNamespace: monitoring
-                    creationPolicy: Owner
+
+            # Will be created from vector 
+            # - apiVersion: secrets.infisical.com/v1alpha1
+            #   kind: InfisicalSecret
+            #   metadata:
+            #     name: monitoring-managed-secrets
+            #     namespace: monitoring
+            #   spec:
+            #     hostAPI: https://app.infisical.com/api
+            #     authentication:
+            #       universalAuth:
+            #         secretsScope:
+            #           projectSlug: home-lab
+            #           envSlug: "hme"
+            #           secretsPath: /monitoring
+            #         credentialsRef:
+            #           secretName: infisical-secrets
+            #           secretNamespace: infisical
+            #     managedKubeSecretReferences:
+            #       - secretName: monitoring-managed-secrets
+            #         secretNamespace: monitoring
+            #         creationPolicy: Owner
 
   # -----------------------------------------------------------
   # Component B: Control Plane (VictoriaMetrics Operator)
