@@ -329,9 +329,9 @@ apps:
                 type: "remap"
                 inputs: ["throttle_alerts"]
                 source: |
-                  ns = if exists(.k8s) && exists(.k8s.ns) { .k8s.ns } else { "unknown_ns" }
-                  app = if exists(.k8s) && exists(.k8s.app) { .k8s.app } else { "unknown_app" }
-                  pod = if exists(.k8s) && exists(.k8s.pod) { .k8s.pod } else { "unknown_pod" }
+                  ns = if exists(.k8s) && exists(.k8s.ns) { to_string!(.k8s.ns) } else { "unknown_ns" }
+                  app = if exists(.k8s) && exists(.k8s.app) { to_string!(.k8s.app) } else { "unknown_app" }
+                  pod = if exists(.k8s) && exists(.k8s.pod) { to_string!(.k8s.pod) } else { "unknown_pod" }
 
                   raw_level = if exists(.level) { .level } else { "UNKNOWN" }
                   lvl = upcase(to_string!(raw_level))
@@ -371,7 +371,6 @@ apps:
                     ]
                   }
 
-            
             sinks:
               redpanda:
                 type: "kafka"
