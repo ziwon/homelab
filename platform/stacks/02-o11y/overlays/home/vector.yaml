@@ -334,8 +334,8 @@ apps:
                   pod = if exists(.k8s) && exists(.k8s.pod) { .k8s.pod } else { "unknown_pod" }
 
                   raw_level = if exists(.level) { .level } else { "UNKNOWN" }
-                  lvl = upcase(to_string(raw_level))
-                  msg = if exists(.message) { to_string(.message) } else { "No message provided" }
+                  lvl = upcase(to_string!(raw_level))
+                  msg = if exists(.message) { to_string!(.message) } else { "No message provided" }
                   ts = format_timestamp!(now(), format: "%Y-%m-%d %H:%M:%S%:z")
 
                   title = "🚨 Error detected in #{ns}"
