@@ -322,7 +322,7 @@ apps:
                 inputs: ["filter_alerts"]
                 window_secs: 60
                 threshold: 1
-                key_field: "{{ k8s.app }}"
+                key_field: '{{ "{{" }} k8s.app }}'
 
               # Format Slack message
               format_slack:
