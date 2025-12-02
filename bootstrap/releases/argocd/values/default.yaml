@@ -36,9 +36,9 @@ notifications:
               {"title": "Project", "value": "{{ .app.spec.project }}", "short": true},
               {"title": "Namespace", "value": "{{ .app.spec.destination.namespace }}", "short": true},
               {"title": "Revision", "value": "{{ .app.status.sync.revision | trunc 7 }}", "short": true},
-              {"title": "Error", "value": "{{ .app.status.operationState.message | trunc 500 }}", "short": false}
+              {"title": "Error", "value": "{{ .app.status.operationState.message }}", "short": false}
             ],
-            "footer": "ArgoCD | {{ .app.status.operationState.finishedAt }}"
+            "footer": "ArgoCD"
           }]
     
     template.app-health-degraded: |
