@@ -164,8 +164,10 @@ apps:
               metadata:
                 name: quickwit-index-init
                 namespace: monitoring
+                annotations:
+                  argocd.argoproj.io/hook: Sync
+                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
               spec:
-                ttlSecondsAfterFinished: 3600
                 template:
                   spec:
                     restartPolicy: OnFailure
