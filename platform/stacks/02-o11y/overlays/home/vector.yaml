@@ -324,7 +324,7 @@ apps:
                 threshold: 1
                 key_field: '{{ `{{` }} k8s.app }}'
 
-              # Format Slack message, shit, how to fix syntax errors?
+              # Format Slack message
               format_slack:
                 type: "remap"
                 inputs: ["throttle_alerts"]
