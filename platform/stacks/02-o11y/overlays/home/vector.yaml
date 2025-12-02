@@ -32,6 +32,27 @@ apps:
                     secretNamespace: monitoring
                     creationPolicy: Owner
 
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: monitoring-managed-secrets
+                namespace: monitoring
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /monitoring
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: monitoring-managed-secrets
+                    secretNamespace: monitoring
+                    creationPolicy: Owner
+
             - apiVersion: v1
               kind: ServiceAccount
               metadata:
@@ -127,6 +148,8 @@ apps:
             sources:
               k8s_logs:
                 type: "kubernetes_logs"
+              internal_metrics:
+                type: "internal_metrics"
             
             transforms:
               filter_ns:
@@ -286,6 +309,64 @@ apps:
                   del(.file)
                   del(.kubernetes)
 
+              # Filter only error/critical/fatal logs for alerting
+              filter_alerts:
+                type: "filter"
+                inputs: ["remap_logs"]
+                condition: |
+                  .level == "error" || .level == "critical" || .level == "fatal"
+
+              # Throttle alerts to max 1 per minute per application
+              throttle_alerts:
+                type: "throttle"
+                inputs: ["filter_alerts"]
+                window_secs: 60
+                threshold: 1
+                key_field: "{{ k8s.app }}"
+
+              # Format Slack message
+              format_slack:
+                  type: "remap"
+                  inputs: ["throttle_alerts"]
+                  source: |
+                    title = "🚨 Error Detected in " + .k8s.ns
+                    
+                    msg_body = "*App:* " + .k8s.app + "\n" +
+                              "*Pod:* " + .k8s.pod + "\n" +
+                              "*Level:* " + upcase!(.level) + "\n" +
+                              "```" + .message + "```"
+
+                    . = {
+                      "text": title,
+                      "blocks": [
+                        {
+                          "type": "header",
+                          "text": {
+                            "type": "plain_text",
+                            "text": title,
+                            "emoji": true
+                          }
+                        },
+                        {
+                          "type": "section",
+                          "text": {
+                            "type": "mrkdwn",
+                            "text": msg_body
+                          }
+                        },
+                        {
+                          "type": "context",
+                          "elements": [
+                            {
+                              "type": "mrkdwn",
+                              "text": "Time: " + to_string!(.timestamp)
+                            }
+                          ]
+                        }
+                      ]
+                    }
+
+            
             sinks:
               redpanda:
                 type: "kafka"
@@ -308,12 +389,32 @@ apps:
                   verify_certificate: true 
                   verify_hostname: false
 
+              prometheus_metrics:
+                type: "prometheus_exporter"
+                inputs: ["internal_metrics"]
+                address: "0.0.0.0:9090"
+
+              slack_alert:
+                type: "http"
+                inputs: ["format_slack"]
+                uri: "${SLACK_WEBHOOK_URL}"
+                encoding:
+                  codec: "json"
+                request:
+                  rate_limit_duration_secs: 1
+                  rate_limit_num: 1
+
           env:
             - name: VECTOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: redpanda-managed-secrets
                   key: vector-password
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: monitoring-managed-secrets 
+                  key: slack-webhook-url   
 
           extraVolumes:
             - name: ca-cert
@@ -343,12 +444,16 @@ apps:
                 port: 8686
                 targetPort: 8686
                 protocol: TCP
+              - name: metrics
+                port: 9090
+                targetPort: 9090
+                protocol: TCP
 
           podSecurityContext:
             runAsUser: 0 
           
           securityContext:
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
             capabilities:
               drop:
                 - ALL
