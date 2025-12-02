@@ -324,22 +324,22 @@ apps:
                 threshold: 1
                 key_field: '{{ `{{` }} k8s.app }}'
 
-              # Format Slack message, how to fix syntax errors?
+              # Format Slack message, shit, how to fix syntax errors?
               format_slack:
                 type: "remap"
                 inputs: ["throttle_alerts"]
                 source: |
-                  ns = to_string(.k8s.ns) ?? "unknown_ns"
-                  app = to_string(.k8s.app) ?? "unknown_app"
-                  pod = to_string(.k8s.pod) ?? "unknown_pod"
-                  
-                  raw_level = .level || "UNKNOWN"
-                  lvl = upcase(to_string(raw_level) ?? "unknown")
-                  msg = to_string(.message) ?? "No message provided"
-                  ts = to_string(now())
+                  ns = .k8s.ns ?? "unknown_ns"
+                  app = .k8s.app ?? "unknown_app"
+                  pod = .k8s.pod ?? "unknown_pod"
 
-                  title = "🚨 Error Detected in {{ `{{` }} ns }}"
-                  msg_body = "*App:* {{ `{{` }} app }}\n*Pod:* {{ `{{` }} pod }}\n*Level:* {{ `{{` }} lvl }}\n```{{ `{{` }} msg }}```"
+                  raw_level = .level ?? "UNKNOWN"
+                  lvl = upcase(string(raw_level))
+                  msg = .message ?? "No message provided"
+                  ts = format_timestamp!(now(), format: "%Y-%m-%d %H:%M:%S%:z")
+
+                  title = "🚨 Error detected in #{ns}"
+                  msg_body = "*App:* #{app}\n*Pod:* #{pod}\n*Level:* #{lvl}\n```#{msg}```"
 
                   . = {
                     "text": title,
@@ -364,7 +364,7 @@ apps:
                         "elements": [
                           {
                             "type": "mrkdwn",
-                            "text": "Time: {{ `{{` }} ts }}"
+                            "text": "Time: #{ts}"
                           }
                         ]
                       }
@@ -402,9 +402,12 @@ apps:
                 type: "http"
                 inputs: ["format_slack"]
                 uri: "${SLACK_WEBHOOK_URL}"
+                method: "post"
                 encoding:
                   codec: "json"
                 request:
+                  headers:
+                    "Content-Type": "application/json"
                   rate_limit_duration_secs: 1
                   rate_limit_num: 1
 
