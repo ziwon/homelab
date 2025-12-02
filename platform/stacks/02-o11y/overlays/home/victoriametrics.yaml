@@ -179,9 +179,15 @@ apps:
             create: true
             labels:
               cluster: homelab
+            runbookUrl: "https://runbooks.prometheus-operator.dev/runbooks"
+            disabled:
+              EtcdHighNumberOfFailedGRPCRequests: true # Optimized for K3s Homelab
 
           kubelet:
             enabled: true
+            serviceMonitor:
+              https: true 
+              insecureSkipVerify: true
             vmScrapes:
               cadvisor:
                 enabled: true
@@ -227,13 +233,21 @@ apps:
                       regex: (uid|id|name)
 
           kubeControllerManager:
-            enabled: true
+            enabled: false
+            service:
+              enabled: false
+
           kubeScheduler:
-            enabled: true
+            enabled: false
+            service:
+              enabled: false
+
           kubeEtcd:
             enabled: true
+
           coreDns:
             enabled: true
+
           kubeProxy:
             enabled: false  # Cilium
 
@@ -272,8 +286,9 @@ apps:
                   matchLabels:
                     app.kubernetes.io/name: vector
                 endpoints:
-                  - port: http
+                  - port: metrics
                     path: /metrics
+                    internval: 30s
 
             # Quickwit Metrics
             - apiVersion: operator.victoriametrics.com/v1beta1
@@ -288,6 +303,7 @@ apps:
                 endpoints:
                   - port: rest
                     path: /metrics
+                    interval: 30s
 
             # Redpanda Metrics (cross-namespace)
             - apiVersion: operator.victoriametrics.com/v1beta1
@@ -305,3 +321,4 @@ apps:
                 endpoints:
                   - port: admin
                     path: /public_metrics
+                    interval: 30s
