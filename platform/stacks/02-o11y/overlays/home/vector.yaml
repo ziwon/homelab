@@ -338,8 +338,8 @@ apps:
                   msg = if exists(.message) { to_string!(.message) } else { "No message provided" }
                   ts = format_timestamp!(now(), format: "%Y-%m-%d %H:%M:%S%:z")
 
-                  title = "🚨 Error detected in #{ns}"
-                  msg_body = "*App:* #{app}\n*Pod:* #{pod}\n*Level:* #{lvl}\n```#{msg}```"
+                  title = "🚨 Error detected in " + ns
+                  msg_body = "*App:* " + app + "\n*Pod:* " + pod + "\n*Level:* " + lvl + "\n```" + msg + "```"
 
                   . = {
                     "text": title,
@@ -364,13 +364,14 @@ apps:
                         "elements": [
                           {
                             "type": "mrkdwn",
-                            "text": "Time: #{ts}"
+                            "text": "Time: " + ts
                           }
                         ]
                       }
                     ]
                   }
-           
+
+            
             sinks:
               redpanda:
                 type: "kafka"
@@ -403,8 +404,13 @@ apps:
                 inputs: ["format_slack"]
                 uri: "${SLACK_WEBHOOK_URL}"
                 method: "post"
+                batch:
+                  max_events: 1
+                  timeout_secs: 1
                 encoding:
                   codec: "json"
+                framing:
+                  method: "newline_delimited"
                 request:
                   headers:
                     "Content-Type": "application/json"
