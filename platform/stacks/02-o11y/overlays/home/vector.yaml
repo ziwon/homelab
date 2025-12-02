@@ -322,50 +322,54 @@ apps:
                 inputs: ["filter_alerts"]
                 window_secs: 60
                 threshold: 1
-                key_field: '{{ "{{" }} k8s.app }}'
+                key_field: '{{ `{{` }} k8s.app }}'
 
-              # Format Slack message
+              # Format Slack message, how to fix syntax errors?
               format_slack:
-                  type: "remap"
-                  inputs: ["throttle_alerts"]
-                  source: |
-                    title = "🚨 Error Detected in " + .k8s.ns
-                    
-                    msg_body = "*App:* " + .k8s.app + "\n" +
-                              "*Pod:* " + .k8s.pod + "\n" +
-                              "*Level:* " + upcase!(.level) + "\n" +
-                              "```" + .message + "```"
+                type: "remap"
+                inputs: ["throttle_alerts"]
+                source: |
+                  ns = to_string(.k8s.ns) ?? "unknown_ns"
+                  app = to_string(.k8s.app) ?? "unknown_app"
+                  pod = to_string(.k8s.pod) ?? "unknown_pod"
+                  
+                  raw_level = .level || "UNKNOWN"
+                  lvl = upcase(to_string(raw_level) ?? "unknown")
+                  msg = to_string(.message) ?? "No message provided"
+                  ts = to_string(now())
 
-                    . = {
-                      "text": title,
-                      "blocks": [
-                        {
-                          "type": "header",
-                          "text": {
-                            "type": "plain_text",
-                            "text": title,
-                            "emoji": true
-                          }
-                        },
-                        {
-                          "type": "section",
-                          "text": {
-                            "type": "mrkdwn",
-                            "text": msg_body
-                          }
-                        },
-                        {
-                          "type": "context",
-                          "elements": [
-                            {
-                              "type": "mrkdwn",
-                              "text": "Time: " + to_string!(.timestamp)
-                            }
-                          ]
+                  title = "🚨 Error Detected in {{ `{{` }} ns }}"
+                  msg_body = "*App:* {{ `{{` }} app }}\n*Pod:* {{ `{{` }} pod }}\n*Level:* {{ `{{` }} lvl }}\n```{{ `{{` }} msg }}```"
+
+                  . = {
+                    "text": title,
+                    "blocks": [
+                      {
+                        "type": "header",
+                        "text": {
+                          "type": "plain_text",
+                          "text": title,
+                          "emoji": true
                         }
-                      ]
-                    }
-
+                      },
+                      {
+                        "type": "section",
+                        "text": {
+                          "type": "mrkdwn",
+                          "text": msg_body
+                        }
+                      },
+                      {
+                        "type": "context",
+                        "elements": [
+                          {
+                            "type": "mrkdwn",
+                            "text": "Time: {{ `{{` }} ts }}"
+                          }
+                        ]
+                      }
+                    ]
+                  }
             
             sinks:
               redpanda:
