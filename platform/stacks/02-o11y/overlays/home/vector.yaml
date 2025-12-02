@@ -329,15 +329,13 @@ apps:
                 type: "remap"
                 inputs: ["throttle_alerts"]
                 source: |
-                  ns = if exists(.k8s) && exists(.k8s.ns) { string(.k8s.ns) } else { "unknown_ns" }
-                  app = if exists(.k8s) && exists(.k8s.app) { string(.k8s.app) } else { "unknown_app" }
-                  pod = if exists(.k8s) && exists(.k8s.pod) { string(.k8s.pod) } else { "unknown_pod" }
+                  ns = if exists(.k8s) && exists(.k8s.ns) { .k8s.ns } else { "unknown_ns" }
+                  app = if exists(.k8s) && exists(.k8s.app) { .k8s.app } else { "unknown_app" }
+                  pod = if exists(.k8s) && exists(.k8s.pod) { .k8s.pod } else { "unknown_pod" }
 
                   raw_level = if exists(.level) { .level } else { "UNKNOWN" }
-                  lvl = upcase(string(raw_level))
-
-                  msg = if exists(.message) { string(.message) } else { "No message provided" }
-
+                  lvl = upcase(to_string(raw_level))
+                  msg = if exists(.message) { to_string(.message) } else { "No message provided" }
                   ts = format_timestamp!(now(), format: "%Y-%m-%d %H:%M:%S%:z")
 
                   title = "🚨 Error detected in #{ns}"
@@ -372,8 +370,7 @@ apps:
                       }
                     ]
                   }
-
-            
+           
             sinks:
               redpanda:
                 type: "kafka"
