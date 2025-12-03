@@ -81,32 +81,32 @@ apps:
           fullnameOverride: "tempo"
           replicas: 1
           
-          # Environment Variables for MinIO (S3) Auth
-          extraEnvFrom:
-            - secretRef:
-                name: tempo-managed-secrets
-          extraEnv:
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: tempo-managed-secrets
-                  key: MINIO_ACCESS_KEY_ID
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: tempo-managed-secrets
-                  key: MINIO_SECRET_ACCESS_KEY
-
           tempo:
             repository: grafana/tempo
             tag: "2.9.0"
+            
+            # Environment Variables for MinIO (S3) Auth
+            extraEnvFrom:
+              - secretRef:
+                  name: tempo-managed-secrets
+            extraEnv:
+              - name: AWS_ACCESS_KEY_ID
+                valueFrom:
+                  secretKeyRef:
+                    name: tempo-managed-secrets
+                    key: MINIO_ACCESS_KEY_ID
+              - name: AWS_SECRET_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: tempo-managed-secrets
+                    key: MINIO_SECRET_ACCESS_KEY
 
             storage:
               trace:
                 backend: s3
                 s3:
                   bucket: tempo-traces         
-                  endpoint: http://minio-green.minio-green.svc.cluster.local:9000
+                  endpoint: minio-green.minio-green.svc.cluster.local:9000
                   insecure: true               
                   forcepathstyle: true         
 
