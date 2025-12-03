@@ -1,0 +1,188 @@
+apps:
+  # -----------------------------------------------------------
+  # Component A: Prerequisites (Secrets & Routes)
+  # SyncWave: 0
+  # Role: Prepare MinIO credentials & Ingress Route
+  # -----------------------------------------------------------
+  - name: tempo-raw
+    namespace: monitoring
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: tempo-raw
+        values: |
+          resources:
+            # Secret from Infisical (MinIO Credentials)
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: tempo-managed-secrets
+                namespace: monitoring
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /tempo 
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: tempo-managed-secrets
+                    secretNamespace: monitoring
+                    creationPolicy: Owner
+
+            # HTTPRoute for Tempo Query (UI/Datasource access)
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: tempo
+                namespace: monitoring
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - tempo.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: tempo
+                        port: 3200 # Tempo HTTP Default Port
+
+  # -----------------------------------------------------------
+  # Component B: Main Deployment (Grafana Tempo)
+  # SyncWave: 5
+  # Role: Distributed Tracing Backend (Monolithic mode)
+  # -----------------------------------------------------------
+  - name: tempo
+    namespace: monitoring
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - tempo-raw
+    source:
+      repoURL: https://grafana.github.io/helm-charts
+      chart: tempo
+      targetRevision: 1.24.1
+      helm:
+        releaseName: tempo
+        values: |
+          fullnameOverride: "tempo"
+          replicas: 1
+          
+          # Environment Variables for MinIO (S3) Auth
+          extraEnvFrom:
+            - secretRef:
+                name: tempo-managed-secrets
+          extraEnv:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tempo-managed-secrets
+                  key: MINIO_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tempo-managed-secrets
+                  key: MINIO_SECRET_ACCESS_KEY
+
+          tempo:
+            repository: grafana/tempo
+            tag: "2.9.0"
+
+            storage:
+              trace:
+                backend: s3
+                s3:
+                  bucket: tempo-traces         
+                  endpoint: http://minio-green.minio-green.svc.cluster.local:9000
+                  insecure: true               
+                  forcepathstyle: true         
+
+            receivers:
+              jaeger:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:14250
+                  thrift_binary:
+                    endpoint: 0.0.0.0:6832
+                  thrift_compact:
+                    endpoint: 0.0.0.0:6831
+                  thrift_http:
+                    endpoint: 0.0.0.0:14268
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: "0.0.0.0:4317"
+                  http:
+                    endpoint: "0.0.0.0:4318"
+
+          # Persistence (WAL & Local Cache)
+          persistence:
+            enabled: true
+            accessModes:
+              - ReadWriteOnce
+            size: 10Gi
+            storageClassName: local-path
+
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+
+          service:
+            enabled: true
+            type: ClusterIP
+            ports:
+              - name: http
+                port: 3200
+                protocol: TCP
+                targetPort: 3200
+
+          # Disable Chart's native ServiceMonitor (Managed in 'tempo-integrations')
+          serviceMonitor:
+            enabled: false
+
+  # -----------------------------------------------------------
+  # Component C: Integrations (VMServiceScrape)
+  # SyncWave: 10
+  # Role: Monitor Tempo's own metrics via VictoriaMetrics
+  # -----------------------------------------------------------
+  - name: tempo-integrations
+    namespace: monitoring
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - tempo
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: tempo-integrations
+        values: |
+          resources:
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: tempo-metrics
+                namespace: monitoring
+              spec:
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: tempo
+                endpoints:
+                  - port: http
+                    path: /metrics
+                    interval: 30s
