@@ -72,7 +72,7 @@
     source:
       repoURL: https://grafana.github.io/helm-charts
       chart: grafana
-      targetRevision: 8.5.1
+      targetRevision: 10.3.0
       helm:
         releaseName: grafana
         values: |
@@ -99,6 +99,7 @@
             datasources.yaml:
               apiVersion: 1
               datasources:
+                # --- VictoriaMetrics (Prometheus) ---
                 - name: VictoriaMetrics
                   type: prometheus
                   uid: vm-metrics
@@ -106,6 +107,7 @@
                   access: proxy
                   isDefault: true
 
+                # ---- Quickwit (Logs) ----
                 - name: Quickwit
                   type: quickwit-quickwit-datasource
                   uid: quickwit-logs
@@ -116,7 +118,8 @@
                     logMessageField: message
                     logLevelField: level
                     timeField: timestamp
-                
+
+                # ---- Tempo (Traces) ---- 
                 - name: Tempo
                   type: tempo
                   uid: tempo
@@ -154,6 +157,7 @@
                         - name: "Error Rate"
                           query: 'sum(rate(traces_spanmetrics_calls_total{$$__tags, status_code="STATUS_CODE_ERROR"}[$$__rate_interval])) / sum(rate(traces_spanmetrics_calls_total{$$__tags}[$$__rate_interval]))'
 
+                # ---- Pyroscope (Profiling) ----
                 - name: Pyroscope
                   type: grafana-pyroscope-datasource
                   uid: pyroscope
