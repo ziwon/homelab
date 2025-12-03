@@ -104,16 +104,13 @@ apps:
             metricsGenerator:
               enabled: true
               remoteWriteUrl: "http://vmsingle-vm-stack-victoria-metrics-k8s-stack.monitoring.svc:8428/api/v1/write"
-              processor:
-                span_metrics:
-                  dimensions:
-                    - service.name
-                    - service.namespace
-                service_graphs:
-                  enabled: true
-                  dimensions:
-                    - service.name
-                    - service.namespace
+
+            overrides:
+              defaults:
+                metrics_generator:
+                  processors:
+                    - service-graphs
+                    - span-metrics
 
             storage:
               trace:
