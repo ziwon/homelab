@@ -94,3 +94,8 @@ spec:
             - .spec.rules[].backendRefs[].kind
             - .spec.rules[].matches
             - .spec.rules[].backendRefs[].weight
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .spec.volumeClaimTemplates[]?.apiVersion
+            - .spec.volumeClaimTemplates[]?.kind
