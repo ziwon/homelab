@@ -107,6 +107,7 @@
 
                 - name: Quickwit
                   type: quickwit-quickwit-datasource
+                  uid: quickwit-logs
                   url: http://quickwit-searcher:7280/api/v1
                   access: proxy
                   jsonData:
@@ -128,6 +129,11 @@
                       datasourceUid: quickwit-logs
                       filterByTraceID: true
                       filterBySpanID: true
+                      tags:
+                        - cluster
+                        - namespace
+                        - pod
+                        - container
 
           plugins:
             - victoriametrics-metrics-datasource
