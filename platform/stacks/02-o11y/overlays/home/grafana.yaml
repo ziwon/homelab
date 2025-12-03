@@ -94,7 +94,7 @@
               enabled: true
               label: grafana_datasource
 
-          # Add VictoriaMetrics & Quickwit datasources
+          # VictoriaMetrics, Quickwit, Tempo, Pyroscope Datasources
           datasources:
             datasources.yaml:
               apiVersion: 1
@@ -120,7 +120,7 @@
                 - name: Tempo
                   type: tempo
                   uid: tempo
-                  url: http://tempo.monitoring.svc:3200
+                  url: http://tempo:3200
                   access: proxy
                   jsonData:
                     nodeGraph:
@@ -153,6 +153,15 @@
                           query: 'histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{$$__tags}[$$__rate_interval])) by (le))'
                         - name: "Error Rate"
                           query: 'sum(rate(traces_spanmetrics_calls_total{$$__tags, status_code="STATUS_CODE_ERROR"}[$$__rate_interval])) / sum(rate(traces_spanmetrics_calls_total{$$__tags}[$$__rate_interval]))'
+
+                - name: Pyroscope
+                  type: grafana-pyroscope-datasource
+                  uid: pyroscope
+                  url: http://pyroscope:4040 
+                  access: proxy
+                  isDefault: false
+                  jsonData:
+                    minStep: '15s'
 
           plugins:
             - victoriametrics-metrics-datasource

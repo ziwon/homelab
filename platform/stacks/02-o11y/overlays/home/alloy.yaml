@@ -88,6 +88,13 @@ apps:
                   format = "logfmt"
                 }
 
+                pyroscope.write "default" {
+                  endpoint {
+                    url = "http://pyroscope:4040"
+                  }
+                }
+
+
                 // OTLP Receivers
                 otelcol.receiver.otlp "default" {
                   grpc { endpoint = "0.0.0.0:4317" }
@@ -97,6 +104,26 @@ apps:
                     metrics = [otelcol.processor.batch.default.input]
                     traces  = [otelcol.processor.batch.default.input]
                   }
+                }
+
+                // Pyroscope Scraper, alloy_self profiling
+                pyroscope.scrape "alloy_self" {
+                  targets = [
+                    {
+                      "__address__" = "localhost:12345",
+                      "service_name" = "alloy", 
+                      "cluster"      = "homelab",
+                    },
+                  ]
+                  profiling_config {
+                    profile.process_cpu.enabled    = true
+                    profile.memory.enabled         = true
+                    profile.goroutine.enabled      = true
+                    profile.block.enabled          = false
+                    profile.mutex.enabled          = false
+                  }
+
+                  forward_to = [pyroscope.write.default.receiver]
                 }
 
                 // Batch Processor
@@ -117,7 +144,7 @@ apps:
 
                 prometheus.remote_write "victoriametrics" {
                   endpoint {
-                    url = "http://vmsingle-vm-stack.monitoring.svc:8428/api/v1/write"
+                    url = "http://vmsingle-vm-stack-victoria-metrics-k8s-stack:8428/api/v1/write"
                   }
                   external_labels = {
                     cluster = "homelab",
