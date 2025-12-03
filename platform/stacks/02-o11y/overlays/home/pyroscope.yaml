@@ -1,0 +1,125 @@
+apps:
+  # -----------------------------------------------------------
+  # Pyroscope Prerequisites (HTTPRoute)
+  # SyncWave: 0
+  # -----------------------------------------------------------
+  - name: pyroscope-raw
+    namespace: monitoring
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: pyroscope-raw
+        values: |
+          resources:
+            # HTTPRoute for Pyroscope UI
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: pyroscope
+                namespace: monitoring
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - pyroscope.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: pyroscope
+                        port: 4040
+
+  # -----------------------------------------------------------
+  # Grafana Pyroscope (Continuous Profiling)
+  # SyncWave: 5
+  # -----------------------------------------------------------
+  - name: pyroscope
+    namespace: monitoring
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - pyroscope-raw
+    source:
+      repoURL: https://grafana.github.io/helm-charts
+      chart: pyroscope
+      targetRevision: 1.16.0
+      helm:
+        releaseName: pyroscope
+        values: |
+          pyroscope:
+            replicaCount: 1
+            cluster_domain: cluster.local
+
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
+
+            podSecurityContext:
+              fsGroup: 10001
+              runAsUser: 10001
+              runAsNonRoot: true
+
+            service:
+              type: ClusterIP
+              port: 4040
+              port_name: http2 
+
+            persistence:
+              enabled: false
+              size: 10Gi
+              accessModes:
+                - ReadWriteOnce
+
+          alloy:
+            enabled: false
+
+          minio:
+            enabled: false
+
+          ingress:
+            enabled: false
+
+  # -----------------------------------------------------------
+  # Pyroscope Integrations (VMServiceScrape)
+  # SyncWave: 10
+  # -----------------------------------------------------------
+  - name: pyroscope-integrations
+    namespace: monitoring
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - pyroscope
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: pyroscope-integrations
+        values: |
+          resources:
+            # VMServiceScrape for Pyroscope internal metrics
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: pyroscope-metrics
+                namespace: monitoring
+              spec:
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: pyroscope
+                endpoints:
+                  - port: http2
+                    path: /metrics
+                    interval: 30s
