@@ -94,7 +94,6 @@ apps:
                   }
                 }
 
-
                 // OTLP Receivers
                 otelcol.receiver.otlp "default" {
                   grpc { endpoint = "0.0.0.0:4317" }
@@ -115,12 +114,23 @@ apps:
                       "cluster"      = "homelab",
                     },
                   ]
+
                   profiling_config {
-                    profile.process_cpu.enabled    = true
-                    profile.memory.enabled         = true
-                    profile.goroutine.enabled      = true
-                    profile.block.enabled          = false
-                    profile.mutex.enabled          = false
+                    profile.process_cpu {
+                      enabled = true
+                    }
+                    profile.memory {
+                      enabled = true
+                    }
+                    profile.goroutine {
+                      enabled = true
+                    }
+                    profile.block {
+                      enabled = false
+                    }
+                    profile.mutex {
+                      enabled = false
+                    }
                   }
 
                   forward_to = [pyroscope.write.default.receiver]
@@ -155,7 +165,7 @@ apps:
                 // OTLP Exporter → Tempo (Traces)
                 otelcol.exporter.otlp "tempo" {
                   client {
-                    endpoint = "tempo.monitoring.svc:4317"
+                    endpoint = "tempo:4317"
                     tls {
                       insecure             = true
                       insecure_skip_verify = true
