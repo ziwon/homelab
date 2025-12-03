@@ -113,6 +113,21 @@
                     index: k8s-logs
                     logMessageField: message
                     logLevelField: level
+                
+                - name: Tempo
+                  type: tempo
+                  uid: tempo
+                  url: http://tempo.monitoring.svc:3200
+                  access: proxy
+                  jsonData:
+                    nodeGraph:
+                      enabled: true
+                    search:
+                      hide: false
+                    tracesToLogs:
+                      datasourceUid: quickwit-logs
+                      filterByTraceID: true
+                      filterBySpanID: true
 
           plugins:
             - victoriametrics-metrics-datasource
