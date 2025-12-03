@@ -1,0 +1,183 @@
+apps:
+  # -----------------------------------------------------------
+  # Alloy Prerequisites (HTTPRoute)
+  # SyncWave: 0
+  # -----------------------------------------------------------
+  - name: alloy-raw
+    namespace: monitoring
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: alloy-raw
+        values: |
+          resources:
+            # HTTPRoute for Alloy UI (debugging)
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: alloy
+                namespace: monitoring
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - alloy.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: alloy
+                        port: 12345
+
+  # -----------------------------------------------------------
+  # Grafana Alloy (OTel Collector)
+  # SyncWave: 5
+  # Role: OTLP receiver → batch → export to VictoriaMetrics/Tempo
+  # -----------------------------------------------------------
+  - name: alloy
+    namespace: monitoring
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - alloy-prereqs
+    source:
+      repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.4.0 
+      helm:
+        releaseName: alloy
+        values: |
+          alloy:
+            # UI port (Default values match, but making it explicit is fine)
+            listenAddr: 0.0.0.0
+            listenPort: 12345
+
+            # Resources (Moved inside 'alloy' block based on default.yaml)
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+
+            # Extra ports for OTLP receivers
+            extraPorts:
+              - name: otlp-grpc
+                port: 4317
+                targetPort: 4317
+                protocol: TCP
+              - name: otlp-http
+                port: 4318
+                targetPort: 4318
+                protocol: TCP
+
+            # Alloy configuration (River syntax)
+            configMap:
+              content: |
+                logging {
+                  level  = "info"
+                  format = "logfmt"
+                }
+
+                // OTLP Receivers
+                otelcol.receiver.otlp "default" {
+                  grpc { endpoint = "0.0.0.0:4317" }
+                  http { endpoint = "0.0.0.0:4318" }
+
+                  output {
+                    metrics = [otelcol.processor.batch.default.input]
+                    traces  = [otelcol.processor.batch.default.input]
+                  }
+                }
+
+                // Batch Processor
+                otelcol.processor.batch "default" {
+                  timeout         = "5s"
+                  send_batch_size = 1000
+
+                  output {
+                    metrics = [otelcol.exporter.prometheus.victoriametrics.input]
+                    traces  = [otelcol.exporter.otlp.tempo.input]
+                  }
+                }
+
+                // Prometheus Exporter → VictoriaMetrics
+                otelcol.exporter.prometheus "victoriametrics" {
+                  forward_to = [prometheus.remote_write.victoriametrics.receiver]
+                }
+
+                prometheus.remote_write "victoriametrics" {
+                  endpoint {
+                    url = "http://vmsingle-vm-stack.monitoring.svc:8428/api/v1/write"
+                  }
+                  external_labels = {
+                    cluster = "homelab",
+                    source  = "alloy",
+                  }
+                }
+
+                // OTLP Exporter → Tempo (Traces)
+                otelcol.exporter.otlp "tempo" {
+                  client {
+                    endpoint = "tempo.monitoring.svc:4317"
+                    tls {
+                      insecure             = true
+                      insecure_skip_verify = true
+                    }
+                  }
+                }
+
+          # Controller settings (Stays at root level)
+          controller:
+            type: deployment
+            replicas: 1
+
+          # Service configuration (Stays at root level)
+          service:
+            enabled: true
+            type: ClusterIP
+            # Note: Default port name is usually just 'http' or derived from listenPort.
+            # If VMServiceScrape fails, check the actual port name on the service.
+
+  # -----------------------------------------------------------
+  # Alloy Integrations (VMServiceScrape)
+  # SyncWave: 10
+  # -----------------------------------------------------------
+  - name: alloy-integrations
+    namespace: monitoring
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - alloy
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: alloy-integrations
+        values: |
+          resources:
+            # VMServiceScrape for Alloy metrics
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: alloy-metrics
+                namespace: monitoring
+              spec:
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: alloy
+                endpoints:
+                  # Note: If scraping fails, check if the port name in the Service is 'http' or 'ui' instead of 'http-metrics'
+                  - port: http-metrics
+                    path: /metrics
+                    interval: 30s
