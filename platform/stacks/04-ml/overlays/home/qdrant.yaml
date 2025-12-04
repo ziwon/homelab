@@ -1,0 +1,130 @@
+apps:
+  # -----------------------------------------------------------
+  # Qdrant Cluster Bootstrap
+  # -----------------------------------------------------------
+  - name: qdrant-raw
+    namespace: qdrant
+    project: dev
+    syncWave: "0"
+    dependencies:
+      - qdrant-operator
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: qdrant-raw
+        values: |
+          resources:
+
+            # -----------------------------------------------------------
+            # Qdrant API Key Secret (from Infisical)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: qdrant-managed-secrets
+                namespace: qdrant
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /qdrant
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: qdrant-managed-secrets
+                    secretNamespace: qdrant
+                    creationPolicy: Owner
+              
+            # -----------------------------------------------------------
+            # HTTPRoute for Qdrant
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: qdrant
+                namespace: qdrant
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - qdrant.home.lab
+                rules:
+                  - backendRefs:
+                      - name: qdrant
+                        port: 6333
+  
+  # -----------------------------------------------------------
+  # Qdrant Installation
+  # -----------------------------------------------------------
+  - name: qdrant
+    namespace: qdrant
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - qdrant-raw
+    source:
+      repoURL: https://qdrant.github.io/qdrant-helm
+      chart: qdrant
+      targetRevision: 1.16.2
+      helm:
+        releaseName: qdrant
+        values: |
+          replicaCount: 1
+
+          image:
+            repository: docker.io/qdrant/qdrant
+            tag: v1.16.2
+
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+
+          persistence:
+            accessModes: ["ReadWriteOnce"]
+            size: 10Gi
+            storageClassName: local-path
+
+          config:
+            cluster:
+              enabled: false
+            storage:
+              performance:
+                optimizer_cpu_budget: 2
+
+          apiKey: true
+
+          env:
+            - name: QDRANT__SERVICE__API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: qdrant-managed-secrets
+                  key: api-key
+
+          livenessProbe:
+            enabled: true
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          readinessProbe:
+            enabled: true
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          metrics:
+            serviceMonitor:
+              enabled: true
+              scrapeInterval: 30s
+              targetPort: http
+              targetPath: "/metrics" 
