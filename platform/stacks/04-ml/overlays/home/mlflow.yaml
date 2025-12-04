@@ -62,7 +62,7 @@ apps:
               passwordKey: admin-password
             postgres:
               enabled: true
-              host: cluster-pg-db-ha.postgresql.svc.cluster.local
+              host: cluster-pg-db-ha.postgres.svc.cluster.local
               port: 5432
               database: mlflow
               existingSecret:
@@ -79,8 +79,8 @@ apps:
               cpu: 100m
               memory: 256Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: "1"
+              memory: 1Gi
 
           ingress:
             enabled: false 
