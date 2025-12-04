@@ -1,0 +1,22 @@
+services:
+  ray-node:
+    image: rayproject/ray:2.9.0-py310-gpu
+    container_name: ray_node_single
+    hostname: ray-node
+    restart: always
+
+    # Pinning can be handled inside the container using taskset
+    # cpuset: "0-23"
+
+    shm_size: "32gb"
+
+    gpus: "all"
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+
+    entrypoint: [ "bash", "/usr/local/bin/entrypoint.sh" ]
