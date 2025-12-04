@@ -1,0 +1,165 @@
+apps:
+  # -----------------------------------------------------------
+  # 1. Feast Operator (Base)
+  # -----------------------------------------------------------
+  - name: feast-operator
+    namespace: feast
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://mkerkstra.github.io/feast
+      chart: feast-operator
+      targetRevision: 0.52.0
+      helm:
+        releaseName: feast-operator
+        values: |
+          operator:
+            image:
+              repository: quay.io/feastdev/feast-operator
+              tag: 0.52.0
+              pullPolicy: IfNotPresent
+            
+            replicaCount: 1
+            
+            resources:
+              limits:
+                cpu: 1000m
+                memory: 256Mi
+              requests:
+                cpu: 10m
+                memory: 64Mi
+            
+            crds:
+              install: true
+
+          serviceAccount:
+            create: true
+
+          rbac:
+            create: true
+
+  # -----------------------------------------------------------
+  # 2. Feast Config & CR (Raw)
+  # -----------------------------------------------------------
+  - name: feast-raw
+    namespace: feast
+    project: dev
+    syncWave: "10" 
+    dependencies:
+      - feast-operator
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: feast-raw
+        values: |
+          resources:
+            # -----------------------------------------------------------
+            # Infisical Secret Injection
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: feast-managed-secrets
+                namespace: feast
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /feast
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: feast-store-secrets
+                    secretNamespace: feast
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # FeatureStore CR (Postgres + Redis)
+            # -----------------------------------------------------------
+            - apiVersion: feast.dev/v1alpha1
+              kind: FeatureStore
+              metadata:
+                name: feast-homelab
+                namespace: feast
+              spec:
+                feastProject: "homelab"
+                
+                services:
+                  # [Registry]: Postgres
+                  registry:
+                    remote:
+                      enabled: true
+                      type: sql
+                      secretRef:
+                        name: feast-store-secrets
+                        key: REGISTRY_CONNECTION_STRING
+                  
+                  # [Online Store]: Redis
+                  onlineStore:
+                    enabled: true
+                    persistence:
+                      store:
+                        enabled: true
+                        type: redis
+                        secretRef:
+                          name: feast-store-secrets
+                          key: ONLINE_STORE_CONNECTION_STRING
+
+                  # [Offline Store]: Postgres (SQL)
+                  offlineStore:
+                    enabled: true
+                    persistence:
+                      store:
+                        enabled: true
+                        type: sql
+                        secretRef:
+                          name: feast-store-secrets
+                          key: OFFLINE_STORE_CONNECTION_STRING 
+
+                  ui:
+                    enabled: true
+                    env:
+                      - name: FEAST_REGISTRY_STORE_TYPE
+                        value: sql
+                      - name: FEAST_REGISTRY_CONNECTION_STRING
+                        valueFrom:
+                          secretKeyRef:
+                            name: feast-store-secrets
+                            key: REGISTRY_CONNECTION_STRING
+
+            # -----------------------------------------------------------
+            # HTTPRoute (Gateway API)
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: feast
+                namespace: feast
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - feast.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: feast-homelab-ui 
+                        port: 80
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /get-online-features
+                    backendRefs:
+                      - name: feast-homelab-feature-server
+                        port: 6566
