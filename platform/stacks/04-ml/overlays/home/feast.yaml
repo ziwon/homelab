@@ -73,26 +73,29 @@ apps:
                 feastProject: homelab
 
                 services:
-                  # Online Store - Redis
                   onlineStore:
-                    server: {}
                     persistence:
                       store:
                         type: redis
                         secretRef:
                           name: feast-managed-secrets
-                          # key: REDIS_CONNECTION_STRING
+                    server:
+                      env:
+                        - name: MPLCONFIGDIR
+                          value: /tmp
+                      resources:
+                        requests:
+                          cpu: 100m
+                          memory: 128Mi
 
-                  # Offline Store - PostgreSQL
                   offlineStore:
-                    server: {}
                     persistence:
                       store:
                         type: postgres
                         secretRef:
                           name: feast-managed-secrets
+                    server: {}
 
-                  # Registry - SQL (PostgreSQL)
                   registry:
                     local:
                       persistence:
@@ -100,6 +103,8 @@ apps:
                           type: sql
                           secretRef:
                             name: feast-managed-secrets
+
+                  ui: {}
 
             # -----------------------------------------------------------
             # Feast Online Feature Server HTTPRoute
