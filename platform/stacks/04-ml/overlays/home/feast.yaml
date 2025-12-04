@@ -1,50 +1,30 @@
 apps:
   # -----------------------------------------------------------
-  # 1. Feast Operator (Base)
+  # Feast Operator Install (Kustomize)
   # -----------------------------------------------------------
   - name: feast-operator
-    namespace: feast
+    namespace: feast-system
     project: dev
     syncWave: "5"
+    ignoreDifferences:
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        name: featurestores.feast.dev
+        jsonPointers:
+          - /metadata/annotations
     source:
-      repoURL: https://mkerkstra.github.io/feast
-      chart: feast-operator
-      targetRevision: 0.52.0
-      helm:
-        releaseName: feast-operator
-        values: |
-          operator:
-            image:
-              repository: quay.io/feastdev/feast-operator
-              tag: 0.52.0
-              pullPolicy: IfNotPresent
-            
-            replicaCount: 1
-            
-            resources:
-              limits:
-                cpu: 1000m
-                memory: 256Mi
-              requests:
-                cpu: 10m
-                memory: 64Mi
-            
-            crds:
-              install: true
-
-          serviceAccount:
-            create: true
-
-          rbac:
-            create: true
+      repoURL: https://github.com/ziwon/homelab.git
+      targetRevision: main
+      path: platform/stacks/kustomize/feast-operator
+      kustomize: {}
 
   # -----------------------------------------------------------
-  # 2. Feast Config & CR (Raw)
+  # Feast FeatureStore Bootstrap
   # -----------------------------------------------------------
   - name: feast-raw
     namespace: feast
     project: dev
-    syncWave: "10" 
+    syncWave: "10"
     dependencies:
       - feast-operator
     source:
@@ -55,8 +35,9 @@ apps:
         releaseName: feast-raw
         values: |
           resources:
+
             # -----------------------------------------------------------
-            # Infisical Secret Injection
+            # Feast Managed Secrets (Infisical)
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
@@ -75,67 +56,58 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
                 managedKubeSecretReferences:
-                  - secretName: feast-store-secrets
+                  - secretName: feast-managed-secrets
                     secretNamespace: feast
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
-            # FeatureStore CR (Postgres + Redis)
+            # Feast FeatureStore CR - Homelab MLOps
+            # Redis (Online) + PostgreSQL (Offline/Registry)
             # -----------------------------------------------------------
             - apiVersion: feast.dev/v1alpha1
               kind: FeatureStore
               metadata:
-                name: feast-homelab
+                name: homelab
                 namespace: feast
               spec:
-                feastProject: "homelab"
-                
+                feastProject: homelab
+
                 services:
-                  # [Registry]
+                  # Online Store - Redis
+                  onlineStore:
+                    server: {}
+                    persistence:
+                      store:
+                        type: redis
+                        secretRef:
+                          name: feast-managed-secrets
+                          # key: REDIS_CONNECTION_STRING
+
+                  # Offline Store - PostgreSQL
+                  offlineStore:
+                    server: {}
+                    persistence:
+                      store:
+                        type: postgres
+                        secretRef:
+                          name: feast-managed-secrets
+
+                  # Registry - SQL (PostgreSQL)
                   registry:
                     local:
                       persistence:
                         store:
                           type: sql
                           secretRef:
-                            name: feast-store-secrets
-                            key: REGISTRY_CONNECTION_STRING
-                  
-                  # [Online Store]
-                  onlineStore:
-                    persistence:
-                      store:
-                        type: redis
-                        secretRef:
-                          name: feast-store-secrets
-                          key: ONLINE_STORE_CONNECTION_STRING
-
-                  # [Offline Store]
-                  offlineStore:
-                    persistence:
-                      store:
-                        type: sql
-                        secretRef:
-                          name: feast-store-secrets
-                          key: OFFLINE_STORE_CONNECTION_STRING
-
-                  ui:
-                    env:
-                      - name: FEAST_REGISTRY_STORE_TYPE
-                        value: sql
-                      - name: FEAST_REGISTRY_CONNECTION_STRING
-                        valueFrom:
-                          secretKeyRef:
-                            name: feast-store-secrets
-                            key: REGISTRY_CONNECTION_STRING
+                            name: feast-managed-secrets
 
             # -----------------------------------------------------------
-            # HTTPRoute (Gateway API)
+            # Feast Online Feature Server HTTPRoute
             # -----------------------------------------------------------
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
-                name: feast
+                name: feast-online
                 namespace: feast
               spec:
                 parentRefs:
@@ -145,17 +117,26 @@ apps:
                 hostnames:
                   - feast.home.lab
                 rules:
-                  - matches:
-                      - path:
-                          type: PathPrefix
-                          value: /
-                    backendRefs:
-                      - name: feast-homelab-ui 
+                  - backendRefs:
+                      - name: feast-homelab-online
                         port: 80
-                  - matches:
-                      - path:
-                          type: PathPrefix
-                          value: /get-online-features
-                    backendRefs:
-                      - name: feast-homelab-feature-server
-                        port: 6566
+
+            # -----------------------------------------------------------
+            # Feast Offline Feature Server HTTPRoute
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: feast-offline
+                namespace: feast
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - feast-offline.home.lab
+                rules:
+                  - backendRefs:
+                      - name: feast-homelab-offline
+                        port: 8815
