@@ -1,0 +1,146 @@
+apps:
+  - name: mlflow
+    namespace: mlflow
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - mlflow-raw
+    source:
+      repoURL: https://community-charts.github.io/helm-charts
+      chart: mlflow
+      targetRevision: 1.8.0
+      helm:
+        releaseName: mlflow
+        values: |
+          replicaCount: 1
+
+          image:
+            repository: burakince/mlflow
+            pullPolicy: IfNotPresent
+
+          serviceAccount:
+            create: true
+            automount: true
+
+          service:
+            enabled: true
+            type: ClusterIP
+            port: 80
+            containerPort: 5000
+
+          # Backend Store - PostgreSQL 
+          backendStore:
+            databaseMigration: true
+            databaseConnectionCheck: true
+            postgres:
+              enabled: true
+              host: cluster-pg-db-ha.postgres.svc.cluster.local
+              port: 5432
+              database: mlflow
+              driver: "psycopg2"
+            existingDatabaseSecret:
+              name: mlflow-managed-secrets
+              usernameKey: db-username
+              passwordKey: db-password
+
+          artifactRoot:
+            proxiedArtifactStorage: true
+            s3:
+              enabled: true
+              bucket: mlflow-artifacts
+              existingSecret:
+                name: mlflow-managed-secrets
+                keyOfAccessKeyId: s3-access-key
+                keyOfSecretAccessKey: s3-secret-key
+
+          auth:
+            enabled: true
+            defaultPermission: READ
+            existingAdminSecret:
+              name: mlflow-managed-secrets
+              usernameKey: admin-username
+              passwordKey: admin-password
+            postgres:
+              enabled: true
+              host: cluster-pg-db-ha.postgresql.svc.cluster.local
+              port: 5432
+              database: mlflow
+              existingSecret:
+                name: mlflow-managed-secrets
+                usernameKey: db-username
+                passwordKey: db-password
+
+          extraEnvVars:
+            MLFLOW_S3_ENDPOINT_URL: http://minio-green.minio-green.svc.cluster.local:9000
+            MLFLOW_S3_IGNORE_TLS: "true"
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          ingress:
+            enabled: false 
+
+  - name: mlflow-raw
+    namespace: mlflow
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: mlflow-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: mlflow
+
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: mlflow-managed-secrets
+                namespace: mlflow
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: hme
+                      secretsPath: /mlflow
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: mlflow-managed-secrets
+                    secretNamespace: mlflow
+                    creationPolicy: Owner
+
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: mlflow
+                namespace: mlflow
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - mlflow.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: mlflow
+                        port: 80
+                        weight: 1
