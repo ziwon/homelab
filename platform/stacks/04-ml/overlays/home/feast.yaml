@@ -91,39 +91,35 @@ apps:
                 feastProject: "homelab"
                 
                 services:
-                  # [Registry]: Postgres
+                  # [Registry]
                   registry:
-                    remote:
-                      enabled: true
-                      type: sql
-                      secretRef:
-                        name: feast-store-secrets
-                        key: REGISTRY_CONNECTION_STRING
+                    local:
+                      persistence:
+                        store:
+                          type: sql
+                          secretRef:
+                            name: feast-store-secrets
+                            key: REGISTRY_CONNECTION_STRING
                   
-                  # [Online Store]: Redis
+                  # [Online Store]
                   onlineStore:
-                    enabled: true
                     persistence:
                       store:
-                        enabled: true
                         type: redis
                         secretRef:
                           name: feast-store-secrets
                           key: ONLINE_STORE_CONNECTION_STRING
 
-                  # [Offline Store]: Postgres (SQL)
+                  # [Offline Store]
                   offlineStore:
-                    enabled: true
                     persistence:
                       store:
-                        enabled: true
                         type: sql
                         secretRef:
                           name: feast-store-secrets
-                          key: OFFLINE_STORE_CONNECTION_STRING 
+                          key: OFFLINE_STORE_CONNECTION_STRING
 
                   ui:
-                    enabled: true
                     env:
                       - name: FEAST_REGISTRY_STORE_TYPE
                         value: sql
