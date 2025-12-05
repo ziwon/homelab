@@ -3,7 +3,7 @@ apps:
   # Feast Operator Install (Kustomize)
   # -----------------------------------------------------------
   - name: feast-operator
-    namespace: feast-system
+    namespace: feast-operator-system
     project: dev
     syncWave: "5"
     ignoreDifferences:
@@ -22,7 +22,7 @@ apps:
   # Feast FeatureStore Bootstrap
   # -----------------------------------------------------------
   - name: feast-raw
-    namespace: feast
+    namespace: feast-system
     project: dev
     syncWave: "10"
     dependencies:
@@ -43,7 +43,7 @@ apps:
               kind: InfisicalSecret
               metadata:
                 name: feast-managed-secrets
-                namespace: feast
+                namespace: feast-system
               spec:
                 hostAPI: https://app.infisical.com/api
                 authentication:
@@ -57,7 +57,7 @@ apps:
                       secretNamespace: infisical
                 managedKubeSecretReferences:
                   - secretName: feast-managed-secrets
-                    secretNamespace: feast
+                    secretNamespace: feast-system
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
@@ -68,7 +68,7 @@ apps:
               kind: FeatureStore
               metadata:
                 name: homelab
-                namespace: feast
+                namespace: feast-system
               spec:
                 feastProject: homelab
 
@@ -114,7 +114,7 @@ apps:
               kind: HTTPRoute
               metadata:
                 name: feast-online
-                namespace: feast
+                namespace: feast-system
               spec:
                 parentRefs:
                   - name: cilium
@@ -134,7 +134,7 @@ apps:
               kind: HTTPRoute
               metadata:
                 name: feast-offline
-                namespace: feast
+                namespace: feast-system
               spec:
                 parentRefs:
                   - name: cilium
@@ -154,7 +154,7 @@ apps:
               kind: HTTPRoute
               metadata:
                 name: feast-ui
-                namespace: feast
+                namespace: feast-system
               spec:
                 parentRefs:
                   - name: cilium
