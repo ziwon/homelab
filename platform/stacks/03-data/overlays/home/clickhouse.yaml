@@ -170,10 +170,10 @@ apps:
                     feast/profile: default
                     feast/quota: default
 
-                  settings:
-                    max_memory_usage: 6442450944                   # 6 * 1024^3
-                    max_bytes_before_external_group_by: 3221225472 # 3 * 1024^3
-                    max_bytes_before_external_sort: 3221225472     # 3 * 1024^3
+                  profiles:
+                    default/max_memory_usage: 6442450944                   # 6 * 1024^3
+                    default/max_bytes_before_external_group_by: 3221225472 # 3 * 1024^3
+                    default/max_bytes_before_external_sort: 3221225472     # 3 * 1024^3
 
                   clusters:
                     - name: homelab
