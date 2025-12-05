@@ -1,0 +1,285 @@
+apps:
+  # -----------------------------------------------------------
+  # ClickHouse Operator Install (Kustomize)
+  # -----------------------------------------------------------
+  - name: clickhouse-crds
+    namespace: clickhouse
+    project: dev
+    syncWave: "0"
+    ignoreDifferences:
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        name: clickhouseinstallations.clickhouse.altinity.com
+        jsonPointers:
+          - /metadata/annotations
+    source:
+      repoURL: https://github.com/ziwon/homelab.git
+      targetRevision: main
+      path: platform/stacks/kustomize/clickhouse-operator
+      kustomize: {}
+  
+  # -----------------------------------------------------------
+  # ClickHouse Operator (Altinity)
+  # -----------------------------------------------------------
+  - name: clickhouse-operator
+    namespace: clickhouse
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://altinity.github.io/helm-charts
+      chart: altinity-clickhouse-operator
+      targetRevision: 0.25.5
+      helm:
+        releaseName: clickhouse-operator
+        values: |
+          configs:
+            files:
+              config.yaml:
+                watch:
+                  namespaces:
+                    - clickhouse
+          operator:
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+
+  # -----------------------------------------------------------
+  # ClickHouse Cluster + Secrets + HTTPRoute (Raw)
+  # -----------------------------------------------------------
+  - name: clickhouse-raw
+    namespace: clickhouse
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - clickhouse-operator
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: clickhouse-raw
+        values: |
+          resources:
+            # -----------------------------------------------------------
+            # ClickHouse Managed Secrets (Infisical)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: clickhouse-managed-secrets
+                namespace: clickhouse
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /clickhouse
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: clickhouse-managed-secrets
+                    secretNamespace: clickhouse
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # ClickHouseInstallation - homelab (For Feast Offline Store)
+            # -----------------------------------------------------------
+            - apiVersion: clickhouse.altinity.com/v1
+              kind: ClickHouseInstallation
+              metadata:
+                name: homelab
+                namespace: clickhouse
+              spec:
+                defaults:
+                  storageManagement:
+                    provisioner: StatefulSet
+                    reclaimPolicy: Retain
+                  templates:
+                    podTemplate: homelab
+                    dataVolumeClaimTemplate: ch-data
+                    logVolumeClaimTemplate: ch-logs
+
+                # -----------------------------------------------------------
+                # Template Configuration: Pod Templates + Volume Claim Templates
+                # -----------------------------------------------------------
+                templates:
+                  podTemplates:
+                    - name: homelab
+                      spec:
+                        containers:
+                          - name: clickhouse
+                            image: altinity/clickhouse-server:25.3.8.10041.altinitystable
+                            imagePullPolicy: IfNotPresent
+                            ports:
+                              - name: http
+                                containerPort: 8123
+                              - name: tcp
+                                containerPort: 9000
+                            resources:
+                              requests:
+                                cpu: 500m
+                                memory: 4Gi
+                              limits:
+                                memory: 8Gi
+                            envFrom:
+                              - secretRef:
+                                  name: clickhouse-managed-secrets
+                            volumeMounts:
+                              - name: ch-data
+                                mountPath: /var/lib/clickhouse
+                              - name: ch-logs
+                                mountPath: /var/log/clickhouse-server
+
+                  volumeClaimTemplates:
+                    - name: ch-data
+                      spec:
+                        storageClassName: clickhouse-local
+                        accessModes: [ "ReadWriteOnce" ]
+                        resources:
+                          requests:
+                            storage: 200Gi
+
+                    - name: ch-logs
+                      spec:
+                        storageClassName: clickhouse-local
+                        accessModes: [ "ReadWriteOnce" ]
+                        resources:
+                          requests:
+                            storage: 5Gi
+
+                # -----------------------------------------------------------
+                # ClickHouse configuration: Feast user + memory + cluster layout
+                # -----------------------------------------------------------
+                configuration:
+                  users:
+                    feast/password_sha256_hex:
+                      valueFrom:
+                        secretKeyRef:
+                          name: clickhouse-managed-secrets
+                          key: FEAST_PASSWORD_SHA256
+                    feast/networks/ip:
+                      - 10.42.0.0/16
+                      - 10.142.0.0/16
+                    feast/profile: default
+                    feast/quota: default
+
+                  settings:
+                    max_memory_usage: 6442450944                   # 6 * 1024^3
+                    max_bytes_before_external_group_by: 3221225472 # 3 * 1024^3
+                    max_bytes_before_external_sort: 3221225472     # 3 * 1024^3
+
+                  clusters:
+                    - name: homelab
+                      templates:
+                        podTemplate: homelab
+                        dataVolumeClaimTemplate: ch-data
+                        logVolumeClaimTemplate: ch-logs
+                      layout:
+                        shardsCount: 1
+                        replicasCount: 1
+
+            # ----------------------------------------------------------
+            # Storage class for ClickHouse (local-path)
+            # ----------------------------------------------------------
+            - apiVersion: storage.k8s.io/v1
+              kind: StorageClass
+              metadata:
+                name: clickhouse-local
+              provisioner: kubernetes.io/no-provisioner
+              volumeBindingMode: WaitForFirstConsumer
+
+            # -----------------------------------------------------------
+            # ClickHouse PV for Data
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: PersistentVolume
+              metadata:
+                name: pv-clickhouse-data
+              spec:
+                capacity:
+                  storage: 200Gi
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: clickhouse-local
+                persistentVolumeReclaimPolicy: Retain
+                volumeMode: Filesystem
+                local:
+                  path: /data/clickhouse/data
+                nodeAffinity:
+                  required:
+                    nodeSelectorTerms:
+                      - matchExpressions:
+                          - key: kubernetes.io/hostname
+                            operator: In
+                            values:
+                              - aaron-lgt
+
+            # -----------------------------------------------------------
+            # ClickHouse PV for Logs
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: PersistentVolume
+              metadata:
+                name: pv-clickhouse-logs
+              spec:
+                capacity:
+                  storage: 5Gi
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: clickhouse-local
+                persistentVolumeReclaimPolicy: Retain
+                volumeMode: Filesystem
+                local:
+                  path: /data/clickhouse/logs
+                nodeAffinity:
+                  required:
+                    nodeSelectorTerms:
+                      - matchExpressions:
+                          - key: kubernetes.io/hostname
+                            operator: In
+                            values:
+                              - aaron-lgt
+
+            # -----------------------------------------------------------
+            # ClickHouse Service
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: clickhouse
+                namespace: clickhouse
+              spec:
+                type: ClusterIP
+                selector:
+                  clickhouse.altinity.com/chi: homelab
+                ports:
+                  - name: http
+                    port: 8123
+                    targetPort: 8123
+
+            # -----------------------------------------------------------
+            # ClickHouse HTTPRoute
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: clickhouse
+                namespace: clickhouse
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - ch.home.lab
+                rules:
+                  - backendRefs:
+                      - name: clickhouse
+                        port: 8123
