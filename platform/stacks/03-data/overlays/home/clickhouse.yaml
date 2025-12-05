@@ -176,7 +176,7 @@ apps:
                     default/max_bytes_before_external_sort: 3221225472     # 3 * 1024^3
 
                   clusters:
-                    - name: homelab
+                    - name: default
                       templates:
                         podTemplate: homelab
                         dataVolumeClaimTemplate: ch-data
@@ -237,7 +237,7 @@ apps:
                 persistentVolumeReclaimPolicy: Retain
                 volumeMode: Filesystem
                 local:
-                  path: /data/clickhouse/logs
+                  path: /cache/clickhouse/logs
                 nodeAffinity:
                   required:
                     nodeSelectorTerms:
