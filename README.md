@@ -30,12 +30,11 @@ A modular Kubernetes homelab that evolves from GitOps automation to AI-driven or
 
 ## Features
 
-- **MicroK8s-ready**: Optimized for single-node or lightweight multi-node clusters.  
+- **K3s-ready**: Optimized for single-node or lightweight multi-node clusters.  
 - **Cilium eBPF Networking**: Secure and high-performance data plane.  
 - **GitOps-first Design**: Declarative Argo CD App-of-Apps pattern.  
 - **Infisical Operator Integration**: Secure external secret management.  
 - **Modular Helmfile Releases**: Each infra component managed independently.  
-- **Local & CI Friendly**: Easy testing and linting through Helmfile CLI.  
 
 ---
 
