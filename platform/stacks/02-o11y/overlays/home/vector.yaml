@@ -300,6 +300,15 @@ apps:
                     }
                   }
 
+                  # Lower Argo CD DiffFromCache errors to warn level
+                  if exists(.k8s) &&
+                    .k8s.ns == "argocd" &&
+                    .k8s.app == "argocd-application-controller" &&
+                    exists(.message) &&
+                    contains!(.message, "DiffFromCache error: error getting managed resources for app") {
+                    .level = "warn"
+                  }
+
                   # Add timestamp if it doesn't exist
                   if !exists(.timestamp) {
                     .timestamp = now()
