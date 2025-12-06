@@ -1,5 +1,5 @@
-{{- $open := "{{" -}}
-{{- $close := "}}" -}}
+{{- $o := "{{" -}}
+{{- $c := "}}" -}}
 
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -22,26 +22,26 @@ spec:
               files:
                 - path: 'platform/stacks/*/overlays/{{ .Values.environment }}/*.yaml'
           - list:
-              elementsYaml: '{{$open}} $apps := get . "apps" {{$close}}{{$open}} if $apps {{$close}}{{$open}} toJson $apps {{$close}}{{$open}} else {{$close}}[]{{$open}} end {{$close}}'
+              elementsYaml: '{{$o}} $apps := get . "apps" {{$c}}{{$o}} if $apps {{$c}}{{$o}} toJson $apps {{$c}}{{$o}} else {{$c}}[]{{$o}} end {{$c}}'
 
   template:
     metadata:
-      name: "{{$open}} .name {{$close}}"
+      name: "{{$o}} .name {{$c}}"
       namespace: argocd
       labels:
-        layer: '{{$open}}- $filePath := get .path "path" {{$close}}{{$open}} if $filePath {{$close}}{{$open}} index (splitList "/" $filePath) 2 {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
+        layer: '{{$o}}- $filePath := get .path "path" {{$c}}{{$o}} if $filePath {{$c}}{{$o}} index (splitList "/" $filePath) 2 {{$c}}{{$o}} else {{$c}}unknown{{$o}} end {{$c}}'
         environment: "{{ .Values.environment }}"
         managed-by: argocd
-        app-type: '{{$open}} if hasKey . "source" {{$close}}{{$open}}- if hasKey .source "chart" {{$close}}helm{{$open}}- else if hasKey .source "kustomize" {{$close}}kustomize{{$open}}- else {{$close}}raw{{$open}}- end {{$close}}{{$open}} else if hasKey . "sourceType" {{$close}}{{$open}} .sourceType {{$close}}{{$open}} else {{$close}}unknown{{$open}} end {{$close}}'
+        app-type: '{{$o}} if hasKey . "source" {{$c}}{{$o}}- if hasKey .source "chart" {{$c}}helm{{$o}}- else if hasKey .source "kustomize" {{$c}}kustomize{{$o}}- else {{$c}}raw{{$o}}- end {{$c}}{{$o}} else if hasKey . "sourceType" {{$c}}{{$o}} .sourceType {{$c}}{{$o}} else {{$c}}unknown{{$o}} end {{$c}}'
       annotations:
-        argocd.argoproj.io/sync-wave: '{{$open}} default "0" .syncWave {{$close}}'
+        argocd.argoproj.io/sync-wave: '{{$o}} default "0" .syncWave {{$c}}'
 
     spec:
       # debug: {{ toJson . }}
-      project: '{{$open}} .project {{$close}}'
+      project: '{{$o}} .project {{$c}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{$open}} .namespace {{$close}}'
+        namespace: '{{$o}} .namespace {{$c}}'
       syncPolicy:
         automated:
           prune: true
@@ -56,11 +56,11 @@ spec:
   templatePatch: |
     spec:
       source:
-    {{$open}} if hasKey . "source" {{$close}}
-    {{$open}} toYaml .source | indent 10 {{$close}}
-    {{$open}} else {{$close}}
+    {{$o}} if hasKey . "source" {{$c}}
+    {{$o}} toYaml .source | indent 10 {{$c}}
+    {{$o}} else {{$c}}
         repoURL: ''
-    {{$open}} end {{$close}}
+    {{$o}} end {{$c}}
 
       dependencies:
     {{- range .dependencies }}
