@@ -397,11 +397,12 @@ apps:
                 replicationFactor: 1
                 
                 additionalConfig:
-                  cleanup.policy: "delete"       
-                  retention.ms: "604800000"      # 7 days
-                  retention.bytes: "21474836480" # 20G
-                  segment.bytes: "67108864"      # 64MB, optimized for homelab
-                
+                  cleanup.policy: "delete"
+                  retention.ms: "86400000"      # 1d (consumer buffer for handling failures)
+                  retention.bytes: "5368709120" # 5G
+                  segment.bytes: "67108864"     # 64MB
+                  segment.ms: "3600000"         # 1H (rapid segment rollover)
+                  
                 kafkaApiSpec:
                   brokers:
                     - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
