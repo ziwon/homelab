@@ -71,7 +71,7 @@ This layer provides the user interface for monitoring and debugging.
         *   Quickwit (Logs)
         *   Prometheus (Metrics - via VictoriaMetrics)
         *   Tempo (Traces)
-*   **Periscope APM**:
+*   **Pyroscope APM**:
     *   Role: Application Performance Monitoring.
     *   Features:
         *   **Service Map**: Visualizes dependencies.
