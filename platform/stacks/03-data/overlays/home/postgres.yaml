@@ -54,6 +54,8 @@ apps:
                     storage: 100Gi
 
           patroni:
+            log:
+              level: ERROR
             dynamicConfiguration:
               postgresql:
                 pg_hba:
