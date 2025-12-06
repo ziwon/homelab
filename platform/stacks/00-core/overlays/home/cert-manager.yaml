@@ -134,3 +134,75 @@ apps:
                           apiTokenSecretRef:
                             name: cloudflare-api-token
                             key: api-token
+
+  # Metrics for cert-manager components
+  - name: cert-manager-metrics
+    namespace: cert-manager
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - cert-manager
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: cert-manager-bootstrap
+        values: |
+          resources:
+            # cert-manager main controller
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: cert-manager-metrics
+                namespace: monitoring
+              spec:
+                namespaceSelector:
+                  matchNames:
+                    - cert-manager
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: cert-manager
+                    app.kubernetes.io/component: controller
+                endpoints:
+                  - port: tcp-prometheus-servicemonitor
+                    path: /metrics
+                    interval: 30s
+
+            # cert-manager cainjector
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: cert-manager-cainjector-metrics
+                namespace: monitoring
+              spec:
+                namespaceSelector:
+                  matchNames:
+                    - cert-manager
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: cainjector
+                    app.kubernetes.io/component: cainjector
+                endpoints:
+                  - port: tcp-prometheus-servicemonitor
+                    path: /metrics
+                    interval: 30s
+
+            # cert-manager webhook
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: cert-manager-webhook-metrics
+                namespace: monitoring
+              spec:
+                namespaceSelector:
+                  matchNames:
+                    - cert-manager
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: webhook
+                    app.kubernetes.io/component: webhook
+                endpoints:
+                  - port: tcp-prometheus-servicemonitor
+                    path: /metrics
+                    interval: 30s
