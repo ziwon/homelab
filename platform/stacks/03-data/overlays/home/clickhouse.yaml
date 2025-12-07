@@ -158,15 +158,30 @@ apps:
                 # ClickHouse configuration: Feast user + memory + cluster layout
                 # -----------------------------------------------------------
                 configuration:
+                  files:
+                    config.d/startup_scripts.xml: |
+                      <clickhouse>
+                        <startup_scripts>
+                          <scripts>
+                            <query>CREATE DATABASE IF NOT EXISTS feast</query>
+                          </scripts>
+                        </startup_scripts>
+                      </clickhouse>
+
                   users:
                     feast/password_sha256_hex:
                       valueFrom:
                         secretKeyRef:
                           name: clickhouse-managed-secrets
                           key: FEAST_PASSWORD_SHA256
+
+                    feast/allow_databases/database:
+                      - feast
+
                     feast/networks/ip:
                       - 10.42.0.0/16
                       - 10.142.0.0/16
+
                     feast/profile: default
                     feast/quota: default
 
