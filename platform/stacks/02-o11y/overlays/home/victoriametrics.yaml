@@ -185,53 +185,7 @@ apps:
               EtcdHighNumberOfFailedGRPCRequests: true # Optimized for K3s Homelab
 
           kubelet:
-            enabled: true
-            serviceMonitor:
-              https: true 
-              insecureSkipVerify: true
-            vmScrapes:
-              cadvisor:
-                enabled: true
-                spec:
-                  honorLabels: true
-                  path: /metrics/cadvisor
-                  relabelConfigs:
-                    - action: labeldrop
-                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
-                  metricRelabelConfigs:
-                    - action: labeldrop
-                      regex: (id|name|image_id)
-              kubelet:
-                spec:
-                  honorLabels: true
-                  relabelConfigs:
-                    - action: labeldrop
-                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
-                  metricRelabelConfigs:
-                    - action: labeldrop
-                      regex: (uid)
-              probes:
-                enabled: true
-                spec:
-                  honorLabels: true
-                  path: /metrics/probes
-                  relabelConfigs:
-                    - action: labeldrop
-                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
-                  metricRelabelConfigs:
-                    - action: labeldrop
-                      regex: (uid|id|name)
-              resources:
-                enabled: true
-                spec:
-                  honorLabels: true
-                  path: /metrics/resource
-                  relabelConfigs:
-                    - action: labeldrop
-                      regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
-                  metricRelabelConfigs:
-                    - action: labeldrop
-                      regex: (uid|id|name)
+            enabled: false # Managed via VMNodeScrape below
 
           kubeControllerManager:
             enabled: false
@@ -276,6 +230,92 @@ apps:
         releaseName: vm-stack-scrapes
         values: |
           resources:
+            # -----------------------------------------------------------
+            # Kubelet Scrapes (VMNodeScrape)
+            # -----------------------------------------------------------
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMNodeScrape
+              metadata:
+                name: kubelet-metrics
+                namespace: monitoring
+              spec:
+                path: /metrics
+                port: https-metrics
+                scheme: https
+                tlsConfig:
+                  insecureSkipVerify: true
+                  caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                relabelConfigs:
+                  - action: labeldrop
+                    regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                metricRelabelConfigs:
+                  - action: labeldrop
+                    regex: (uid)
+
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMNodeScrape
+              metadata:
+                name: kubelet-cadvisor
+                namespace: monitoring
+              spec:
+                path: /metrics/cadvisor
+                port: https-metrics
+                scheme: https
+                tlsConfig:
+                  insecureSkipVerify: true
+                  caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                relabelConfigs:
+                  - action: labeldrop
+                    regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                metricRelabelConfigs:
+                  - action: labeldrop
+                    regex: (id|name|image_id)
+
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMNodeScrape
+              metadata:
+                name: kubelet-probes
+                namespace: monitoring
+              spec:
+                path: /metrics/probes
+                port: https-metrics
+                scheme: https
+                tlsConfig:
+                  insecureSkipVerify: true
+                  caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                relabelConfigs:
+                  - action: labeldrop
+                    regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                metricRelabelConfigs:
+                  - action: labeldrop
+                    regex: (uid|id|name)
+
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMNodeScrape
+              metadata:
+                name: kubelet-resources
+                namespace: monitoring
+              spec:
+                path: /metrics/resource
+                port: https-metrics
+                scheme: https
+                tlsConfig:
+                  insecureSkipVerify: true
+                  caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                relabelConfigs:
+                  - action: labeldrop
+                    regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
+                metricRelabelConfigs:
+                  - action: labeldrop
+                    regex: (uid|id|name)
+
+            # -----------------------------------------------------------
+            # Service Scrapes (VMServiceScrape)
+            # -----------------------------------------------------------
             # Vector Metrics
             - apiVersion: operator.victoriametrics.com/v1beta1
               kind: VMServiceScrape
