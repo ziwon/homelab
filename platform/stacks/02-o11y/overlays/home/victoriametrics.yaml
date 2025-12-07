@@ -273,7 +273,7 @@ apps:
                     regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
                 metricRelabelConfigs:
                   - action: labeldrop
-                    regex: (id|name|image_id)
+                    regex: (id|image_id)
 
             - apiVersion: operator.victoriametrics.com/v1beta1
               kind: VMNodeScrape
@@ -293,7 +293,7 @@ apps:
                     regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
                 metricRelabelConfigs:
                   - action: labeldrop
-                    regex: (uid|id|name)
+                    regex: (uid|id)
 
             - apiVersion: operator.victoriametrics.com/v1beta1
               kind: VMNodeScrape
@@ -313,7 +313,7 @@ apps:
                     regex: (feature_node_kubernetes_io_.*|beta_kubernetes_io_.*|nvidia_com_.*|node_role_kubernetes_io_.*)
                 metricRelabelConfigs:
                   - action: labeldrop
-                    regex: (uid|id|name)
+                    regex: (uid|id)
 
             # -----------------------------------------------------------
             # Service Scrapes (VMServiceScrape)
