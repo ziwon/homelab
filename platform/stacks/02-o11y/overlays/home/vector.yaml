@@ -156,16 +156,20 @@ apps:
                 type: "filter"
                 inputs: ["k8s_logs"]
                 condition: |
-                  (
-                    !exists(.kubernetes.pod_namespace) ||
-                    (
-                      to_string!(.kubernetes.pod_namespace) != "kube-system" &&
-                      to_string!(.kubernetes.pod_namespace) != "monitoring"
-                    )
-                  ) && (
-                    !exists(.kubernetes.container_name) ||
-                    .kubernetes.container_name != "replication-cert-copy"
-                  )
+                  include = true
+
+                  # Exclude kube-system and monitoring namespaces
+                  if exists(.kubernetes.pod_namespace) {
+                    ns = to_string!(.kubernetes.pod_namespace)
+                    include = include && ns != "kube-system" && ns != "monitoring"
+                  }
+
+                  # Exclude postgres replication-cert-copy container logs
+                  if exists(.kubernetes.container_name) {
+                    include = include && .kubernetes.container_name != "replication-cert-copy"
+                  }
+
+                  include
               
               remap_logs:
                 type: "remap"
