@@ -198,7 +198,7 @@ apps:
               enabled: false
 
           kubeEtcd:
-            enabled: true
+            enabled: false
 
           coreDns:
             enabled: true

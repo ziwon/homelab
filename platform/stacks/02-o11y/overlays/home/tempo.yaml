@@ -193,6 +193,7 @@ apps:
                 selector:
                   matchLabels:
                     app.kubernetes.io/name: tempo
+                    app.kubernetes.io/instance: tempo
                 endpoints:
                   - port: http
                     path: /metrics

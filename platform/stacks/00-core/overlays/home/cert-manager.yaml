@@ -181,7 +181,7 @@ apps:
                     - cert-manager
                 selector:
                   matchLabels:
-                    app.kubernetes.io/name: cainjector
+                    app.kubernetes.io/name: cert-manager
                     app.kubernetes.io/component: cainjector
                 endpoints:
                   - port: tcp-prometheus-servicemonitor
@@ -200,7 +200,7 @@ apps:
                     - cert-manager
                 selector:
                   matchLabels:
-                    app.kubernetes.io/name: webhook
+                    app.kubernetes.io/name: cert-manager
                     app.kubernetes.io/component: webhook
                 endpoints:
                   - port: tcp-prometheus-servicemonitor
