@@ -139,6 +139,8 @@ apps:
 
           vmagent:
             enabled: true
+            serviceMonitor:
+              enabled: false # Managed via VMServiceScrape below
             spec:
               selectAllByDefault: true
               scrapeInterval: 30s
@@ -366,3 +368,19 @@ apps:
                     scheme: https
                     tlsConfig:
                       insecureSkipVerify: true
+
+            # vmagent Metrics (Self-Scrape)
+            - apiVersion: operator.victoriametrics.com/v1beta1
+              kind: VMServiceScrape
+              metadata:
+                name: vmagent-metrics
+                namespace: monitoring
+              spec:
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: vmagent
+                    app.kubernetes.io/instance: vm-stack
+                endpoints:
+                  - port: http
+                    path: /metrics
+                    interval: 30s
