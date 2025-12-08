@@ -80,7 +80,7 @@ apps:
                         secretRef:
                           name: feast-managed-secrets
                     server:
-                      image: harbor.home.lab/restack/feast-server:0.57.0
+                      image: ghcr.io/ziwon/feast-server:0.57.0
                       env:
                         - name: MPLCONFIGDIR
                           value: /tmp
@@ -96,7 +96,7 @@ apps:
                         secretRef:
                           name: feast-managed-secrets
                     server:
-                      image: harbor.home.lab/restack/feast-server:0.57.0
+                      image: ghcr.io/ziwon/feast-server:0.57.0
 
                   registry:
                     local:
@@ -106,7 +106,8 @@ apps:
                           secretRef:
                             name: feast-managed-secrets
 
-                  ui: {}
+                  ui:
+                    image: ghcr.io/ziwon/feast-server:0.57.0
 
             # -----------------------------------------------------------
             # Feast Online Feature Server HTTPRoute
