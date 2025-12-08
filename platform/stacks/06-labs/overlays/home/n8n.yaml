@@ -85,6 +85,8 @@ apps:
                           - --no-autoupdate
                           - --metrics
                           - 0.0.0.0:2000
+                          - --protocol
+                          - http2
                           - run
                         env:
                           - name: TUNNEL_TOKEN
@@ -210,10 +212,20 @@ apps:
               # Queue
               - name: EXECUTIONS_MODE
                 value: queue
+              - name: N8N_RUNNERS_ENABLED
+                value: "true"
+              - name: N8N_GIT_NODE_DISABLE_BARE_REPOS
+                value: "true"
+              - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
+                value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis.redis.svc
+                value: redis-sentinel.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
-                value: "6379"
+                value: "26379"
+              - name: QUEUE_BULL_REDIS_SENTINEL_NAME
+                value: master
+              - name: QUEUE_BULL_REDIS_DB
+                value: "1"
               - name: QUEUE_BULL_REDIS_PASSWORD
                 valueFrom:
                   secretKeyRef:
@@ -230,7 +242,8 @@ apps:
               limits:
                 cpu: "1"
                 memory: 1Gi
-            env:
+
+            extraEnv:
               - name: N8N_HOST
                 value: n8n.restack.tech
               - name: N8N_PORT
@@ -244,6 +257,49 @@ apps:
                   secretKeyRef:
                     name: n8n-managed-secrets
                     key: N8N_ENCRYPTION_KEY
+
+              # PostgreSQL
+              - name: DB_TYPE
+                value: postgresdb
+              - name: DB_POSTGRESDB_HOST
+                value: cluster-pg-db-ha.postgres.svc
+              - name: DB_POSTGRESDB_PORT
+                value: "5432"
+              - name: DB_POSTGRESDB_DATABASE
+                value: n8n
+              - name: DB_POSTGRESDB_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: DB_USER
+              - name: DB_POSTGRESDB_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: DB_PASSWORD
+
+              # Queue
+              - name: EXECUTIONS_MODE
+                value: queue
+              - name: N8N_RUNNERS_ENABLED
+                value: "true"
+              - name: N8N_GIT_NODE_DISABLE_BARE_REPOS
+                value: "true"
+              - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
+                value: "true"
+              - name: QUEUE_BULL_REDIS_HOST
+                value: redis-sentinel.redis.svc
+              - name: QUEUE_BULL_REDIS_PORT
+                value: "26379"
+              - name: QUEUE_BULL_REDIS_SENTINEL_NAME
+                value: master
+              - name: QUEUE_BULL_REDIS_DB
+                value: "1"
+              - name: QUEUE_BULL_REDIS_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: REDIS_PASSWORD
 
           webhook:
             enabled: false
