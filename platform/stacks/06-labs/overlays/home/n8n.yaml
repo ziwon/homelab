@@ -224,9 +224,16 @@ apps:
                 value: "26379"
               - name: QUEUE_BULL_REDIS_SENTINEL_NAME
                 value: master
+              - name: QUEUE_BULL_REDIS_SENTINELS
+                value: '[{"host":"redis-sentinel.redis.svc","port":26379}]'
               - name: QUEUE_BULL_REDIS_DB
                 value: "1"
               - name: QUEUE_BULL_REDIS_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: REDIS_PASSWORD
+              - name: QUEUE_BULL_REDIS_SENTINEL_PASSWORD
                 valueFrom:
                   secretKeyRef:
                     name: n8n-managed-secrets
@@ -293,9 +300,16 @@ apps:
                 value: "26379"
               - name: QUEUE_BULL_REDIS_SENTINEL_NAME
                 value: master
+              - name: QUEUE_BULL_REDIS_SENTINELS
+                value: '[{"host":"redis-sentinel.redis.svc","port":26379}]'
               - name: QUEUE_BULL_REDIS_DB
                 value: "1"
               - name: QUEUE_BULL_REDIS_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: REDIS_PASSWORD
+              - name: QUEUE_BULL_REDIS_SENTINEL_PASSWORD
                 valueFrom:
                   secretKeyRef:
                     name: n8n-managed-secrets
