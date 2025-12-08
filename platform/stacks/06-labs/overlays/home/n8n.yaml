@@ -219,7 +219,7 @@ apps:
               - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
                 value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis.redis.svc
+                value: redis-1.redis-headless.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
                 value: "6379"
               - name: QUEUE_BULL_REDIS_DB
@@ -296,6 +296,10 @@ apps:
                   secretKeyRef:
                     name: n8n-managed-secrets
                     key: REDIS_PASSWORD
+              - name: QUEUE_HEALTH_CHECK_ACTIVE
+                value: "true"
+              - name: QUEUE_HEALTH_CHECK_PORT
+                value: "5678"
 
           webhook:
             enabled: false
