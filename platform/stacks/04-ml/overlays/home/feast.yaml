@@ -88,14 +88,12 @@ apps:
                           cpu: 100m
                           memory: 128Mi
 
-                  ## Will be repladed with ClickHouse in future
                   offlineStore:
                     persistence:
                       store:
-                        type: postgres
+                        type: clickhouse
                         secretRef:
                           name: feast-managed-secrets
-                    server: {}
 
                   registry:
                     local:
