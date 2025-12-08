@@ -89,9 +89,10 @@ apps:
             - name: authentik
               databases:
                 - authentik
-              databases:
-                - authentik
               options: "CREATEDB CREATEROLE"
+            - name: n8n
+              databases:
+                - n8n
 
           proxy:
             pgBouncer:
