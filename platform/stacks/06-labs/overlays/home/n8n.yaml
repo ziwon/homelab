@@ -219,21 +219,12 @@ apps:
               - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
                 value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis-sentinel.redis.svc
+                value: redis.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
-                value: "26379"
-              - name: QUEUE_BULL_REDIS_SENTINEL_NAME
-                value: master
-              - name: QUEUE_BULL_REDIS_SENTINELS
-                value: '[{"host":"redis-sentinel.redis.svc","port":26379}]'
+                value: "6379"
               - name: QUEUE_BULL_REDIS_DB
                 value: "1"
               - name: QUEUE_BULL_REDIS_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: n8n-managed-secrets
-                    key: REDIS_PASSWORD
-              - name: QUEUE_BULL_REDIS_SENTINEL_PASSWORD
                 valueFrom:
                   secretKeyRef:
                     name: n8n-managed-secrets
@@ -295,21 +286,12 @@ apps:
               - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
                 value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis-sentinel.redis.svc
+                value: redis.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
-                value: "26379"
-              - name: QUEUE_BULL_REDIS_SENTINEL_NAME
-                value: master
-              - name: QUEUE_BULL_REDIS_SENTINELS
-                value: '[{"host":"redis-sentinel.redis.svc","port":26379}]'
+                value: "6379"
               - name: QUEUE_BULL_REDIS_DB
                 value: "1"
               - name: QUEUE_BULL_REDIS_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: n8n-managed-secrets
-                    key: REDIS_PASSWORD
-              - name: QUEUE_BULL_REDIS_SENTINEL_PASSWORD
                 valueFrom:
                   secretKeyRef:
                     name: n8n-managed-secrets
