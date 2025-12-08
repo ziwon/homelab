@@ -62,7 +62,7 @@ apps:
 
             # -----------------------------------------------------------
             # Feast FeatureStore CR - Homelab MLOps
-            # Redis (Online) + PostgreSQL (Offline/Registry)
+            # Redis (Online) + ClickHouse (Offline) + PostgreSQL (Registry)
             # -----------------------------------------------------------
             - apiVersion: feast.dev/v1alpha1
               kind: FeatureStore
@@ -80,6 +80,7 @@ apps:
                         secretRef:
                           name: feast-managed-secrets
                     server:
+                      image: harbor.home.lab/restack/feast-server:0.57.0
                       env:
                         - name: MPLCONFIGDIR
                           value: /tmp
@@ -94,6 +95,8 @@ apps:
                         type: clickhouse
                         secretRef:
                           name: feast-managed-secrets
+                    server:
+                      image: harbor.home.lab/restack/feast-server:0.57.0
 
                   registry:
                     local:
@@ -105,7 +108,7 @@ apps:
 
                   ui: {}
 
-            # -----------------------------------------------------------
+            t# -----------------------------------------------------------
             # Feast Online Feature Server HTTPRoute
             # -----------------------------------------------------------
             - apiVersion: gateway.networking.k8s.io/v1
