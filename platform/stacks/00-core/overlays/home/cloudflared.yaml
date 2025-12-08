@@ -1,0 +1,4 @@
+# Cloudflare Tunnel is managed at the application layer for granular control (e.g., n8n, authentik).
+# Infrastructure-level connectivity uses Tailscale (100.64.0.0/10 CGNAT range).
+# Note: Cloudflare WARP also uses 100.64.0.0/10, so we avoid WARP to prevent conflicts.
+# Ref: platform/stacks/06-labs/overlays/home/n8n.yaml
