@@ -1,0 +1,236 @@
+apps:
+  # -----------------------------------------------------------
+  # n8n Bootstrap (Infisical + HTTPRoute + Cloudflared)
+  # -----------------------------------------------------------
+  - name: n8n-raw
+    namespace: n8n
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: n8n-raw
+        values: |
+          resources:
+
+            # -----------------------------------------------------------
+            # n8n Secrets from Infisical
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: n8n-managed-secrets
+                namespace: n8n
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /n8n
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: n8n-managed-secrets
+                    secretNamespace: n8n
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # HTTPRoute for n8n (Internal - Gateway API / Cilium)
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: n8n
+                namespace: n8n
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - n8n.home.lab
+                rules:
+                  - backendRefs:
+                      - name: n8n
+                        port: 80
+
+            # -----------------------------------------------------------
+            # Cloudflared Tunnel (External - for webhooks)
+            # -----------------------------------------------------------
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: cloudflared
+                namespace: n8n
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: cloudflared
+                template:
+                  metadata:
+                    labels:
+                      app: cloudflared
+                  spec:
+                    containers:
+                      - name: cloudflared
+                        image: cloudflare/cloudflared:2025.11.1
+                        args:
+                          - tunnel
+                          - --no-autoupdate
+                          - --metrics
+                          - 0.0.0.0:2000
+                          - run
+                        env:
+                          - name: TUNNEL_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: n8n-managed-secrets
+                                key: CLOUDFLARE_TUNNEL_TOKEN
+                        resources:
+                          requests:
+                            cpu: 10m
+                            memory: 64Mi
+                          limits:
+                            cpu: 100m
+                            memory: 128Mi
+                        livenessProbe:
+                          httpGet:
+                            path: /ready
+                            port: 2000
+                          initialDelaySeconds: 10
+                          periodSeconds: 10
+                        readinessProbe:
+                          httpGet:
+                            path: /ready
+                            port: 2000
+                          initialDelaySeconds: 5
+                          periodSeconds: 5
+
+  # -----------------------------------------------------------
+  # n8n Installation (Helm OCI)
+  # -----------------------------------------------------------
+  - name: n8n
+    namespace: n8n
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - n8n-raw
+    source:
+      repoURL: oci://8gears.container-registry.com/library/n8n
+      chart: n8n
+      targetRevision: 2.0.1
+      helm:
+        releaseName: n8n
+        values: |
+          image:
+            repository: n8nio/n8n
+
+          main:
+            replicaCount: 1
+            service:
+              enabled: true
+              type: ClusterIP
+              port: 80
+            
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: "2"
+                memory: 2Gi
+
+            persistence:
+              enabled: false
+              type: emptyDir
+
+            config:
+              n8n:
+                log:
+                  level: info
+
+            secret: {}
+
+            extraEnv:
+              # Encryption
+              - name: N8N_ENCRYPTION_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: N8N_ENCRYPTION_KEY
+
+              # Owner Account will be filtered by Cloudflared Access Rule
+              - name: N8N_DEFAULT_USER_EMAIL
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: N8N_ADMIN_EMAIL
+              - name: N8N_DEFAULT_USER_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: N8N_ADMIN_PASSWORD 
+
+              # External URL (for webhooks)
+              - name: N8N_HOST
+                value: n8n.restack.tech
+              - name: N8N_PROTOCOL
+                value: https
+              - name: WEBHOOK_URL
+                value: https://n8n.restack.tech
+
+              # PostgreSQL
+              - name: DB_TYPE
+                value: postgresdb
+              - name: DB_POSTGRESDB_HOST
+                value: cluster-pg-db-ha.postgres.svc
+              - name: DB_POSTGRESDB_PORT
+                value: "5432"
+              - name: DB_POSTGRESDB_DATABASE
+                value: n8n
+              - name: DB_POSTGRESDB_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: DB_USER
+              - name: DB_POSTGRESDB_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: DB_PASSWORD
+
+              # Queue
+              - name: EXECUTIONS_MODE
+                value: queue
+              - name: QUEUE_BULL_REDIS_HOST
+                value: redis.redis.svc
+              - name: QUEUE_BULL_REDIS_PORT
+                value: "6379"
+              - name: QUEUE_BULL_REDIS_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: REDIS_PASSWORD
+
+          worker:
+            enabled: true
+            replicaCount: 2 
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: "1"
+                memory: 1Gi
+
+          webhook:
+            enabled: false
+
+          valkey:
+            enabled: false
