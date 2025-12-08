@@ -180,6 +180,8 @@ apps:
               # External URL (for webhooks)
               - name: N8N_HOST
                 value: n8n.restack.tech
+              - name: N8N_PORT
+                value: "5678"
               - name: N8N_PROTOCOL
                 value: https
               - name: WEBHOOK_URL
@@ -228,6 +230,20 @@ apps:
               limits:
                 cpu: "1"
                 memory: 1Gi
+            env:
+              - name: N8N_HOST
+                value: n8n.restack.tech
+              - name: N8N_PORT
+                value: "5678"
+              - name: N8N_PROTOCOL
+                value: https
+              - name: WEBHOOK_URL
+                value: https://n8n.restack.tech
+              - name: N8N_ENCRYPTION_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-managed-secrets
+                    key: N8N_ENCRYPTION_KEY
 
           webhook:
             enabled: false
