@@ -5,7 +5,7 @@ apps:
   # -----------------------------------------------------------
   - name: deepfx-raw
     namespace: deepfx
-    project: home
+    project: dev
     syncWave: "0"
     source:
       repoURL: https://bedag.github.io/helm-charts
@@ -47,7 +47,7 @@ apps:
   # -----------------------------------------------------------
   - name: mt5-bridge
     namespace: deepfx
-    project: home
+    project: dev
     syncWave: "5"
     dependencies:
       - deepfx-raw
