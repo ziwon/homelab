@@ -1,0 +1,88 @@
+apps:
+  # -----------------------------------------------------------
+  # Component A: Prerequisites (HTTPRoutes)
+  # SyncWave: 0
+  # -----------------------------------------------------------
+  - name: deepfx-raw
+    namespace: deepfx
+    project: home
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: deepfx-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: deepfx
+
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: mt5-bridge-vnc
+                namespace: deepfx
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - mt5.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: mt5-bridge
+                        port: 3000
+
+  # -----------------------------------------------------------
+  # Component B: MT5 Bridge (ZeroMQ Trading Interface)
+  # SyncWave: 5
+  # -----------------------------------------------------------
+  - name: mt5-bridge
+    namespace: deepfx
+    project: home
+    syncWave: "5"
+    dependencies:
+      - deepfx-raw
+    source:
+      repoURL: oci://harbor.home.lab/restack/deepfx
+      chart: mt5-bridge
+      targetRevision: 0.1.0
+      helm:
+        releaseName: mt5-bridge
+        values: |
+          image:
+            repository: harbor.home.lab/restack/deepfx/mt5-bridge
+            tag: latest
+          config:
+            logLevel: INFO
+          persistence:
+            size: 10Gi
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+
+  # -----------------------------------------------------------
+  # Future: Data Collector, Feature Engine, Strategy Engine
+  # -----------------------------------------------------------
+  # - name: data-collector
+  #   namespace: deepfx
+  #   project: home
+  #   syncWave: "10"
+  #   dependencies:
+  #     - mt5-bridge
+  #   source:
+  #     repoURL: oci://harbor.home.lab/restack/deepfx
+  #     chart: data-collector
+  #     targetRevision: 0.1.0
