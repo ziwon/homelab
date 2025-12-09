@@ -74,7 +74,7 @@ apps:
       - deepfx-raw
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx
-      chart: .
+      chart: deepfx
       targetRevision: 0.1.0
       helm:
         releaseName: mt5-bridge
