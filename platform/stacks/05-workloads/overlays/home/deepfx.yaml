@@ -89,7 +89,7 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: latest
+              tag: main-56c0810
 
             service:
               type: ClusterIP
@@ -111,7 +111,6 @@ apps:
               logLevel: "INFO"
 
             existingSecret: "managed-deepfx-secrets"
-
   # -----------------------------------------------------------
   # Future: Data Collector, Feature Engine, Strategy Engine
   # -----------------------------------------------------------
