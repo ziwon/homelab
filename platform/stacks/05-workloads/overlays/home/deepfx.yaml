@@ -20,10 +20,31 @@ apps:
               metadata:
                 name: deepfx
 
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
-                name: mt5-bridge-vnc
+                name: mt5-bridge
                 namespace: deepfx
               spec:
                 parentRefs:
@@ -42,10 +63,10 @@ apps:
                         port: 3000
 
   # -----------------------------------------------------------
-  # Component B: MT5 Bridge (ZeroMQ Trading Interface)
+  # Component B: Install DeepFX Umbrella Chart
   # SyncWave: 5
   # -----------------------------------------------------------
-  - name: mt5-bridge
+  - name: deepfx-mt5-bridge
     namespace: deepfx
     project: dev
     syncWave: "5"
@@ -53,27 +74,43 @@ apps:
       - deepfx-raw
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx
-      chart: mt5-bridge
+      chart: .
       targetRevision: 0.1.0
       helm:
         releaseName: mt5-bridge
         values: |
-          image:
-            repository: harbor.home.lab/restack/deepfx/mt5-bridge
-            tag: latest
-          imagePullSecrets:
-            - name: harbor-secret
-          config:
-            logLevel: INFO
-          persistence:
-            size: 10Gi
-          resources:
-            requests:
-              cpu: 1000m
-              memory: 2Gi
-            limits:
-              cpu: 2000m
-              memory: 4Gi
+          global:
+            namespace: deepfx
+
+          mt5-bridge:
+            enabled: true
+            replicaCount: 1
+
+            image:
+              repository: harbor.home.lab/restack/deepfx/mt5-bridge
+              pullPolicy: Always
+              tag: latest
+
+            service:
+              type: ClusterIP
+
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 2Gi
+              limits:
+                cpu: 2000m
+                memory: 4Gi
+
+            persistence:
+              enabled: true
+              storageClass: ""
+              size: 10Gi
+
+            config:
+              logLevel: "INFO"
+
+            existingSecret: "managed-deepfx-secrets"
 
   # -----------------------------------------------------------
   # Future: Data Collector, Feature Engine, Strategy Engine
