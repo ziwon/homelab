@@ -61,6 +61,8 @@ apps:
           image:
             repository: harbor.home.lab/restack/deepfx/mt5-bridge
             tag: latest
+          imagePullSecrets:
+            - name: harbor-secret
           config:
             logLevel: INFO
           persistence:
