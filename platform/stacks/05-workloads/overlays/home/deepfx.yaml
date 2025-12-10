@@ -73,11 +73,11 @@ apps:
     dependencies:
       - deepfx-raw
     source:
-      repoURL: oci://harbor.home.lab/restack/deepfx
-      chart: deepfx
+      repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
+      chart: .
       targetRevision: 0.1.0
       helm:
-        releaseName: mt5-bridge
+        releaseName: deepfx
         values: |
           global:
             namespace: deepfx
