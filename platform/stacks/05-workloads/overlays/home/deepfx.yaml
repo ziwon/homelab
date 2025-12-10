@@ -84,11 +84,11 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: main-56c0810
+              tag: main-bd783fc
 
             imagePullSecrets:
               - name: harbor-secret
-            
+
             service:
               type: ClusterIP
 
