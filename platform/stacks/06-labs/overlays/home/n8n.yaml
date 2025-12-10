@@ -219,7 +219,7 @@ apps:
               - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
                 value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis-1.redis-headless.redis.svc
+                value: redis-0.redis-headless.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
                 value: "6379"
               - name: QUEUE_BULL_REDIS_DB
@@ -286,7 +286,7 @@ apps:
               - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
                 value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis-1.redis-headless.redis.svc
+                value: redis-0.redis-headless.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
                 value: "6379"
               - name: QUEUE_BULL_REDIS_DB
