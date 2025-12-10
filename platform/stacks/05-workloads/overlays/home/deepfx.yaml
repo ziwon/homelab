@@ -15,11 +15,6 @@ apps:
         releaseName: deepfx-raw
         values: |
           resources:
-            - apiVersion: v1
-              kind: Namespace
-              metadata:
-                name: deepfx
-
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
@@ -66,7 +61,7 @@ apps:
   # Component B: Install DeepFX Umbrella Chart
   # SyncWave: 5
   # -----------------------------------------------------------
-  - name: deepfx-mt5-bridge
+  - name: deepfx
     namespace: deepfx
     project: dev
     syncWave: "5"
@@ -91,6 +86,9 @@ apps:
               pullPolicy: Always
               tag: main-56c0810
 
+            imagePullSecrets:
+              - name: harbor-secret
+            
             service:
               type: ClusterIP
 
