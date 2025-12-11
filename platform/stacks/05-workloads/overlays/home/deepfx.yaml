@@ -84,7 +84,7 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: main-098ad8c
+              tag: main-d45fabe
 
             imagePullSecrets:
               - name: harbor-secret
