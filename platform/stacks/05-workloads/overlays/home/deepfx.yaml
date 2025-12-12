@@ -134,7 +134,7 @@ apps:
                 username: "deepfx"
                 passwordSecretName: "managed-deepfx-secrets"
                 passwordSecretKey: "redpanda-deepfx-password"
-                saslMechanism: "SCRAM-SHA-256"
+                saslMechanism: "SCRAM-SHA-512"
               tls:
                 caSecretName: "redpanda-ca"
                 caSecretKey: "ca.crt"
