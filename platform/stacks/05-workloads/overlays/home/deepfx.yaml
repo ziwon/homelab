@@ -107,6 +107,7 @@ apps:
 
             config:
               logLevel: "INFO"
+              mt5Path: "C:\\MT5\\terminal64.exe"              
 
             existingSecret: "managed-deepfx-secrets"
 
