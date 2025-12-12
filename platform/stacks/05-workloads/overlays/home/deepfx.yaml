@@ -116,7 +116,7 @@ apps:
 
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
-              tag: "latest"
+              tag: "main-1bbc011"
               pullPolicy: IfNotPresent
 
             mt5:
