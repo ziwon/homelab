@@ -238,6 +238,16 @@ apps:
                                 name: redpanda-managed-secrets
                                 key: vector-password
 
+                          # DeepFX workload user
+                          - name: DEEPFX_USER
+                            value: "deepfx"
+                          - name: DEEPFX_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: deepfx-password
+                                optional: true
+
                           - name: QUICKWIT_PASSWORD
                             valueFrom:
                               secretKeyRef:
@@ -298,6 +308,22 @@ apps:
                             rpk security acl create --allow-principal User:quickwit --operation read,describe \
                               --group "quickwit-" --resource-pattern-type PREFIXED \
                               --brokers $BROKERS $RPK_OPTS || true
+
+                            # DeepFX: Market data write
+                            if [ -n "$DEEPFX_PASSWORD" ]; then
+                              rpk security user create "$DEEPFX_USER" -p "$DEEPFX_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User $DEEPFX_USER might already exist"
+                              rpk security acl create --allow-principal User:$DEEPFX_USER --operation write,describe \
+                                --topic "deepfx.market." --resource-pattern-type PREFIXED \
+                                --brokers $BROKERS $RPK_OPTS || true
+                              rpk security acl create --allow-principal User:$DEEPFX_USER --operation write,describe \
+                                --topic "deepfx.market.tick" \
+                                --brokers $BROKERS $RPK_OPTS || true
+                              rpk security acl create --allow-principal User:$DEEPFX_USER --operation write,describe \
+                                --topic "deepfx.market.ohlcv" \
+                                --brokers $BROKERS $RPK_OPTS || true
+                            else
+                              echo "DEEPFX_PASSWORD not set; skipping deepfx user/ACL setup"
+                            fi
 
                             echo "All done."
 
