@@ -116,7 +116,7 @@ apps:
 
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
-              tag: "main-3577084"
+              tag: "main-f6b6fcc"
               pullPolicy: IfNotPresent
 
             imagePullSecrets:
@@ -141,6 +141,7 @@ apps:
                 caFileName: "ca.crt"
                 caMountPath: "/etc/ssl/certs/redpanda"
                 caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
+                skipHostnameVerify: true
 
               tickTopic: "deepfx.market.tick"
               ohlcvTopic: "deepfx.market.ohlcv"
