@@ -111,6 +111,7 @@ apps:
             existingSecret: "managed-deepfx-secrets"
 
           data-collector:
+            enabled: true
             replicaCount: 1
 
             image:
