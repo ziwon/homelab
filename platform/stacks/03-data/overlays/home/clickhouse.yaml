@@ -169,6 +169,17 @@ apps:
                       </clickhouse>
 
                   users:
+                    default/password_sha256_hex:
+                      valueFrom:
+                        secretKeyRef:
+                          name: clickhouse-managed-secrets
+                          key: DEFAULT_PASSWORD_SHA256
+
+                    default/networks/ip:
+                      - 127.0.0.1
+                      - 10.42.0.0/16
+                      - 10.142.0.0/16
+
                     feast/password_sha256_hex:
                       valueFrom:
                         secretKeyRef:
