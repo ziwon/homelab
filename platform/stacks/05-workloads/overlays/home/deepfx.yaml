@@ -84,7 +84,7 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: main-4a6c621
+              tag: main-41da8a0
 
             imagePullSecrets:
               - name: harbor-secret
@@ -107,7 +107,7 @@ apps:
 
             config:
               logLevel: "INFO"
-              mt5Path: "C:\\MT5\\terminal64.exe"              
+              mt5Path: "C:\\MT5\\terminal64.exe"
 
             existingSecret: "managed-deepfx-secrets"
 
