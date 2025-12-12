@@ -116,7 +116,7 @@ apps:
 
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
-              tag: "main-f6b6fcc"
+              tag: "main-e94a826"
               pullPolicy: IfNotPresent
 
             imagePullSecrets:
