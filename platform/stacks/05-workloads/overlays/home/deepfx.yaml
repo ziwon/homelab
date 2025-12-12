@@ -129,6 +129,19 @@ apps:
 
             kafka:
               brokers: "redpanda.redpanda.svc:9093"
+              securityProtocol: "SASL_SSL"
+              auth:
+                username: "deepfx"
+                passwordSecretName: "managed-deepfx-secrets"
+                passwordSecretKey: "redpanda-deepfx-password"
+                saslMechanism: "SCRAM-SHA-256"
+              tls:
+                caSecretName: "redpanda-ca"
+                caSecretKey: "ca.crt"
+                caFileName: "ca.crt"
+                caMountPath: "/etc/ssl/certs/redpanda"
+                caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
+
               tickTopic: "deepfx.market.tick"
               ohlcvTopic: "deepfx.market.ohlcv"
 
