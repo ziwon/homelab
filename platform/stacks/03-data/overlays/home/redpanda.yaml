@@ -368,9 +368,9 @@ apps:
                         port: 8082
   
   # -----------------------------------------------------------
-  # Redpanda Topics
+  # Redpanda Topics - Logs
   # -----------------------------------------------------------
-  - name: redpanda-topics
+  - name: redpanda-topics-logs
     namespace: redpanda
     project: dev
     syncWave: "20"
@@ -392,6 +392,88 @@ apps:
                 namespace: redpanda
               spec:
                 interval: 1h # even 15m too noisy for homelab
+
+                partitions: 3       
+                replicationFactor: 1
+                
+                additionalConfig:
+                  cleanup.policy: "delete"
+                  retention.ms: "86400000"      # 1d (consumer buffer for handling failures)
+                  retention.bytes: "5368709120" # 5G
+                  segment.bytes: "67108864"     # 64MB
+                  segment.ms: "3600000"         # 1H (rapid segment rollover)
+                  
+                kafkaApiSpec:
+                  brokers:
+                    - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
+                  tls:
+                    caCertSecretRef:
+                      name: "redpanda-default-cert"
+                      key: "ca.crt"
+                  sasl:
+                    mechanism: "SCRAM-SHA-256"
+                    username: "admin"
+                    passwordSecretRef:
+                      name: "redpanda-managed-secrets"
+                      key: "superuser-password"
+
+  # -----------------------------------------------------------
+  # Redpanda Topics - DeepFX Market Data
+  # -----------------------------------------------------------
+  - name: redpanda-topics-deepfx
+    namespace: redpanda
+    project: dev
+    syncWave: "25"
+    dependencies:
+      - redpanda-operator
+      - redpanda-raw
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: redpanda-topics
+        values: |
+          resources:
+            - apiVersion: cluster.redpanda.com/v1alpha2
+              kind: Topic
+              metadata:
+                name: deepfx.market.tick
+                namespace: redpanda
+              spec:
+                interval: 1h
+
+                partitions: 6       
+                replicationFactor: 1
+                
+                additionalConfig:
+                  cleanup.policy: "delete"
+                  retention.ms: "86400000"       # 1d (consumer buffer for handling failures)
+                  retention.bytes: "10737418240" # 10G
+                  segment.bytes: "67108864"      # 64MB
+                  segment.ms: "3600000"          # 1H (rapid segment rollover)
+                  
+                kafkaApiSpec:
+                  brokers:
+                    - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
+                  tls:
+                    caCertSecretRef:
+                      name: "redpanda-default-cert"
+                      key: "ca.crt"
+                  sasl:
+                    mechanism: "SCRAM-SHA-256"
+                    username: "admin"
+                    passwordSecretRef:
+                      name: "redpanda-managed-secrets"
+                      key: "superuser-password"
+
+            - apiVersion: cluster.redpanda.com/v1alpha2
+              kind: Topic
+              metadata:
+                name: deepfx.market.ohlcv
+                namespace: redpanda
+              spec:
+                interval: 1h
 
                 partitions: 3       
                 replicationFactor: 1
