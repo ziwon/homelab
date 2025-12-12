@@ -119,6 +119,9 @@ apps:
               tag: "main-f6b6fcc"
               pullPolicy: IfNotPresent
 
+            imagePullSecrets:
+              - name: harbor-secret
+
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
