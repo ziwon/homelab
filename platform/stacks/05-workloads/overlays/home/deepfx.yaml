@@ -109,13 +109,46 @@ apps:
               logLevel: "INFO"
 
             existingSecret: "managed-deepfx-secrets"
-  # -----------------------------------------------------------
-  # Future: Data Collector, Feature Engine, Strategy Engine
-  # -----------------------------------------------------------
-  # - name: data-collector
-  #   namespace: deepfx
-  #   project: home
-  #   syncWave: "10"
+
+          data-collector:
+            replicaCount: 1
+
+            image:
+              repository: harbor.home.lab/restack/deepfx/data-collector
+              tag: "latest"
+              pullPolicy: IfNotPresent
+
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+
+            kafka:
+              brokers: "redpanda.redpanda.svc:9093"
+              tickTopic: "deepfx.market.tick"
+              ohlcvTopic: "deepfx.market.ohlcv"
+
+            collector:
+              symbols: "NAS100,XAUUSD,USOUSD,BTCUSD"
+              timeframes: "M1,M5,M15,H1,H4,D1"
+              ohlcvInterval: 60
+              logLevel: "INFO"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+          # -----------------------------------------------------------
+          # Future: Feature Engine, Strategy Engine, NightDreams-RL
+          # -----------------------------------------------------------
+          # - name: feature-engine
+          #   namespace: deepfx
+          #   project: home
+          #   syncWave: "10"
   #   dependencies:
   #     - mt5-bridge
   #   source:
