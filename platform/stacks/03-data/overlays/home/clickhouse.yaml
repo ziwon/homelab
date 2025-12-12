@@ -298,3 +298,70 @@ apps:
                   - backendRefs:
                       - name: clickhouse
                         port: 8123
+
+            # -----------------------------------------------------------
+            # CH-UI Deployment
+            # -----------------------------------------------------------
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: ch-ui
+                namespace: clickhouse
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: ch-ui
+                template:
+                  metadata:
+                    labels:
+                      app: ch-ui
+                  spec:
+                    containers:
+                      - name: ch-ui
+                        image: ghcr.io/caioricciuti/ch-ui:latest
+                        imagePullPolicy: Always
+                        ports:
+                          - containerPort: 5521
+                        env:
+                          - name: VITE_CLICKHOUSE_URL
+                            value: "http://clickhouse.clickhouse.svc:8123"
+                          - name: VITE_BASE_PATH
+                            value: "/"
+
+            # -----------------------------------------------------------
+            # CH-UI Service
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: ch-ui
+                namespace: clickhouse
+              spec:
+                type: ClusterIP
+                selector:
+                  app: ch-ui
+                ports:
+                  - name: http
+                    port: 80
+                    targetPort: 5521
+
+            # -----------------------------------------------------------
+            # CH-UI HTTPRoute
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: ch-ui
+                namespace: clickhouse
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - ch-ui.home.lab
+                rules:
+                  - backendRefs:
+                      - name: ch-ui
+                        port: 80
