@@ -432,7 +432,7 @@ apps:
       chart: raw
       targetRevision: 2.0.2
       helm:
-        releaseName: redpanda-topics
+        releaseName: redpanda-topics-deepfx
         values: |
           resources:
             - apiVersion: cluster.redpanda.com/v1alpha2
