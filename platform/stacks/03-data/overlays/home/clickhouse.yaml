@@ -188,6 +188,7 @@ apps:
                           <sasl_username>deepfx</sasl_username>
                           <sasl_password from_env="REDPANDA_DEEPFX_PASSWORD"/>
                           <ssl_ca_location>/etc/clickhouse-server/ca-certificates/redpanda/ca.crt</ssl_ca_location>
+                          <enable_ssl_certificate_verification>false</enable_ssl_certificate_verification>
                         </kafka>
                       </clickhouse>
 
