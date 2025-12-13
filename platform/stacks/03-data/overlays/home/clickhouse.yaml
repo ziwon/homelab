@@ -17,7 +17,7 @@ apps:
       targetRevision: main
       path: platform/stacks/kustomize/clickhouse-operator
       kustomize: {}
-  
+
   # -----------------------------------------------------------
   # ClickHouse Operator (Altinity)
   # -----------------------------------------------------------
@@ -136,6 +136,17 @@ apps:
                                 mountPath: /var/lib/clickhouse
                               - name: ch-logs
                                 mountPath: /var/log/clickhouse-server
+                              - name: redpanda-ca
+                                mountPath: /etc/clickhouse-server/ca-certificates/redpanda
+                                readOnly: true
+
+                        volumes:
+                          - name: redpanda-ca
+                            secret:
+                              secretName: redpanda-default-root-certificate
+                              items:
+                                - key: ca.crt
+                                  path: ca.crt
 
                   volumeClaimTemplates:
                     - name: ch-data
@@ -164,8 +175,20 @@ apps:
                         <startup_scripts>
                           <scripts>
                             <query>CREATE DATABASE IF NOT EXISTS feast</query>
+                            <query>CREATE DATABASE IF NOT EXISTS deepfx</query>
                           </scripts>
                         </startup_scripts>
+                      </clickhouse>
+
+                    config.d/kafka.xml: |
+                      <clickhouse>
+                        <kafka>
+                          <security_protocol>sasl_ssl</security_protocol>
+                          <sasl_mechanism>SCRAM-SHA-512</sasl_mechanism>
+                          <sasl_username>deepfx</sasl_username>
+                          <sasl_password from_env="REDPANDA_DEEPFX_PASSWORD_SHA256"/>
+                          <ssl_ca_location>/etc/clickhouse-server/ca-certificates/redpanda/ca.crt</ssl_ca_location>
+                        </kafka>
                       </clickhouse>
 
                   users:
@@ -195,6 +218,22 @@ apps:
 
                     feast/profile: default
                     feast/quota: default
+
+                    deepfx/password_sha256_hex:
+                      valueFrom:
+                        secretKeyRef:
+                          name: clickhouse-managed-secrets
+                          key: DEEPFX_PASSWORD_SHA256
+
+                    deepfx/allow_databases/database:
+                      - deepfx
+
+                    deepfx/networks/ip:
+                      - 10.42.0.0/16
+                      - 10.142.0.0/16
+
+                    deepfx/profile: default
+                    deepfx/quota: default
 
                   profiles:
                     default/max_memory_usage: 6442450944                   # 6 * 1024^3
