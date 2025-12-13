@@ -186,7 +186,7 @@ apps:
                           <security_protocol>sasl_ssl</security_protocol>
                           <sasl_mechanism>SCRAM-SHA-512</sasl_mechanism>
                           <sasl_username>deepfx</sasl_username>
-                          <sasl_password from_env="REDPANDA_DEEPFX_PASSWORD_SHA256"/>
+                          <sasl_password from_env="REDPANDA_DEEPFX_PASSWORD"/>
                           <ssl_ca_location>/etc/clickhouse-server/ca-certificates/redpanda/ca.crt</ssl_ca_location>
                         </kafka>
                       </clickhouse>
