@@ -79,7 +79,7 @@ apps:
                       enabled: true
                       secretRef: redpanda-managed-secrets
                       users: [] # Use InfisicalSecret to set password
-                  
+
                   statefulset:
                     initContainers:
                       setDataDirOwnership:
@@ -124,7 +124,7 @@ apps:
                         image: docker.redpanda.com/redpandadata/console:v3.2.1
                         imagePullPolicy: IfNotPresent
                         args:
-                          - "--config.filepath=" 
+                          - "--config.filepath="
                         ports:
                           - containerPort: 8080
                             name: http
@@ -196,7 +196,7 @@ apps:
                 ports:
                   - name: http
                     port: 8080
-                    targetPort: 8080 
+                    targetPort: 8080
 
             # -----------------------------------------------------------
             # Redpanda User ACL Init Job
@@ -259,7 +259,7 @@ apps:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
                                 key: authentication-mechanism
-                            
+
                         volumeMounts:
                           - name: tls
                             mountPath: /etc/tls/certs/default
@@ -281,9 +281,9 @@ apps:
                               echo "Redpanda not ready yet..."
                               sleep 5
                             done
-                            
+
                             echo "Connected as Bootstrap User: $SUPERUSER_NAME"
-                            
+
                             echo "Creating custom users..."
                             rpk security user create admin -p "$ADMIN_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User admin might already exist"
                             rpk security user create vector -p "$VECTOR_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User vector might already exist"
@@ -304,23 +304,70 @@ apps:
                             rpk security acl create --allow-principal User:quickwit --operation read,describe \
                               --topic "logs." --resource-pattern-type PREFIXED \
                               --brokers $BROKERS $RPK_OPTS || true
-                              
+
                             rpk security acl create --allow-principal User:quickwit --operation read,describe \
                               --group "quickwit-" --resource-pattern-type PREFIXED \
                               --brokers $BROKERS $RPK_OPTS || true
 
                             # DeepFX: Market data write
-                            if [ -n "$DEEPFX_PASSWORD" ]; then
-                              rpk security user create "$DEEPFX_USER" -p "$DEEPFX_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User $DEEPFX_USER might already exist"
-                              rpk security acl create --allow-principal User:$DEEPFX_USER --operation write,describe \
+                            if [ -n "${DEEPFX_PASSWORD:-}" ]; then
+                              echo "[deepfx] ensuring user exists: ${DEEPFX_USER}"
+
+                              # 1) Create user (idempotent-ish)
+                              rpk security user create "$DEEPFX_USER" \
+                                -p "$DEEPFX_PASSWORD" \
+                                --mechanism "$AUTHENTICATION_MECHANISM" \
+                                --api-urls "$ADMIN_API_URL" \
+                                --admin-api-tls-truststore "$CA_CERT" \
+                                $RPK_OPTS \
+                              || echo "[deepfx] user $DEEPFX_USER might already exist (or create failed)"
+
+                              # 2) Producer permissions (write/describe)
+                              echo "[deepfx] applying producer ACLs (topic write/describe)"
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation write,describe \
                                 --topic "deepfx.market." --resource-pattern-type PREFIXED \
-                                --brokers $BROKERS $RPK_OPTS || true
-                              rpk security acl create --allow-principal User:$DEEPFX_USER --operation write,describe \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create producer ACL for prefixed topic deepfx.market."
+
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation write,describe \
                                 --topic "deepfx.market.tick" \
-                                --brokers $BROKERS $RPK_OPTS || true
-                              rpk security acl create --allow-principal User:$DEEPFX_USER --operation write,describe \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create producer ACL for topic deepfx.market.tick"
+
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation write,describe \
                                 --topic "deepfx.market.ohlcv" \
-                                --brokers $BROKERS $RPK_OPTS || true
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create producer ACL for topic deepfx.market.ohlcv"
+
+                              # 3) Consumer permissions (read/describe on topics)
+                              echo "[deepfx] applying consumer ACLs (topic read/describe)"
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read,describe \
+                                --topic "deepfx.market.tick" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create consumer ACL for topic deepfx.market.tick"
+
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read,describe \
+                                --topic "deepfx.market.ohlcv" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create consumer ACL for topic deepfx.market.ohlcv"
+
+                              # 4) Consumer Group permissions (READ only is the safe default)
+                              # Group name must match ClickHouse kafka_group_name exactly.
+                              echo "[deepfx] applying consumer group ACLs (group read)"
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read \
+                                --group "clickhouse-ticks" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create group ACL for clickhouse-ticks"
+
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read \
+                                --group "clickhouse-ohlcv" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create group ACL for clickhouse-ohlcv"
+
+                              echo "[deepfx] done. current ACLs (filtered):"
+                              rpk security acl list --brokers "$BROKERS" $RPK_OPTS \
+                                | grep -E "User:${DEEPFX_USER}|deepfx\.market|clickhouse-(ticks|ohlcv)" \
+                                || true
                             else
                               echo "DEEPFX_PASSWORD not set; skipping deepfx user/ACL setup"
                             fi
@@ -392,7 +439,7 @@ apps:
                   - backendRefs:
                       - name: redpanda
                         port: 8082
-  
+
   # -----------------------------------------------------------
   # Redpanda Topics - Logs
   # -----------------------------------------------------------
@@ -419,16 +466,16 @@ apps:
               spec:
                 interval: 1h # even 15m too noisy for homelab
 
-                partitions: 3       
+                partitions: 3
                 replicationFactor: 1
-                
+
                 additionalConfig:
                   cleanup.policy: "delete"
                   retention.ms: "86400000"      # 1d (consumer buffer for handling failures)
                   retention.bytes: "5368709120" # 5G
                   segment.bytes: "67108864"     # 64MB
                   segment.ms: "3600000"         # 1H (rapid segment rollover)
-                  
+
                 kafkaApiSpec:
                   brokers:
                     - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
@@ -469,16 +516,16 @@ apps:
               spec:
                 interval: 1h
 
-                partitions: 6       
+                partitions: 6
                 replicationFactor: 1
-                
+
                 additionalConfig:
                   cleanup.policy: "delete"
                   retention.ms: "86400000"       # 1d (consumer buffer for handling failures)
                   retention.bytes: "10737418240" # 10G
                   segment.bytes: "67108864"      # 64MB
                   segment.ms: "3600000"          # 1H (rapid segment rollover)
-                  
+
                 kafkaApiSpec:
                   brokers:
                     - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
@@ -501,16 +548,16 @@ apps:
               spec:
                 interval: 1h
 
-                partitions: 3       
+                partitions: 3
                 replicationFactor: 1
-                
+
                 additionalConfig:
                   cleanup.policy: "delete"
                   retention.ms: "86400000"      # 1d (consumer buffer for handling failures)
                   retention.bytes: "5368709120" # 5G
                   segment.bytes: "67108864"     # 64MB
                   segment.ms: "3600000"         # 1H (rapid segment rollover)
-                  
+
                 kafkaApiSpec:
                   brokers:
                     - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
