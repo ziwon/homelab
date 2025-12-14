@@ -182,17 +182,38 @@ apps:
               host: deepfx-mt5-bridge
 
             existingSecret: "managed-deepfx-secrets"
-            # Will be injected from Infisical secrets
-            # risk:
-            #   riskPerTradePct: 1.0
-            #   maxDailyDrawdownPct: 5.0
-            #   maxTotalDrawdownPct: 10.0
-            #   maxOpenPositions: 10
-            #   tradingEnabled: true
-            #   closeOnlyMode: false
+
+          # -----------------------------------------------------------
+          # DeepFX Strategy Engine
+          # -----------------------------------------------------------
+          strategy-engine:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/strategy-engine
+              tag: latest
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+
+            accountApi:
+              url: "http://deepfx-account-api:8000"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+            existingSecret: "managed-deepfx-secrets"
 
             # -----------------------------------------------------------
-            # Future: Feature Engine, Strategy Engine, NightDreams-RL
+            # Future: Feature Engine, NightDreams-RL
             # -----------------------------------------------------------
             # - name: feature-engine
             #   namespace: deepfx
