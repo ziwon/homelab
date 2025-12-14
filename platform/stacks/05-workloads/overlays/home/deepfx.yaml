@@ -70,7 +70,7 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.1.6
+      targetRevision: 0.1.7
       helm:
         releaseName: deepfx
         values: |
