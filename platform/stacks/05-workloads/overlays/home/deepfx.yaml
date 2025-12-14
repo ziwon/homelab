@@ -54,7 +54,7 @@ apps:
                           type: PathPrefix
                           value: /
                     backendRefs:
-                      - name: mt5-bridge
+                      - name: deepfx-mt5-bridge
                         port: 3000
 
   # -----------------------------------------------------------
@@ -77,6 +77,9 @@ apps:
           global:
             namespace: deepfx
 
+          # -----------------------------------------------------------
+          # DeepFX MT5 Bridge
+          # -----------------------------------------------------------
           mt5-bridge:
             enabled: true
             replicaCount: 1
@@ -111,6 +114,9 @@ apps:
 
             existingSecret: "managed-deepfx-secrets"
 
+          # -----------------------------------------------------------
+          # DeepFX Data Collector
+          # -----------------------------------------------------------
           data-collector:
             enabled: true
             replicaCount: 1
@@ -161,6 +167,9 @@ apps:
                 cpu: 100m
                 memory: 128Mi
 
+          # -----------------------------------------------------------
+          # DeepFX Account API
+          # -----------------------------------------------------------
           account-api:
             enabled: true
             replicaCount: 1
