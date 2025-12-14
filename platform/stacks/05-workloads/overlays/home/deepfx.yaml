@@ -193,7 +193,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: latest
+              tag: main-16f1c37
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
@@ -211,7 +211,6 @@ apps:
                 memory: 128Mi
 
             existingSecret: "managed-deepfx-secrets"
-
             # -----------------------------------------------------------
             # Future: Feature Engine, NightDreams-RL
             # -----------------------------------------------------------
