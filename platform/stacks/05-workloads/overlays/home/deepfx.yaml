@@ -193,7 +193,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-5826f00
+              tag: main-1e14eeb
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
