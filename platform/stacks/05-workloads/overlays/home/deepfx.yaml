@@ -168,12 +168,11 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/account-api
-              tag: latest
+              tag: main-cb41def
             mt5:
               host: deepfx-mt5-bridge
 
             existingSecret: "managed-deepfx-secrets"
-
             # Will be injected from Infisical secrets
             # risk:
             #   riskPerTradePct: 1.0
@@ -183,10 +182,10 @@ apps:
             #   tradingEnabled: true
             #   closeOnlyMode: false
 
-          # -----------------------------------------------------------
-          # Future: Feature Engine, Strategy Engine, NightDreams-RL
-          # -----------------------------------------------------------
-          # - name: feature-engine
-          #   namespace: deepfx
-          #   project: home
-          #   syncWave: "10"
+            # -----------------------------------------------------------
+            # Future: Feature Engine, Strategy Engine, NightDreams-RL
+            # -----------------------------------------------------------
+            # - name: feature-engine
+            #   namespace: deepfx
+            #   project: home
+            #   syncWave: "10"
