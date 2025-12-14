@@ -355,18 +355,18 @@ apps:
                               # Group name must match ClickHouse kafka_group_name exactly.
                               echo "[deepfx] applying consumer group ACLs (group read)"
                               rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read \
-                                --group "clickhouse-ticks" \
+                                --group "ch.homelab.deepfx.ticks" \
                                 --brokers "$BROKERS" $RPK_OPTS \
-                              || echo "[deepfx] WARN: failed to create group ACL for clickhouse-ticks"
+                              || echo "[deepfx] WARN: failed to create group ACL for ch.homelab.deepfx.ticks"
 
                               rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read \
-                                --group "clickhouse-ohlcv" \
+                                --group "ch.homelab.deepfx.ohlcv" \
                                 --brokers "$BROKERS" $RPK_OPTS \
-                              || echo "[deepfx] WARN: failed to create group ACL for clickhouse-ohlcv"
+                              || echo "[deepfx] WARN: failed to create group ACL for ch.homelab.deepfx.ohlcv"
 
                               echo "[deepfx] done. current ACLs (filtered):"
                               rpk security acl list --brokers "$BROKERS" $RPK_OPTS \
-                                | grep -E "User:${DEEPFX_USER}|deepfx\.market|clickhouse-(ticks|ohlcv)" \
+                                | grep -E "User:${DEEPFX_USER}|deepfx\.market|ch\.homelab\.deepfx" \
                                 || true
                             else
                               echo "DEEPFX_PASSWORD not set; skipping deepfx user/ACL setup"
