@@ -161,6 +161,28 @@ apps:
                 cpu: 100m
                 memory: 128Mi
 
+          account-api:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/account-api
+              tag: latest
+            mt5:
+              host: deepfx-mt5-bridge
+
+            existingSecret: "managed-deepfx-secrets"
+
+            # Will be injected from Infisical secrets
+            # risk:
+            #   riskPerTradePct: 1.0
+            #   maxDailyDrawdownPct: 5.0
+            #   maxTotalDrawdownPct: 10.0
+            #   maxOpenPositions: 10
+            #   tradingEnabled: true
+            #   closeOnlyMode: false
+
           # -----------------------------------------------------------
           # Future: Feature Engine, Strategy Engine, NightDreams-RL
           # -----------------------------------------------------------
@@ -168,9 +190,3 @@ apps:
           #   namespace: deepfx
           #   project: home
           #   syncWave: "10"
-  #   dependencies:
-  #     - mt5-bridge
-  #   source:
-  #     repoURL: oci://harbor.home.lab/restack/deepfx
-  #     chart: data-collector
-  #     targetRevision: 0.1.0
