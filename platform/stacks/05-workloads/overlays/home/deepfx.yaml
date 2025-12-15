@@ -48,7 +48,7 @@ apps:
                     secretsScope:
                       projectSlug: deepfx
                       envSlug: "home"
-                      secretsPath: /deepfx/strategies/010101
+                      secretsPath: /strategies/010101
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
@@ -69,7 +69,7 @@ apps:
                     secretsScope:
                       projectSlug: deepfx
                       envSlug: "home"
-                      secretsPath: /deepfx/strategies/020101
+                      secretsPath: /strategies/020101
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
