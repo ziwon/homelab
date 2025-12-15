@@ -15,6 +15,10 @@ apps:
         releaseName: deepfx-raw
         values: |
           resources:
+
+            # -----------------------------------------------------------
+            # DeepFX Base Secrets for apps
+            # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
@@ -37,7 +41,7 @@ apps:
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
-            # Common Secrets for strategies
+            # Shared screts for strategies
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
@@ -108,6 +112,31 @@ apps:
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
+            # -----------------------------------------------------------
+            # Dashboard Secrets
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-dashboard-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /dashboard
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-dashboard-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
@@ -128,6 +157,27 @@ apps:
                     backendRefs:
                       - name: deepfx-mt5-bridge
                         port: 3000
+
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: dashboard
+                namespace: deepfx
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - deepfx.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: deepfx-live-dashboard
+                        port: 8080
 
   # -----------------------------------------------------------
   # Component B: Install DeepFX Umbrella Chart
@@ -271,6 +321,9 @@ apps:
             accountApi:
               url: "http://deepfx-account-api:8000"
 
+            dashboard:
+              url: "http://deepfx-live-dashboard:8080"
+
             resources:
               limits:
                 cpu: 500m
@@ -298,6 +351,9 @@ apps:
             accountApi:
               url: "http://deepfx-account-api:8000"
 
+            dashboard:
+              url: "http://deepfx-live-dashboard:8080"
+
             resources:
               limits:
                 cpu: 500m
@@ -308,6 +364,21 @@ apps:
 
             sharedSecret: "managed-deepfx-strategy-shared-secrets"
             existingSecret: "managed-deepfx-strategy-020101-secrets"
+
+          live-dashboard:
+            enabled: true
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/live-dashboard
+              tag: latest
+            integrations:
+              accountApiUrl: "http://deepfx-account-api:8000"
+              mt5BridgeService: "deepfx-mt5-bridge:5555"
+            existingSecret: "managed-deepfx-dashboard-secrets"
+            service:
+              type: ClusterIP
+              port: 8080
 
           # -----------------------------------------------------------
           # Future: Feature Engine, NightDreams-RL
