@@ -36,6 +36,48 @@ apps:
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-010101-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /deepfx/strategies/010101
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-010101-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-020101-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /deepfx/strategies/020101
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-020101-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
@@ -183,10 +225,7 @@ apps:
 
             existingSecret: "managed-deepfx-secrets"
 
-          # -----------------------------------------------------------
-          # DeepFX Strategy Engine
-          # -----------------------------------------------------------
-          strategy-engine:
+          strategy-010101:
             enabled: true
             replicaCount: 1
             imagePullSecrets:
@@ -210,11 +249,39 @@ apps:
                 cpu: 100m
                 memory: 128Mi
 
-            existingSecret: "managed-deepfx-secrets"
-            # -----------------------------------------------------------
-            # Future: Feature Engine, NightDreams-RL
-            # -----------------------------------------------------------
-            # - name: feature-engine
-            #   namespace: deepfx
-            #   project: home
-            #   syncWave: "10"
+            existingSecret: "managed-deepfx-strategy-010101-secrets"
+
+          strategy-020101:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/strategy-engine
+              tag: main-8f7c839
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+
+            accountApi:
+              url: "http://deepfx-account-api:8000"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+            existingSecret: "managed-deepfx-strategy-020101-secrets"
+
+          # -----------------------------------------------------------
+          # Future: Feature Engine, NightDreams-RL
+          # -----------------------------------------------------------
+          # - name: feature-engine
+          #   namespace: deepfx
+          #   project: home
+          #   syncWave: "10"
+
