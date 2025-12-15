@@ -37,16 +37,16 @@ apps:
       helm:
         releaseName: cluster
         values: |
-          crVersion: 2.7.0            
-          postgresVersion: 17         
+          crVersion: 2.7.0
+          postgresVersion: 17
 
           secretName: postgres-managed-secrets
 
           instances:
             - name: instance1
               replicas: 1              # 3 for HA, Primary + 2 replicas (HA)
-              dataVolumeClaimSpec:     
-                storageClassName: local-path 
+              dataVolumeClaimSpec:
+                storageClassName: local-path
                 accessModes:
                   - ReadWriteOnce
                 resources:
@@ -63,27 +63,27 @@ apps:
                   - host all all 0.0.0.0/0 scram-sha-256
                   - host all all ::0/0 scram-sha-256
                 parameters:
-                  max_connections: 100                     
+                  max_connections: 100
 
-                  shared_buffers: 512MB                     
-                  effective_cache_size: 1280MB              
-                  maintenance_work_mem: 64MB                
-                  work_mem: 2621kB                                            
+                  shared_buffers: 512MB
+                  effective_cache_size: 1280MB
+                  maintenance_work_mem: 64MB
+                  work_mem: 2621kB
 
-                  wal_buffers: 16MB                         
-                  min_wal_size: 80MB                        
-                  max_wal_size: 512MB                       
-                  
-                  checkpoint_completion_target: 0.9         
-                  
-                  default_statistics_target: 100            
-                  random_page_cost: 1.1                     
-                  effective_io_concurrency: 200             
-                  
-                  max_worker_processes: 4                  
-                  max_parallel_workers: 4                 
-                  max_parallel_workers_per_gather: 2      
-                  max_parallel_maintenance_workers: 2  
+                  wal_buffers: 16MB
+                  min_wal_size: 80MB
+                  max_wal_size: 512MB
+
+                  checkpoint_completion_target: 0.9
+
+                  default_statistics_target: 100
+                  random_page_cost: 1.1
+                  effective_io_concurrency: 200
+
+                  max_worker_processes: 4
+                  max_parallel_workers: 4
+                  max_parallel_workers_per_gather: 2
+                  max_parallel_maintenance_workers: 2
 
           users:
             - name: authentik
@@ -93,13 +93,16 @@ apps:
             - name: n8n
               databases:
                 - n8n
+            - name: deepfx
+              databases:
+                - deepfx
 
           proxy:
             pgBouncer:
               config:
                 global:
                   server_tls_sslmode: require
-                  client_tls_sslmode: disable 
+                  client_tls_sslmode: disable
                   pool_mode: transaction
                   default_pool_size: "20"
                   max_client_conn: "200"
@@ -118,7 +121,7 @@ apps:
 
               configuration:
                 - secret:
-                    name: postgres-managed-secrets 
+                    name: postgres-managed-secrets
                 - secret:
                     name: minio-ca
 
@@ -126,16 +129,16 @@ apps:
                 - name: repo1
                   volume:
                     volumeClaimSpec:
-                      storageClassName: local-path 
+                      storageClassName: local-path
                       accessModes:
                         - ReadWriteOnce
                       resources:
                         requests:
                           storage: 10Gi
-                    
+
                 - name: repo2
                   s3:
-                    bucket: pg-backups 
+                    bucket: pg-backups
                     endpoint: https://minio.home.lab
                     region: us-east-1
                     uriStyle: path
@@ -143,7 +146,7 @@ apps:
                   credentials:
                     name: postgres-managed-secrets
                   schedules:
-                    full: "0 19 * * 0"                  # KST, 일 새벽 04:00 전체 백업           
+                    full: "0 19 * * 0"                  # KST, 일 새벽 04:00 전체 백업
                     incremental: "0 19 * * 1-6"         # KST, 월 ~ 토 새벽 04:00 증분 백업
 
               global:
@@ -151,14 +154,14 @@ apps:
                 repo1-retention-full-type: time
                 repo2-retention-full: "14"
                 repo2-retention-full-type: time
-                repo2-s3-uri-style: path 
+                repo2-s3-uri-style: path
 
               manual:
                 repoName: repo2
                 options:
                   - --type=full
           pmm:
-            enabled: false  
+            enabled: false
 
           tlsOnly: false
 
