@@ -36,6 +36,33 @@ apps:
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
+            # -----------------------------------------------------------
+            # Common Secrets for strategies
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-shared-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /strategies
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-shared-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # Strategy Secrets: 010101
+            # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
@@ -57,6 +84,9 @@ apps:
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
+            # -----------------------------------------------------------
+            # Strategy Secrets: 020101
+            # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
@@ -249,6 +279,7 @@ apps:
                 cpu: 100m
                 memory: 128Mi
 
+            sharedSecret: "managed-deepfx-strategy-shared-secrets"
             existingSecret: "managed-deepfx-strategy-010101-secrets"
 
           strategy-020101:
@@ -275,6 +306,7 @@ apps:
                 cpu: 100m
                 memory: 128Mi
 
+            sharedSecret: "managed-deepfx-strategy-shared-secrets"
             existingSecret: "managed-deepfx-strategy-020101-secrets"
 
           # -----------------------------------------------------------
