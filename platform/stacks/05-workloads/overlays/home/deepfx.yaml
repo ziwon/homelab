@@ -129,7 +129,7 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: main-523fcd3
+              tag: main-35f207f
 
             imagePullSecrets:
               - name: harbor-secret
