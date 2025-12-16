@@ -371,7 +371,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/live-dashboard
-              tag: main-a8cffb6
+              tag: main-5fdb012
             integrations:
               accountApiUrl: "http://deepfx-account-api:8000"
               mt5BridgeService: "deepfx-mt5-bridge:5555"
