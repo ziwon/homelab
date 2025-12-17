@@ -136,6 +136,29 @@ apps:
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
+            # -----------------------------------------------------------
+            # Feast Secrets
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: feast-managed-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /feast
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: feast-managed-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
 
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
@@ -178,6 +201,105 @@ apps:
                     backendRefs:
                       - name: deepfx-live-dashboard
                         port: 8080
+
+  # ------------------------------------------------------------------
+  # Feast Registry Init Job
+  # Uses feature-engine image which includes feast definitions
+  # Run once to register feature views in Feast registry
+  # ------------------------------------------------------------------
+  - name: deepfx-feast-init
+    namespace: deepfx
+    project: dev
+    syncWave: "3"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: deepfx-raw
+        values: |
+          resources:
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: feast-apply-init
+                namespace: deepfx
+                annotations:
+                  argocd.argoproj.io/hook: PostSync
+                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+              spec:
+                ttlSecondsAfterFinished: 3600
+                backoffLimit: 3
+                template:
+                  spec:
+                    restartPolicy: OnFailure
+                    containers:
+                      - name: feast-apply
+                        image: harbor.home.lab/restack/deepfx/feature-engine:latest
+                        imagePullPolicy: Always
+                        imagePullSecrets:
+                          - name: harbor-secret
+                        env:
+                          - name: FEAST_REDIS_CONNECTION_STRING
+                            valueFrom:
+                              secretKeyRef:
+                                name: feast-managed-secrets
+                                key: redis-connection-string
+                          - name: FEAST_CLICKHOUSE_HOST
+                            value: "clickhouse.clickhouse.svc"
+                          - name: FEAST_CLICKHOUSE_USER
+                            value: "default"
+                          - name: FEAST_CLICKHOUSE_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: feast-managed-secrets
+                                key: clickhouse-password
+                                optional: true
+                          - name: FEAST_REGISTRY_PATH
+                            valueFrom:
+                              secretKeyRef:
+                                name: feast-managed-secrets
+                                key: registry-path
+                        workingDir: /app/feast
+                        command:
+                          - /bin/sh
+                          - -c
+                          - |
+                            set -e
+                            echo "=== Feast Apply Job ==="
+                            echo "Timestamp: $(date -Iseconds)"
+
+                            # Substitute env vars in feature_store.yaml
+                            echo "Substituting environment variables..."
+                            envsubst < /app/feast/feature_store.yaml > /tmp/feature_store.yaml
+                            cp /tmp/feature_store.yaml /app/feast/feature_store.yaml
+
+                            echo ""
+                            echo "Feature store config:"
+                            cat /app/feast/feature_store.yaml | grep -v password
+
+                            echo ""
+                            echo "Applying feature definitions..."
+                            feast apply
+
+                            echo ""
+                            echo "=== Verification ==="
+                            echo "Feature Views:"
+                            feast feature-views list
+
+                            echo ""
+                            echo "Entities:"
+                            feast entities list
+
+                            echo ""
+                            echo "=== Feast Apply Complete ==="
+                        resources:
+                          requests:
+                            cpu: 100m
+                            memory: 256Mi
+                          limits:
+                            cpu: 500m
+                            memory: 512Mi
 
   # -----------------------------------------------------------
   # Component B: Install DeepFX Umbrella Chart
@@ -305,6 +427,9 @@ apps:
 
             existingSecret: "managed-deepfx-secrets"
 
+          # -----------------------------------------------------------
+          # DeepFX Strategy Engine - 010101
+          # -----------------------------------------------------------
           strategy-010101:
             enabled: true
             replicaCount: 1
@@ -335,6 +460,9 @@ apps:
             sharedSecret: "managed-deepfx-strategy-shared-secrets"
             existingSecret: "managed-deepfx-strategy-010101-secrets"
 
+          # -----------------------------------------------------------
+          # DeepFX Strategy Engine - 020101
+          # -----------------------------------------------------------
           strategy-020101:
             enabled: true
             replicaCount: 1
@@ -365,6 +493,9 @@ apps:
             sharedSecret: "managed-deepfx-strategy-shared-secrets"
             existingSecret: "managed-deepfx-strategy-020101-secrets"
 
+          # -----------------------------------------------------------
+          # DeepFX Live Dashboard
+          # -----------------------------------------------------------
           live-dashboard:
             enabled: true
             imagePullSecrets:
@@ -381,9 +512,107 @@ apps:
               port: 8080
 
           # -----------------------------------------------------------
-          # Future: Feature Engine, NightDreams-RL
+          # DeepFX Feature Store
           # -----------------------------------------------------------
-          # - name: feature-engine
-          #   namespace: deepfx
-          #   project: home
-          #   syncWave: "10"
+          feature-store:
+            enabled: false
+            replicaCount: 1
+
+            image:
+              repository: harbor.home.lab/restack/deepfx/feature-engine
+              tag: "latest"
+            pullPolicy: Always
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            kafka:
+              brokers: "redpanda.redpanda.svc:9093"
+              groupId: "deepfx.feature.engine"
+              tickTopic: "deepfx.market.tick"
+              ohlcvTopic: "deepfx.market.ohlcv"
+              featureTopic: "deepfx.market.feature.latest"
+              publishToKafka: true
+              securityProtocol: "SASL_SSL"
+              auth:
+                username: "deepfx"
+                passwordSecretName: "managed-deepfx-secrets"
+                passwordSecretKey: "redpanda-deepfx-password"
+                saslMechanism: "SCRAM-SHA-512"
+              tls:
+                caSecretName: "redpanda-ca"
+                caSecretKey: "ca.crt"
+                caFileName: "ca.crt"
+                caMountPath: "/etc/ssl/certs/redpanda"
+                caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
+                skipHostnameVerify: true
+
+            redis:
+              url: "redis://redis.redis.svc:6379/0"
+              keyPrefix: "deepfx:feature:"
+              ttlSeconds: 120
+
+            engine:
+              tickWindowSeconds: 10
+              emitIntervalMs: 200
+              logLevel: "INFO"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+          # -----------------------------------------------------------
+          # DeepFX Nightly Dream
+          # -----------------------------------------------------------
+          nightly-dream:
+            enabled: false
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            image:
+              repository: harbor.home.lab/restack/deepfx/nightly-dream
+              tag: latest
+
+            existingSecret: "managed-deepfx-nightly-dream-secrets"
+
+            job:
+              schedule: "0 22 * * *"
+              lookbackHours: 24
+              strategyInstanceIdsCsv: ""
+              minTradesForAdjustment: 5
+              artifactsDir: "/tmp/nightly-dream"
+              uploadToS3: true
+              logLevel: "INFO"
+
+            database:
+              secretName: "managed-deepfx-nightly-dream-secrets"
+              secretKey: "FEATURE_ENGINE_DATABASE_DSN"
+
+            s3:
+              endpointUrl: "minio-green.minio-green.svc:9000"
+              region: "us-east-1"
+              bucket: "deepfx"
+              prefix: "nightly-dream"
+              verifyTls: false
+              accessKeySecretName: "managed-deepfx-secrets"
+              accessKeySecretKey: "s3-access-key"
+              secretAccessKeySecretName: "managed-deepfx-secrets"
+              secretAccessKeySecretKey: "s3-secret-key"
+
+            infisical:
+              enabled: false
+              baseUrl: ""
+              environment: ""
+              workspaceId: ""
+              projectSlug: ""
+              secretPathTemplate: "/strategies/{strategy_instance_id}"
+              secretType: "shared"
+              timeoutSeconds: 10
+              dryRun: false
+              tokenSecretName: "managed-deepfx-secrets"
+              tokenSecretKey: "infisical-token"
