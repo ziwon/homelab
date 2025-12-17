@@ -508,6 +508,9 @@ apps:
         releaseName: redpanda-topics-deepfx
         values: |
           resources:
+            # -----------------------------------------------------------
+            # DeepFX Market Data - Tick
+            # -----------------------------------------------------------
             - apiVersion: cluster.redpanda.com/v1alpha2
               kind: Topic
               metadata:
@@ -540,6 +543,9 @@ apps:
                       name: "redpanda-managed-secrets"
                       key: "superuser-password"
 
+            # -----------------------------------------------------------
+            # DeepFX Market Data - OHLCV
+            # -----------------------------------------------------------
             - apiVersion: cluster.redpanda.com/v1alpha2
               kind: Topic
               metadata:
@@ -557,6 +563,45 @@ apps:
                   retention.bytes: "5368709120" # 5G
                   segment.bytes: "67108864"     # 64MB
                   segment.ms: "3600000"         # 1H (rapid segment rollover)
+
+                kafkaApiSpec:
+                  brokers:
+                    - "redpanda-0.redpanda.redpanda.svc.cluster.local:9093"
+                  tls:
+                    caCertSecretRef:
+                      name: "redpanda-default-cert"
+                      key: "ca.crt"
+                  sasl:
+                    mechanism: "SCRAM-SHA-256"
+                    username: "admin"
+                    passwordSecretRef:
+                      name: "redpanda-managed-secrets"
+                      key: "superuser-password"
+
+            # -----------------------------------------------------------
+            # DeepFX Feature Engine - Latest
+            # -----------------------------------------------------------
+            # Feature Engine computed features topic
+            # Throttled output: ~200ms per symbol (vs raw tick ~10ms)
+            # Consumed by: ClickHouse Kafka Engine, (future) strategy-engine
+            # -----------------------------------------------------------
+            - apiVersion: cluster.redpanda.com/v1alpha2
+              kind: Topic
+              metadata:
+                name: deepfx.market.feature.latest
+                namespace: redpanda
+              spec:
+                interval: 1h
+
+                partitions: 3
+                replicationFactor: 1
+
+                additionalConfig:
+                  cleanup.policy: "delete"
+                  retention.ms: "86400000"      # 1d (ClickHouse ingests in real-time)
+                  retention.bytes: "2147483648" # 2G (throttled output, smaller than tick)
+                  segment.bytes: "67108864"     # 64MB
+                  segment.ms: "3600000"         # 1H
 
                 kafkaApiSpec:
                   brokers:
