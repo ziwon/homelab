@@ -520,7 +520,7 @@ apps:
 
             image:
               repository: harbor.home.lab/restack/deepfx/feature-engine
-              tag: "main-a4fb2d2"
+              tag: "main-830efac"
 
             imagePullSecrets:
               - name: harbor-secret
