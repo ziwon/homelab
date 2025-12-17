@@ -544,7 +544,23 @@ apps:
                 caFileName: "ca.crt"
                 caMountPath: "/etc/ssl/certs/redpanda"
                 caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
-                skipHostnameVerify: true
+                skipHostnameVerify: false
+                sessionTimeoutMs: 60000
+                heartbeatIntervalMs: 20000
+                maxPollIntervalMs: 600000
+
+            feast:
+              enabled: true
+              repoPath: "/app/feast"
+              pushBatchSize: 50
+              pushIntervalMs: 100
+              secretName: "managed-feast-secrets"
+              env:
+                redisConnectionStringSecretKey: "redis-connection-string"
+                clickhousePasswordSecretKey: "clickhouse-password"
+                registryPathSecretKey: "registry-path"
+                clickhouseHost: "clickhouse.clickhouse.svc"
+                clickhouseUser: "feast"
 
             redis:
               urlSecretName: "managed-feast-secrets"
