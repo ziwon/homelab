@@ -142,7 +142,7 @@ apps:
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
-                name: feast-managed-secrets
+                name: managed-feast-secrets
                 namespace: deepfx
               spec:
                 hostAPI: https://app.infisical.com/api
@@ -156,7 +156,7 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
                 managedKubeSecretReferences:
-                  - secretName: feast-managed-secrets
+                  - secretName: managed-feast-secrets
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
@@ -243,7 +243,7 @@ apps:
                           - name: FEAST_REDIS_CONNECTION_STRING
                             valueFrom:
                               secretKeyRef:
-                                name: feast-managed-secrets
+                                name: managed-feast-secrets
                                 key: redis-connection-string
                           - name: FEAST_CLICKHOUSE_HOST
                             value: "clickhouse.clickhouse.svc"
@@ -252,13 +252,13 @@ apps:
                           - name: FEAST_CLICKHOUSE_PASSWORD
                             valueFrom:
                               secretKeyRef:
-                                name: feast-managed-secrets
+                                name: managed-feast-secrets
                                 key: clickhouse-password
                                 optional: true
                           - name: FEAST_REGISTRY_PATH
                             valueFrom:
                               secretKeyRef:
-                                name: feast-managed-secrets
+                                name: managed-feast-secrets
                                 key: registry-path
                         workingDir: /app/feast
                         command:
@@ -547,7 +547,8 @@ apps:
                 skipHostnameVerify: true
 
             redis:
-              url: "redis://redis.redis.svc:6379/0"
+              urlSecretName: "managed-feast-secrets"
+              urlSecretKey: "redis-connection-string"
               keyPrefix: "deepfx:feature:"
               ttlSeconds: 120
 
