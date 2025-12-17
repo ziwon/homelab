@@ -237,7 +237,8 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: feast-apply
-                        image: harbor.home.lab/restack/deepfx/feature-engine:main-04ed76a
+                        image: harbor.home.lab/restack/deepfx/feature-engine:latest
+                        imagePullPolicy: Always
                         env:
                           - name: FEAST_REDIS_CONNECTION_STRING
                             valueFrom:
