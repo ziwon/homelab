@@ -515,7 +515,7 @@ apps:
           # DeepFX Feature Store
           # -----------------------------------------------------------
           feature-store:
-            enabled: false
+            enabled: enable
             replicaCount: 1
 
             image:
@@ -603,16 +603,3 @@ apps:
               accessKeySecretKey: "s3-access-key"
               secretAccessKeySecretName: "managed-deepfx-secrets"
               secretAccessKeySecretKey: "s3-secret-key"
-
-            infisical:
-              enabled: false
-              baseUrl: ""
-              environment: ""
-              workspaceId: ""
-              projectSlug: ""
-              secretPathTemplate: "/strategies/{strategy_instance_id}"
-              secretType: "shared"
-              timeoutSeconds: 10
-              dryRun: false
-              tokenSecretName: "managed-deepfx-secrets"
-              tokenSecretKey: "infisical-token"
