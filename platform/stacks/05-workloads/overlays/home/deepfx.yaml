@@ -225,20 +225,19 @@ apps:
                 name: feast-apply-init
                 namespace: deepfx
                 annotations:
-                  argocd.argoproj.io/hook: Sync
-                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+                  # argocd.argoproj.io/hook: Sync
+                  # argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
               spec:
                 ttlSecondsAfterFinished: 3600
                 backoffLimit: 3
                 template:
                   spec:
                     restartPolicy: OnFailure
+                    imagePullSecrets:
+                      - name: harbor-secret
                     containers:
                       - name: feast-apply
                         image: harbor.home.lab/restack/deepfx/feature-engine:latest
-                        imagePullPolicy: Always
-                        imagePullSecrets:
-                          - name: harbor-secret
                         env:
                           - name: FEAST_REDIS_CONNECTION_STRING
                             valueFrom:
@@ -521,7 +520,6 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/feature-engine
               tag: "latest"
-            pullPolicy: Always
 
             imagePullSecrets:
               - name: harbor-secret
