@@ -248,7 +248,7 @@ apps:
                           - name: FEAST_CLICKHOUSE_HOST
                             value: "clickhouse.clickhouse.svc"
                           - name: FEAST_CLICKHOUSE_USER
-                            value: "default"
+                            value: "feast"
                           - name: FEAST_CLICKHOUSE_PASSWORD
                             valueFrom:
                               secretKeyRef:
@@ -515,7 +515,7 @@ apps:
           # DeepFX Feature Store
           # -----------------------------------------------------------
           feature-store:
-            enabled: enable
+            enabled: true
             replicaCount: 1
 
             image:
