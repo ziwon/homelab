@@ -368,6 +368,25 @@ apps:
                               rpk security acl list --brokers "$BROKERS" $RPK_OPTS \
                                 | grep -E "User:${DEEPFX_USER}|deepfx\.market|ch\.homelab\.deepfx" \
                                 || true
+
+                              # 5) Feature topic permissions (for feature-engine producer + ClickHouse consumer)
+                              echo "[deepfx] applying feature.latest ACLs"
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation write,describe \
+                                --topic "deepfx.market.feature.latest" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create producer ACL for topic deepfx.market.feature.latest"
+
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read,describe \
+                                --topic "deepfx.market.feature.latest" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create consumer ACL for topic deepfx.market.feature.latest"
+
+                              # ClickHouse consumer group for features
+                              rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read \
+                                --group "ch.homelab.deepfx.features" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[deepfx] WARN: failed to create group ACL for ch.homelab.deepfx.features"
+
                             else
                               echo "DEEPFX_PASSWORD not set; skipping deepfx user/ACL setup"
                             fi
