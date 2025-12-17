@@ -559,14 +559,14 @@ apps:
 
             resources:
               limits:
-                cpu: 500m
+                cpu: 2000m
                 memory: 256Mi
               requests:
                 cpu: 100m
                 memory: 128Mi
 
           # -----------------------------------------------------------
-          # DeepFX Nightly Dream
+          # DeepFX Nightly Dream RL
           # -----------------------------------------------------------
           nightly-dream:
             enabled: false
