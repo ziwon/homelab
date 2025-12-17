@@ -544,7 +544,7 @@ apps:
                 caFileName: "ca.crt"
                 caMountPath: "/etc/ssl/certs/redpanda"
                 caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
-                skipHostnameVerify: false
+                skipHostnameVerify: true
                 sessionTimeoutMs: 60000
                 heartbeatIntervalMs: 20000
                 maxPollIntervalMs: 600000
