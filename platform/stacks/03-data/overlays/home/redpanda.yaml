@@ -387,6 +387,14 @@ apps:
                                 --brokers "$BROKERS" $RPK_OPTS \
                               || echo "[deepfx] WARN: failed to create group ACL for ch.homelab.deepfx.features"
 
+                              # 6) Feature-engine consumer group(s)
+                              for group in "deepfx-feature-engine" "deepfx.feature.engine"; do
+                                rpk security acl create --allow-principal "User:$DEEPFX_USER" --operation read \
+                                  --group "$group" \
+                                  --brokers "$BROKERS" $RPK_OPTS \
+                                || echo "[deepfx] WARN: failed to create group ACL for $group"
+                              done
+
                             else
                               echo "DEEPFX_PASSWORD not set; skipping deepfx user/ACL setup"
                             fi
