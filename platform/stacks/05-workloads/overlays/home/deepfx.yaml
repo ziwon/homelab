@@ -237,7 +237,7 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: feast-apply
-                        image: harbor.home.lab/restack/deepfx/feature-engine:latest
+                        image: harbor.home.lab/restack/deepfx/feature-engine:main-04ed76a
                         env:
                           - name: FEAST_REDIS_CONNECTION_STRING
                             valueFrom:
@@ -511,15 +511,15 @@ apps:
               port: 8080
 
           # -----------------------------------------------------------
-          # DeepFX Feature Store
+          # DeepFX Feature Engine
           # -----------------------------------------------------------
-          feature-store:
+          feature-engine:
             enabled: true
             replicaCount: 1
 
             image:
               repository: harbor.home.lab/restack/deepfx/feature-engine
-              tag: "latest"
+              tag: "main-04ed76a"
 
             imagePullSecrets:
               - name: harbor-secret
