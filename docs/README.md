@@ -98,7 +98,7 @@ Details are [gpu-partitioning-architecture.md](./gpu-partitioning-architecture.m
 │                                                                                         │
 │   ┌────────────────────────────────────────────────────────────────────────────────┐    │
 │   │                         PostgreSQL (cluster-pg-db:5432)                        │    │
-│   │                              Database: feast                                   │    │
+│   │                              Database: deepfx                                  │    │
 │   └────────────────────────────────────────────────────────────────────────────────┘    │
 │                                                                                         │
 │   Project: homelab                                                                      │
