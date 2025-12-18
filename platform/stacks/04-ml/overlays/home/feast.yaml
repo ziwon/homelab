@@ -92,7 +92,7 @@ apps:
                   offlineStore:
                     persistence:
                       store:
-                        type: feast.infra.offline_stores.contrib.clickhouse_offline_store.clickhouse.ClickhouseOfflineStore
+                        type: clickhouse
                         secretRef:
                           name: feast-managed-secrets
                     server:
