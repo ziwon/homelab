@@ -563,7 +563,9 @@ apps:
                 clickhouseUser: "feast"
 
             redis:
-              redisPasswordSecretKey: "redis-password"
+              auth:
+                passwordSecretName: "managed-feast-secrets"
+                passwordSecretKey: "redis-password"
               keyPrefix: "deepfx:feature:"
               ttlSeconds: 120
 
