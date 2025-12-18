@@ -225,8 +225,8 @@ apps:
                 name: feast-apply-init
                 namespace: deepfx
                 annotations:
-                  # argocd.argoproj.io/hook: Sync
-                  # argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+                  argocd.argoproj.io/hook: Sync
+                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
               spec:
                 ttlSecondsAfterFinished: 3600
                 backoffLimit: 3
