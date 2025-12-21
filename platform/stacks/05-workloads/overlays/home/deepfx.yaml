@@ -113,6 +113,30 @@ apps:
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
+            # Strategy Secrets: 030101
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-030101-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /strategies/030101
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-030101-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
             # Dashboard Secrets
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
@@ -314,7 +338,7 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.1.16
+      targetRevision: 0.1.15
       helm:
         releaseName: deepfx
         values: |
@@ -398,7 +422,7 @@ apps:
               ohlcvTopic: "deepfx.market.ohlcv"
 
             collector:
-              symbols: "NAS100,XAUUSD,USOUSD,BTCUSD"
+              symbols: "NAS100,XAUUSD,USOUSD,BTCUSD,XAGUSD,EURGBP,AUDNZD,NZDCHF,US30"
               timeframes: "M1,M5,M15,H1,H4,D1"
               ohlcvInterval: 60
               logLevel: "INFO"
@@ -437,7 +461,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-4a633e4
+              tag: main-f964ab1
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
@@ -470,7 +494,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-4a633e4
+              tag: main-f964ab1
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
@@ -492,6 +516,40 @@ apps:
 
             sharedSecret: "managed-deepfx-strategy-shared-secrets"
             existingSecret: "managed-deepfx-strategy-020101-secrets"
+
+
+          # -----------------------------------------------------------
+          # DeepFX Strategy Engine - 030101
+          # -----------------------------------------------------------
+          strategy-030101:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/strategy-engine
+              tag: latest
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+
+            accountApi:
+              url: "http://deepfx-account-api:8000"
+
+            dashboard:
+              url: "http://deepfx-live-dashboard:8080"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+            sharedSecret: "managed-deepfx-strategy-shared-secrets"
+            existingSecret: "managed-deepfx-strategy-030101-secrets"
 
           # -----------------------------------------------------------
           # DeepFX Live Dashboard
@@ -563,6 +621,7 @@ apps:
                 clickhouseUser: "feast"
 
             redis:
+              url: "redis-0.redis-headless.redis.svc:6379"
               auth:
                 passwordSecretName: "managed-feast-secrets"
                 passwordSecretKey: "redis-password"
