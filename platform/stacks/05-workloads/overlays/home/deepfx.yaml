@@ -461,7 +461,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-e573582
+              tag: main-f964ab1
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
@@ -620,7 +620,7 @@ apps:
                 clickhouseUser: "feast"
 
             redis:
-              url: "redis-0.redis-headless.redis.svc:6379"
+              url: "redis://redis-0.redis-headless.redis.svc:6379"
               auth:
                 passwordSecretName: "managed-feast-secrets"
                 passwordSecretKey: "redis-password"
