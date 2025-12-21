@@ -422,7 +422,7 @@ apps:
               ohlcvTopic: "deepfx.market.ohlcv"
 
             collector:
-              symbols: "NAS100,XAUUSD,USOUSD,BTCUSD,XAGUSD,EURGBP,AUDNZD,NZDCHF,US30"
+              symbols: "NAS100,XAUUSD,USOUSD,BTCUSD,XAGUSD,EURGBP,AUDNZD,NZDCHF,US30,USDJPY,EURUSD,GBPUSD"
               timeframes: "M1,M5,M15,H1,H4,D1"
               ohlcvInterval: 60
               logLevel: "INFO"
