@@ -461,7 +461,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-f964ab1
+              tag: main-e573582
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
@@ -516,7 +516,6 @@ apps:
 
             sharedSecret: "managed-deepfx-strategy-shared-secrets"
             existingSecret: "managed-deepfx-strategy-020101-secrets"
-
 
           # -----------------------------------------------------------
           # DeepFX Strategy Engine - 030101
