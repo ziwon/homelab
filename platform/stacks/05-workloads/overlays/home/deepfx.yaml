@@ -422,7 +422,8 @@ apps:
               ohlcvTopic: "deepfx.market.ohlcv"
 
             collector:
-              symbols: "NAS100,XAUUSD,USOUSD,BTCUSD,XAGUSD,EURGBP,AUDNZD,NZDCHF,US30,USDJPY,EURUSD,GBPUSD"
+              symbols: "NAS100,XAUUSD,USOUSD,BTCUSD,XAGUSD,EURGBP,AUDNZD,NZDCHF,US30,USDJPY,E\
+                URUSD,GBPUSD"
               timeframes: "M1,M5,M15,H1,H4,D1"
               ohlcvInterval: 60
               logLevel: "INFO"
@@ -461,7 +462,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-7579a5e
+              tag: main-bdb9250
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
