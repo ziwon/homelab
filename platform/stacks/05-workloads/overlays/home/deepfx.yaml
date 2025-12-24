@@ -446,7 +446,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/account-api
-              tag: main-f4434bc
+              tag: main-438cbea
             mt5:
               host: deepfx-mt5-bridge
 
