@@ -1,5 +1,7 @@
 services:
-  # GPU Isolation with MPS
+  # ---------------------------------------------------------------------------
+  # GPU Isolation with MPS (all GPU work goes through here)
+  # ---------------------------------------------------------------------------
   nvidia-mps:
     image: nvidia/cuda:12.9.1-base-ubuntu24.04
     container_name: nvidia-mps
@@ -32,9 +34,11 @@ services:
               count: all
               capabilities: [ gpu ]
 
-  # CPU Isolation with Ray
+  # ---------------------------------------------------------------------------
+  # CPU/GPU Orchestration with Ray
+  # ---------------------------------------------------------------------------
   ray-node:
-    image: ${RAY_IMAGE:-rayproject/ray:2.9.0-py310-gpu}
+    image: ${RAY_IMAGE:-rayproject/ray:2.9.0-py312}
     container_name: ray_node
     hostname: ray-node
     restart: always
@@ -58,3 +62,195 @@ services:
       - "8265:8265"
       - "6379:6379"
       - "10001:10001"
+
+  # ---------------------------------------------------------------------------
+  # vLLM - Main Universal LLM Server (Qwen3-8B-Instruct, OpenAI compatible API)
+  # ---------------------------------------------------------------------------
+  vllm:
+    image: ${VLLM_IMAGE:-vllm/vllm-openai:v0.6.6.post1}
+    container_name: vllm
+    runtime: nvidia
+    restart: unless-stopped
+    depends_on:
+      nvidia-mps:
+        condition: service_healthy
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+      - CUDA_MPS_LOG_DIRECTORY=/mps/log
+      - HF_HOME=/data/huggingface
+      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=40
+    volumes:
+      - /cache/nvidia-mps/pipe:/mps/pipe:ro
+      - /cache/nvidia-mps/log:/mps/log:ro
+      - /data/LLM/models/hugging-face:/data/huggingface
+    command:
+      - Qwen/Qwen3-8B-AWQ
+      #- Qwen/Qwen3-8B-Instruct
+      - --dtype
+      - float16
+      - --max-model-len
+      - "8192"
+      - --gpu-memory-utilization
+      - "0.5"
+      - --cpu-offload-gb
+      - "16"
+      - --swap-space
+      - "4"
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --served-model-name
+      - qwen3-8b
+    cpuset: "0-7"
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # ---------------------------------------------------------------------------
+  # llama.cpp - Multimodal VLM (GLM-4.6V-Flash GGUF)
+  # ---------------------------------------------------------------------------
+  llama-cpp:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-cpp
+    runtime: nvidia
+    restart: unless-stopped
+    profiles:
+      - gguf
+    depends_on:
+      nvidia-mps:
+        condition: service_healthy
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+    volumes:
+      - /home/aaron/Data/LLM/models:/models:ro
+      - /cache/nvidia-mps/pipe:/mps/pipe:ro
+    command:
+      - --model
+      - /models/lmstudio-community/GLM-4.6V-Flash-GGUF/GLM-4.6V-Flash-Q4_K_M.gguf
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8001"
+      - --n-gpu-layers
+      - "35"
+      - --ctx-size
+      - "8192"
+      - --parallel
+      - "4"
+      - --cont-batching
+      - --flash-attn
+    cpuset: "0-7"
+    ports:
+      - "8001:8001"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # llama.cpp - Trading/FX  (llama3-ko-8b-trading-expert)
+  # ---------------------------------------------------------------------------
+  llama-cpp-trading:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: llama-cpp-trading
+    runtime: nvidia
+    restart: unless-stopped
+    profiles:
+      - trading
+    depends_on:
+      nvidia-mps:
+        condition: service_healthy
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+    volumes:
+      - /home/aaron/Data/LLM/models:/models:ro
+      - /cache/nvidia-mps/pipe:/mps/pipe:ro
+    command:
+      - --model
+      - /models/yhkkk0427/llama3-ko-8b-trading-expert-Q4_K_M-GGUF/llama3-ko-8b-trading-expert-q4_k_m.gguf
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8002"
+      - --n-gpu-layers
+      - "35"
+      - --ctx-size
+      - "4096"
+      - --parallel
+      - "4"
+      - --cont-batching
+      - --flash-attn
+    cpuset: "0-7"
+    ports:
+      - "8002:8002"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # Open WebUI - ChatGPT style Web Interface
+  # ---------------------------------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    depends_on:
+      vllm:
+        condition: service_healthy
+    environment:
+      - OPENAI_API_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_KEY=not-needed
+
+      - WEBUI_AUTH=false
+      - WEBUI_NAME=DeepFX AI
+      - DEFAULT_MODELS=qwen3-8b
+
+      - OLLAMA_BASE_URL=
+      - ENABLE_OLLAMA_API=false
+    volumes:
+      - open-webui-data:/app/backend/data
+    ports:
+      - "3000:8080"
+    cpuset: "8-23"
+
+volumes:
+  open-webui-data:
+    driver: local
