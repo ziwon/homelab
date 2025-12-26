@@ -71,6 +71,8 @@ services:
     container_name: vllm
     runtime: nvidia
     restart: unless-stopped
+    profiles:
+      - vllm
     depends_on:
       nvidia-mps:
         condition: service_healthy
@@ -79,8 +81,9 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
       - CUDA_MPS_LOG_DIRECTORY=/mps/log
-      - HF_HOME=/data/huggingface
       - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=40
+      - HF_HOME=/data/huggingface
+      - PYTORCH_ALLOC_CONF=expandable_segments:True
     volumes:
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
       - /cache/nvidia-mps/log:/mps/log:ro
@@ -90,10 +93,10 @@ services:
       #- Qwen/Qwen3-8B-Instruct
       - --dtype
       - float16
-      - --max-model-len
-      - "8192"
+      #- --max-model-len
+      #- "4096"
       - --gpu-memory-utilization
-      - "0.5"
+      - "0.65"
       - --cpu-offload-gb
       - "16"
       - --swap-space
@@ -102,6 +105,8 @@ services:
       - "0.0.0.0"
       - --port
       - "8000"
+      - --max-num-seqs
+      - "16"
       - --served-model-name
       - qwen3-8b
     cpuset: "0-7"
@@ -109,6 +114,8 @@ services:
       - "8000:8000"
     deploy:
       resources:
+        limits:
+          memory: 22G
         reservations:
           devices:
             - driver: nvidia
@@ -138,24 +145,31 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=40
     volumes:
-      - /home/aaron/Data/LLM/models:/models:ro
+      - /data/LLM/models/lmstudio-community:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
     command:
       - --model
-      - /models/lmstudio-community/GLM-4.6V-Flash-GGUF/GLM-4.6V-Flash-Q4_K_M.gguf
+      - /models/GLM-4.6V-Flash-GGUF/GLM-4.6V-Flash-Q4_K_M.gguf
+      - --mmproj
+      - /models/GLM-4.6V-Flash-GGUF/mmproj-GLM-4.6V-Flash-F16.gguf
+      - --mmproj-offload
       - --host
       - "0.0.0.0"
       - --port
       - "8001"
       - --n-gpu-layers
-      - "35"
+      - "10"
       - --ctx-size
-      - "8192"
+      - "4096"
       - --parallel
-      - "4"
+      - "1"
       - --cont-batching
       - --flash-attn
+      - auto
+      - --alias
+      - glm-4.6v
     cpuset: "0-7"
     ports:
       - "8001:8001"
@@ -177,7 +191,7 @@ services:
   # llama.cpp - Trading/FX  (llama3-ko-8b-trading-expert)
   # ---------------------------------------------------------------------------
   llama-cpp-trading:
-    image: ghcr.io/ggerganov/llama.cpp:server
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
     container_name: llama-cpp-trading
     runtime: nvidia
     restart: unless-stopped
@@ -190,12 +204,13 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=50
     volumes:
-      - /home/aaron/Data/LLM/models:/models:ro
+      - /data/LLM/models/yhkkk0427:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
     command:
       - --model
-      - /models/yhkkk0427/llama3-ko-8b-trading-expert-Q4_K_M-GGUF/llama3-ko-8b-trading-expert-q4_k_m.gguf
+      - /models/llama3-ko-8b-trading-expert-Q4_K_M-GGUF/llama3-ko-8b-trading-expert-q4_k_m.gguf
       - --host
       - "0.0.0.0"
       - --port
@@ -208,6 +223,9 @@ services:
       - "4"
       - --cont-batching
       - --flash-attn
+      - auto
+      - --alias
+      - llama3-trading
     cpuset: "0-7"
     ports:
       - "8002:8002"
@@ -226,22 +244,131 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
+  # llama.cpp - Code (Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf)
+  # ---------------------------------------------------------------------------
+  llama-cpp-code:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-cpp-code
+    runtime: nvidia
+    restart: unless-stopped
+    profiles:
+      - code
+    depends_on:
+      nvidia-mps:
+        condition: service_healthy
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=50
+    volumes:
+      - /data/LLM/models/lmstudio-community:/models:ro
+      - /cache/nvidia-mps/pipe:/mps/pipe:ro
+    command:
+      - --model
+      - /models/Qwen3-Coder-30B-A3B-Instruct-GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8003"
+      - --n-gpu-layers
+      - "28"
+      - --ctx-size
+      - "24513"
+      - --parallel
+      - "1"
+      - --cont-batching
+      - --flash-attn
+      - auto
+      - --alias
+      - qwen3-coder
+    cpuset: "0-7"
+    ports:
+      - "8003:8003"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # llama.cpp - Code (GPT-OSS-20B-MXFP4.gguf)
+  # ---------------------------------------------------------------------------
+  llama-cpp-oss20b:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-cpp-oss20b
+    runtime: nvidia
+    restart: unless-stopped
+    profiles:
+      - code-oss20b
+    depends_on:
+      nvidia-mps:
+        condition: service_healthy
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=50
+    volumes:
+      - /data/LLM/models/lmstudio-community:/models:ro
+      - /cache/nvidia-mps/pipe:/mps/pipe:ro
+    command:
+      - --model
+      - /models/gpt-oss-20b-GGUF/gpt-oss-20b-MXFP4.gguf
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8004"
+      - --n-gpu-layers
+      - "16"
+      - --ctx-size
+      - "20976"
+      - --parallel
+      - "1"
+      - --cont-batching
+      - --flash-attn
+      - auto
+      - --alias
+      - gpt-oss-20b
+    cpuset: "0-7"
+    ports:
+      - "8004:8004"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
   # Open WebUI - ChatGPT style Web Interface
   # ---------------------------------------------------------------------------
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
     restart: unless-stopped
-    depends_on:
-      vllm:
-        condition: service_healthy
     environment:
-      - OPENAI_API_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_BASE_URL=http://vllm:8000/v1;http://llama-cpp:8001/v1;http://llama-cpp-code:8003/v1;http://llama-cpp-oss20b:8004/v1
       - OPENAI_API_KEY=not-needed
 
       - WEBUI_AUTH=false
       - WEBUI_NAME=DeepFX AI
-      - DEFAULT_MODELS=qwen3-8b
+      - DEFAULT_MODELS=qwen3-coder
 
       - OLLAMA_BASE_URL=
       - ENABLE_OLLAMA_API=false
