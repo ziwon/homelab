@@ -137,6 +137,54 @@ apps:
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
+            # Strategy Secrets: 040101
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-040101-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /strategies/040101
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-040101-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # Strategy Secrets: 040102
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-040102-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /strategies/040102
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-040102-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
             # Dashboard Secrets
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
@@ -563,6 +611,110 @@ apps:
             existingSecret: "managed-deepfx-strategy-030101-secrets"
 
           # -----------------------------------------------------------
+          # DeepFX Strategy Engine - 040101
+          # -----------------------------------------------------------
+          strategy-040101:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/strategy-engine
+              tag: latest
+            mode: "live"
+            logLevel: "INFO"
+
+            strategyInstanceId: "strategy-040101"
+            strategyVersion: "zrevert-v1.0"
+
+            dashboard:
+              url: "http://deepfx-live-dashboard:8080"
+
+            sharedSecret: "managed-deepfx-strategy-shared-secrets"
+            existingSecret: "managed-deepfx-strategy-040101-secrets"
+
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+              timeoutMs: 15000
+
+            accountApi:
+              url: "http://deepfx-account-api:8000"
+
+            featureEngine:
+              enabled: true
+              redisUrl: "redis://redis-0.redis-headless.redis.svc:6379"
+              redisPasswordSecretName: "managed-feast-secrets"
+              redisPasswordSecretKey: "redis-password"
+              keyPrefix: "deepfx:feature:"
+
+            feast:
+              enabled: false
+              repoPath: "/app/feast"
+              secretName: "managed-feast-secrets"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+          # -----------------------------------------------------------
+          # DeepFX Strategy Engine - 040102
+          # -----------------------------------------------------------
+          strategy-040102:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/strategy-engine
+              tag: latest
+            mode: "live"
+            logLevel: "INFO"
+
+            strategyInstanceId: "strategy-040102"
+            strategyVersion: "zrevert-v1.0"
+
+            dashboard:
+              url: "http://deepfx-live-dashboard:8080"
+
+            sharedSecret: "managed-deepfx-strategy-shared-secrets"
+            existingSecret: "managed-deepfx-strategy-040102-secrets"
+
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+              timeoutMs: 15000
+
+            accountApi:
+              url: "http://deepfx-account-api:8000"
+
+            featureEngine:
+              enabled: true
+              redisUrl: "redis://redis-0.redis-headless.redis.svc:6379"
+              redisPasswordSecretName: "managed-feast-secrets"
+              redisPasswordSecretKey: "redis-password"
+              keyPrefix: "deepfx:feature:"
+
+            feast:
+              enabled: false
+              repoPath: "/app/feast"
+              secretName: "managed-feast-secrets"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+          # -----------------------------------------------------------
           # DeepFX Live Dashboard
           # -----------------------------------------------------------
           live-dashboard:
@@ -652,41 +804,87 @@ apps:
                 cpu: 100m
                 memory: 128Mi
 
-          # -----------------------------------------------------------
-          # DeepFX Nightly Dream RL
-          # -----------------------------------------------------------
-          nightly-dream:
-            enabled: false
+  - name: deepfx-ml-workflows
+    namespace: deepfx
+    project: dev
+    syncWave: "20"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: deepfx-ml-workflows
+        values: |
+          resources:
+            - apiVersion: argoproj.io/v1alpha1
+              kind: CronWorkflow
+              metadata:
+                name: nightly-dream
+                namespace: deepfx
+              spec:
+                schedule: "0 06 * * *"
+                timezone: "Asia/Seoul"
+                concurrencyPolicy: Forbid
+                workflowSpec:
+                  entrypoint: nightly-dream
+                  onExit: exit-handler
+                  templates:
+                    - name: nightly-dream
+                      container:
+                        image: harbor.home.lab/restack/deepfx/nightly-dream:latest
+                        envFrom:
+                          - secretRef:
+                              name: managed-deepfx-nightly-dream-secrets
+                    - name: exit-handler
+                      steps:
+                        - - name: notify
+                            templateRef:
+                              name: global-slack-notification
+                              template: send-notification
+                              clusterScope: true
+                            arguments:
+                              parameters:
+                                - name: status
+                                  value: "{{workflow.status}}"
+                                - name: name
+                                  value: "{{workflow.name}}"
+                                - name: namespace
+                                  value: "{{workflow.namespace}}"
+                                - name: link
+                                  value: "https://wf.home.lab/workflows/{{workflow.namespace}}/{{workflow.name}}?tab=workflow"
 
-            imagePullSecrets:
-              - name: harbor-secret
-
-            image:
-              repository: harbor.home.lab/restack/deepfx/nightly-dream
-              tag: main-75f01eb
-
-            existingSecret: "managed-deepfx-nightly-dream-secrets"
-
-            job:
-              schedule: "0 22 * * *"
-              lookbackHours: 24
-              strategyInstanceIdsCsv: ""
-              minTradesForAdjustment: 5
-              artifactsDir: "/tmp/nightly-dream"
-              uploadToS3: true
-              logLevel: "INFO"
-
-            database:
-              secretName: "managed-deepfx-nightly-dream-secrets"
-              secretKey: "FEATURE_ENGINE_DATABASE_DSN"
-
-            s3:
-              endpointUrl: "minio-green.minio-green.svc:9000"
-              region: "us-east-1"
-              bucket: "deepfx"
-              prefix: "nightly-dream"
-              verifyTls: false
-              accessKeySecretName: "managed-deepfx-secrets"
-              accessKeySecretKey: "s3-access-key"
-              secretAccessKeySecretName: "managed-deepfx-secrets"
-              secretAccessKeySecretKey: "s3-secret-key"
+            - apiVersion: argoproj.io/v1alpha1
+              kind: WorkflowTemplate
+              metadata:
+                name: rl-trainer
+                namespace: deepfx
+              spec:
+                entrypoint: train
+                onExit: exit-handler
+                templates:
+                  - name: train
+                    container:
+                      image: harbor.home.lab/restack/deepfx/rl-trainer:latest
+                      args: ["train", "--algorithm", "ppo", "--iterations", "100"]
+                      env:
+                        - name: RAY_ADDRESS
+                          value: "ray://ray.home.lab:10001"
+                        - name: RAY_STORAGE_PATH
+                          value: "/data/ray/storage"
+                  - name: exit-handler
+                    steps:
+                      - - name: notify
+                          templateRef:
+                            name: global-slack-notification
+                            template: send-notification
+                            clusterScope: true
+                          arguments:
+                            parameters:
+                              - name: status
+                                value: "{{workflow.status}}"
+                              - name: name
+                                value: "{{workflow.name}}"
+                              - name: namespace
+                                value: "{{workflow.namespace}}"
+                              - name: link
+                                value: "https://wf.home.lab/workflows/{{workflow.namespace}}/{{workflow.name}}?tab=workflow"
