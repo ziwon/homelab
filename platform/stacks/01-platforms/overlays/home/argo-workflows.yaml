@@ -20,6 +20,19 @@ apps:
           controller:
             workflowNamespaces:
               - argo-workflows
+              - deepfx
+          artifactRepository:
+            archiveLogs: true
+            s3:
+              endpoint: minio-green.minio-green.svc:9000
+              bucket: ml-artifacts
+              insecure: true
+              accessKeySecret:
+                name: managed-workflows-secrets
+                key: accessKey
+              secretKeySecret:
+                name: managed-workflows-secrets
+                key: secretKey
 
   - name: argo-workflows-raw
     namespace: argo-workflows
@@ -33,6 +46,27 @@ apps:
         releaseName: argo-workflows-raw
         values: |
           resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-workflows-secrets
+                namespace: argo-workflows
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /argo-workflows
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-workflows-secrets
+                    secretNamespace: argo-workflows
+                    creationPolicy: Owner
+
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
