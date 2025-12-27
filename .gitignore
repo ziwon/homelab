@@ -26,3 +26,7 @@ Thumbs.db
 *.swo
 *.bak
 
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json
+CLAUDE.local.md
+

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "multi-agent": {
+      "command": "python3",
+      "args": [".claude/mcp-servers/multi-agent/server.py"],
+      "env": {
+        "GOOGLE_API_KEY": "${GOOGLE_API_KEY}"
+      }
+    },
+    "codex": {
+      "command": "codex",
+      "args": ["mcp-server"]
+    }
+  }
+}

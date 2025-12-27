@@ -1,0 +1,56 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export KUBECONFIG=$HOME/.kube/config.home)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(helmfile:*)",
+      "Bash(helm:*)",
+      "Bash(just:*)",
+      "Bash(argocd:*)",
+      "Bash(kustomize:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(codex:*)",
+      "Bash(.claude/scripts/codex-wrapper.sh:*)",
+      "Bash(.claude/scripts/gemini-wrapper.sh:*)",
+      "Bash(.claude/scripts/local-llm.sh:*)",
+      "Bash(.claude/scripts/infisical-update.sh:*)"
+    ],
+    "deny": [
+      "Bash(kubectl delete:*)",
+      "Bash(kubectl apply:*)",
+      "Bash(helm uninstall:*)",
+      "Bash(argocd app delete:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./bootstrap/secrets/**)",
+      "Read(**/*secret*)",
+      "Read(**/*credential*)"
+    ]
+  },
+  "env": {
+    "KUBECONFIG": "/home/aaron/.kube/config.home",
+    "CLAUDE_SESSION_DIR": "/home/aaron/.claude-sessions"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": ".claude/hooks/statusline.sh"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/save-session.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

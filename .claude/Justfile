@@ -1,0 +1,85 @@
+set quiet
+
+# AI Tools for Claude Code integration
+# Usage: cd .claude && just <command>
+
+default:
+    @echo "AI Tools for Homelab"
+    @just --list
+
+# ─────────────────────────────────────────────────────────────
+# Codex (OpenAI)
+# ─────────────────────────────────────────────────────────────
+
+[group('codex')]
+codex-review file:
+    @echo "Reviewing {{file}} with Codex..."
+    codex review < {{file}}
+
+[group('codex')]
+codex-exec prompt:
+    @echo "Running Codex task..."
+    codex exec "{{prompt}}"
+
+[group('codex')]
+codex-chat:
+    @echo "Starting Codex interactive mode..."
+    codex
+
+# ─────────────────────────────────────────────────────────────
+# Gemini (Google)
+# ─────────────────────────────────────────────────────────────
+
+[group('gemini')]
+gemini query:
+    @./scripts/gemini-wrapper.sh "{{query}}"
+
+[group('gemini')]
+gemini-pro query:
+    @./scripts/gemini-wrapper.sh "{{query}}" gemini-3-pro
+
+[group('gemini')]
+gemini-models:
+    @echo "Available Gemini models:"
+    @echo "  gemini-3-flash (default) - Fast responses"
+    @echo "  gemini-3-pro             - Complex research"
+    @echo "  gemini-2.5-pro           - Detailed analysis"
+    @echo "  gemini-2.5-flash         - Quick lookups"
+
+# ─────────────────────────────────────────────────────────────
+# Local LLM (Qwen, GPT-OSS)
+# ─────────────────────────────────────────────────────────────
+
+[group('local')]
+local-qwen query:
+    @./scripts/local-llm.sh qwen3-coder "{{query}}"
+
+[group('local')]
+local-gpt query:
+    @./scripts/local-llm.sh gpt-oss "{{query}}"
+
+[group('local')]
+local-models:
+    @echo "Available local models:"
+    @echo "  qwen3-coder (localhost:8003) - Code analysis, generation"
+    @echo "  gpt-oss     (localhost:8004) - General tasks, tool use"
+
+[group('local')]
+local-health:
+    @echo "Checking local LLM endpoints..."
+    @curl -s -o /dev/null -w "qwen3-coder (8003): %{http_code}\n" http://localhost:8003/health || echo "qwen3-coder (8003): offline"
+    @curl -s -o /dev/null -w "gpt-oss (8004): %{http_code}\n" http://localhost:8004/health || echo "gpt-oss (8004): offline"
+
+# ─────────────────────────────────────────────────────────────
+# Combined workflows
+# ─────────────────────────────────────────────────────────────
+
+[group('workflow')]
+review-local file:
+    @echo "Reviewing {{file}} with local LLM (data stays local)..."
+    @./scripts/local-llm.sh qwen3-coder "Review this code for issues and improvements: $(cat {{file}})"
+
+[group('workflow')]
+research-and-summarize topic:
+    @echo "Researching: {{topic}}"
+    @./scripts/gemini-wrapper.sh "Research and summarize: {{topic}}. Provide key points and sources."
