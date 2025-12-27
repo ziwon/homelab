@@ -453,6 +453,17 @@ apps:
             existingSecret: "managed-deepfx-secrets"
 
           # -----------------------------------------------------------
+          # Slack Notification
+          # -----------------------------------------------------------
+          slack:
+            enabled: true
+            webhookUrlSecretName: "managed-deepfx-secrets"
+            webhookUrlSecretKey: "slack-webhook-url"
+            notifyEnters: true
+            notifyExits: true
+            notifySkips: false
+
+          # -----------------------------------------------------------
           # DeepFX Strategy Engine - 010101
           # -----------------------------------------------------------
           strategy-010101:
