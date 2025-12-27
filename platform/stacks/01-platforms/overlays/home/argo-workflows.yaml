@@ -67,23 +67,104 @@ apps:
                     secretNamespace: argo-workflows
                     creationPolicy: Owner
 
-            - apiVersion: gateway.networking.k8s.io/v1
-              kind: HTTPRoute
+  - name: argo-workflows-templates
+    namespace: argo-workflows
+    project: dev
+    syncWave: "15"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: argo-workflows-templates
+        values: |
+          resources:
+            - apiVersion: argoproj.io/v1alpha1
+              kind: ClusterWorkflowTemplate
               metadata:
-                name: argo-workflows
-                namespace: argo-workflows
+                name: global-slack-notification
               spec:
-                parentRefs:
-                  - name: cilium
-                    namespace: infra
-                    sectionName: https-private
-                hostnames:
-                  - wf.home.lab
-                rules:
-                  - matches:
-                      - path:
-                          type: PathPrefix
-                          value: /
-                    backendRefs:
-                      - name: argo-workflows-server
-                        port: 2746
+                templates:
+                - name: send-notification
+                  inputs:
+                    parameters:
+                    - name: status       # {{workflow.status}}
+                    - name: name         # {{workflow.name}}
+                    - name: namespace    # {{workflow.namespace}}
+                    - name: link         # {{workflow.uiURL}}
+                  container:
+                    image: curlimages/curl
+                    command: [sh, -c]
+                    args:
+                    - |
+                      STATUS="{{inputs.parameters.status}}"
+                      if [ "$STATUS" = "Succeeded" ]; then
+                        EMOJI=":white_check_mark:"
+                        TITLE="Workflow Succeeded"
+                      elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Error" ]; then
+                        EMOJI=":x:"
+                        TITLE="Workflow Failed"
+                      else
+                        EMOJI=":warning:"
+                        TITLE="Workflow Status: $STATUS"
+                      fi
+
+                      cat <<EOF > /tmp/slack-payload.json
+                      {
+                        "blocks": [
+                          {
+                            "type": "header",
+                            "text": {
+                              "type": "plain_text",
+                              "text": "$EMOJI $TITLE",
+                              "emoji": true
+                            }
+                          },
+                          {
+                            "type": "section",
+                            "fields": [
+                              {
+                                "type": "mrkdwn",
+                                "text": "*Workflow:*\n{{inputs.parameters.name}}"
+                              },
+                              {
+                                "type": "mrkdwn",
+                                "text": "*Namespace:*\n{{inputs.parameters.namespace}}"
+                              },
+                              {
+                                "type": "mrkdwn",
+                                "text": "*Status:*\n$STATUS"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "divider"
+                          },
+                          {
+                            "type": "actions",
+                            "elements": [
+                              {
+                                "type": "button",
+                                "text": {
+                                  "type": "plain_text",
+                                  "text": "View in Argo UI",
+                                  "emoji": true
+                                },
+                                "style": "primary",
+                                "url": "{{inputs.parameters.link}}"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                      EOF
+
+                      curl -X POST -H 'Content-type: application/json' \
+                      --data @/tmp/slack-payload.json \
+                      $SLACK_WEBHOOK_URL
+                    env:
+                    - name: SLACK_WEBHOOK_URL
+                      valueFrom:
+                        secretKeyRef:
+                          name: managed-workflows-secrets
+                          key: slack-webhook-url
