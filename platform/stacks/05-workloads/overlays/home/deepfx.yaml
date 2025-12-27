@@ -816,6 +816,9 @@ apps:
         releaseName: deepfx-ml-workflows
         values: |
           resources:
+            # -----------------------------------------------------------
+            # DeepFX ML Workflows - Nightly Dream Tunner
+            # -----------------------------------------------------------
             - apiVersion: argoproj.io/v1alpha1
               kind: CronWorkflow
               metadata:
@@ -828,6 +831,8 @@ apps:
                 workflowSpec:
                   entrypoint: nightly-dream
                   onExit: exit-handler
+                  imagePullSecrets:
+                    - name: harbor-secret
                   templates:
                     - name: nightly-dream
                       container:
@@ -853,6 +858,9 @@ apps:
                                 - name: link
                                   value: "https://wf.home.lab/workflows/{{workflow.namespace}}/{{workflow.name}}?tab=workflow"
 
+            # -----------------------------------------------------------
+            # DeepFX ML Workflows - RL Trainer
+            # -----------------------------------------------------------
             - apiVersion: argoproj.io/v1alpha1
               kind: WorkflowTemplate
               metadata:
@@ -861,6 +869,8 @@ apps:
               spec:
                 entrypoint: train
                 onExit: exit-handler
+                imagePullSecrets:
+                  - name: harbor-secret
                 templates:
                   - name: train
                     container:
@@ -873,18 +883,18 @@ apps:
                           value: "/data/ray/storage"
                   - name: exit-handler
                     steps:
-                      - - name: notify
-                          templateRef:
-                            name: global-slack-notification
-                            template: send-notification
-                            clusterScope: true
-                          arguments:
-                            parameters:
-                              - name: status
-                                value: "{{workflow.status}}"
-                              - name: name
-                                value: "{{workflow.name}}"
-                              - name: namespace
-                                value: "{{workflow.namespace}}"
-                              - name: link
-                                value: "https://wf.home.lab/workflows/{{workflow.namespace}}/{{workflow.name}}?tab=workflow"
+                      - name: notify
+                        templateRef:
+                          name: global-slack-notification
+                          template: send-notification
+                          clusterScope: true
+                        arguments:
+                          parameters:
+                            - name: status
+                              value: "{{workflow.status}}"
+                            - name: name
+                              value: "{{workflow.name}}"
+                            - name: namespace
+                              value: "{{workflow.namespace}}"
+                            - name: link
+                              value: "https://wf.home.lab/workflows/{{workflow.namespace}}/{{workflow.name}}?tab=workflow"
