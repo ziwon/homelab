@@ -64,10 +64,28 @@ jobs:
           curl -s http://gpt.home.lab:8004/health || echo "Failed to connect to gpt.home.lab:8004"
           curl -s http://gpt.home.lab:8004/v1/models | jq '.' || echo "Failed to get models"
 
+      - name: Setup GitHub CLI
+        run: |
+          if ! command -v gh &> /dev/null; then
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update && sudo apt-get install gh -y
+          fi
+          gh --version
+
       - name: Configure Git
         run: |
           git config user.name "gpt-oss[bot]"
           git config user.email "gpt-oss[bot]@users.noreply.github.com"
+
+      - name: Read skill templates
+        id: skills
+        run: |
+          # Read ArgoCD generator skill for reference
+          ARGOCD_SKILL=$(cat .claude/skills/argocd-generator/SKILL.md 2>/dev/null || echo "Not found")
+          echo "argocd_skill<<EOF" >> $GITHUB_OUTPUT
+          echo "$ARGOCD_SKILL" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Resolve issue with GPT-OSS
         id: resolve
@@ -87,10 +105,17 @@ jobs:
           - Follow the guidelines in CLAUDE.md and .claude/rules/
           - All infrastructure is managed via ArgoCD ApplicationSets
 
+          IMPORTANT: When creating ArgoCD applications, you MUST follow this template format exactly:
+          ${{ steps.skills.outputs.argocd_skill }}
+
+          The apps format uses 'apps:' list, NOT raw ApplicationSet manifests.
+          File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+
           Instructions:
           1. Analyze the issue thoroughly
           2. Determine what file operations are needed (create, modify, delete)
-          3. Output a JSON response with the following structure:
+          3. For ArgoCD apps, use the EXACT template format from the skill above
+          4. Output a JSON response with the following structure:
           {
             \"analysis\": \"Brief analysis of the issue\",
             \"actions\": [
