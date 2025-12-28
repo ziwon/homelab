@@ -7,8 +7,8 @@ PROMPT="${2:-}"
 
 # Model configurations from Continue config
 declare -A ENDPOINTS=(
-  ["qwen3-coder"]="http://localhost:8003"
-  ["gpt-oss"]="http://localhost:8004"
+  ["qwen3-coder"]="http://qwen.home.lab:8003"
+  ["gpt-oss"]="http://gpt.home.lab:8004"
 )
 
 declare -A MODELS=(
@@ -20,8 +20,8 @@ if [[ -z "$PROMPT" ]]; then
   echo "Usage: local-llm.sh <model> <prompt>"
   echo ""
   echo "Models:"
-  echo "  qwen3-coder - Qwen3-Coder-30B (localhost:8003)"
-  echo "  gpt-oss     - GPT-OSS-20B (localhost:8004)"
+  echo "  qwen3-coder - Qwen3-Coder-30B (qwen.home.lab:8003)"
+  echo "  gpt-oss     - GPT-OSS-20B (gpt.home.lab:8004)"
   exit 1
 fi
 
