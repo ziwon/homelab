@@ -152,34 +152,32 @@ jobs:
           BRANCH="gpt-oss/issue-${{ github.event.issue.number }}"
           git checkout -b "$BRANCH"
 
-          # Execute each action
-          CHANGES_MADE=false
-          echo "$ACTIONS" | jq -c '.[]' | while read -r action; do
+          # Execute each action using for loop (avoid subshell issues with while)
+          ACTION_COUNT=$(echo "$ACTIONS" | jq 'length')
+          for i in $(seq 0 $((ACTION_COUNT - 1))); do
+            action=$(echo "$ACTIONS" | jq -c ".[$i]")
             TYPE=$(echo "$action" | jq -r '.type')
-            PATH=$(echo "$action" | jq -r '.path')
+            FILE_PATH=$(echo "$action" | jq -r '.path')
 
             case "$TYPE" in
               delete)
-                if [ -f "$PATH" ]; then
-                  git rm "$PATH"
-                  CHANGES_MADE=true
-                  echo "Deleted: $PATH"
+                if [ -f "$FILE_PATH" ]; then
+                  git rm "$FILE_PATH"
+                  echo "Deleted: $FILE_PATH"
                 fi
                 ;;
               create)
                 CONTENT=$(echo "$action" | jq -r '.content')
-                mkdir -p "$(dirname "$PATH")"
-                echo "$CONTENT" > "$PATH"
-                git add "$PATH"
-                CHANGES_MADE=true
-                echo "Created: $PATH"
+                mkdir -p "$(dirname "$FILE_PATH")"
+                echo "$CONTENT" > "$FILE_PATH"
+                git add "$FILE_PATH"
+                echo "Created: $FILE_PATH"
                 ;;
               modify)
                 CONTENT=$(echo "$action" | jq -r '.content')
-                echo "$CONTENT" > "$PATH"
-                git add "$PATH"
-                CHANGES_MADE=true
-                echo "Modified: $PATH"
+                echo "$CONTENT" > "$FILE_PATH"
+                git add "$FILE_PATH"
+                echo "Modified: $FILE_PATH"
                 ;;
             esac
           done
