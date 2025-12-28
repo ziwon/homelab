@@ -49,7 +49,7 @@ apps:
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
-                name: managed-github-auth
+                name: managed-github-auth-restack
                 namespace: arc-runners
 
               spec:
@@ -59,13 +59,37 @@ apps:
                     secretsScope:
                       projectSlug: home-lab
                       envSlug: hme
-                      secretsPath: /github
+                      secretsPath: /github/restack
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
 
                 managedKubeSecretReferences:
                   - secretName: managed-github-auth
+                    secretNamespace: arc-runners
+                    creationPolicy: Owner
+
+            # InfisicalSecret for ziwon personal account
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-github-auth-ziwon
+                namespace: arc-runners
+
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: hme
+                      secretsPath: /github/ziwon
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+
+                managedKubeSecretReferences:
+                  - secretName: managed-github-auth-ziwon
                     secretNamespace: arc-runners
                     creationPolicy: Owner
 
@@ -244,7 +268,7 @@ apps:
         releaseName: homelab-ziwon
         values: |
           githubConfigUrl: https://github.com/ziwon
-          githubConfigSecret: managed-github-auth
+          githubConfigSecret: managed-github-auth-ziwon
           runnerScaleSetName: "homelab-ziwon"
 
           minRunners: 1
