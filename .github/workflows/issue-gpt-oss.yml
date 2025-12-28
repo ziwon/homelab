@@ -1,0 +1,106 @@
+name: GPT-OSS Issue Handler
+
+on:
+  issues:
+    types: [labeled, opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  gpt-oss-resolve:
+    # Trigger on 'gpt-oss' label or @gpt-oss mention
+    if: |
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'gpt-oss')) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gpt-oss'))
+
+    runs-on: homelab-ziwon
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Continue CLI
+        run: |
+          npm install -g @continuedev/cli
+          cn --version
+
+      - name: Setup Continue config
+        run: |
+          mkdir -p ~/.continue
+          cat > ~/.continue/config.yaml << 'EOF'
+          name: Local Config
+          version: 1.0.0
+          schema: v1
+          models:
+            - name: "gpt-oss-20b"
+              provider: "openai"
+              model: "gpt-oss-20b"
+              apiKey: "not-needed"
+              apiBase: "http://gpt.home.lab:8004"
+              capabilities:
+                - tool_use
+                - autocomplete
+              roles:
+                - chat
+                - edit
+                - apply
+          EOF
+
+      - name: Test GPT-OSS connectivity
+        run: |
+          echo "Testing connection to GPT-OSS server..."
+          curl -s http://gpt.home.lab:8004/health || echo "Failed to connect to gpt.home.lab:8004"
+          curl -s http://gpt.home.lab:8004/v1/models | jq '.' || echo "Failed to get models"
+
+      - name: Analyze issue with GPT-OSS
+        id: analyze
+        run: |
+          PROMPT="Analyze this GitHub issue and suggest a solution:
+
+          Title: ${{ github.event.issue.title }}
+
+          Description:
+          ${{ github.event.issue.body }}
+
+          Provide a concise analysis and actionable recommendations."
+
+          echo "$PROMPT" | cn --config ~/.continue/config.yaml --auto -p > response.txt 2>&1 || {
+            echo "Continue CLI failed, trying direct curl..."
+            curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
+              -H "Content-Type: application/json" \
+              -d "{\"model\":\"gpt-oss-20b\",\"messages\":[{\"role\":\"user\",\"content\":\"$PROMPT\"}],\"max_tokens\":2048}" \
+              | jq -r '.choices[0].message.content // "Error: No response"' > response.txt
+          }
+
+          cat response.txt
+
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          cat response.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = `## 🤖 GPT-OSS Analysis
+
+            ${process.env.RESPONSE}
+
+            ---
+            *Powered by GPT-OSS-20B running on homelab*`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.issue.number }},
+              body: response
+            });
+        env:
+          RESPONSE: ${{ steps.analyze.outputs.response }}

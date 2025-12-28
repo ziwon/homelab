@@ -20,8 +20,16 @@ if [[ -n "${2:-}" ]]; then
 fi
 
 if [[ -z "${GOOGLE_API_KEY:-}" ]]; then
-  echo "Error: GOOGLE_API_KEY not set"
-  exit 1
+  # Fallback to gemini CLI if GOOGLE_API_KEY not set
+  if command -v gemini &> /dev/null; then
+    echo "Using gemini CLI (GOOGLE_API_KEY not set)" >&2
+    # gemini CLI uses different model naming, so omit --model flag
+    gemini "$QUERY"
+    exit 0
+  else
+    echo "Error: GOOGLE_API_KEY not set and gemini CLI not found"
+    exit 1
+  fi
 fi
 
 python3 << EOF
