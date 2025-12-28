@@ -78,9 +78,16 @@ jobs:
 
           echo "$PROMPT" | cn --config ~/.continue/config.yaml --auto -p > response.txt 2>&1 || {
             echo "Continue CLI failed, trying direct curl..."
+
+            # Use jq to properly escape JSON
+            PAYLOAD=$(jq -n \
+              --arg model "gpt-oss-20b" \
+              --arg content "$PROMPT" \
+              '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 2048}')
+
             curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
               -H "Content-Type: application/json" \
-              -d "{\"model\":\"gpt-oss-20b\",\"messages\":[{\"role\":\"user\",\"content\":\"$PROMPT\"}],\"max_tokens\":2048}" \
+              -d "$PAYLOAD" \
               | jq -r '.choices[0].message.content // "Error: No response"' > response.txt
           }
 
