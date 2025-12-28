@@ -2,7 +2,7 @@ apps:
   - name: superset
     namespace: superset
     chart: superset
-    repoURL: http://apache.github.io/superset
+    repoURL: https://apache.github.io/superset
     targetRevision: "0.15.0"
     createNamespace: true
     values: |
@@ -29,3 +29,18 @@ apps:
 
       redis:
         enabled: true
+
+      celery:
+        worker:
+          enabled: true
+        beat:
+          enabled: true
+        flower:
+          enabled: true
+          version: "1.0.0"
+
+      auth:
+        existingSecret: superset-secret
+
+      init:
+        script: superset_init.sh
