@@ -66,7 +66,9 @@ jobs:
 
       - name: Analyze issue with GPT-OSS
         id: analyze
+        shell: bash
         run: |
+          set +e  # Disable exit on error for this step
           PROMPT="Analyze this GitHub issue and suggest a solution:
 
           Title: ${{ github.event.issue.title }}
