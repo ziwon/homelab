@@ -29,8 +29,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup kubectl for Claude
+        run: |
+          # Install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl version --client
+
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
+        env:
+          # Use in-cluster ServiceAccount for kubectl authentication
+          KUBERNETES_SERVICE_HOST: kubernetes.default.svc
+          KUBERNETES_SERVICE_PORT: "443"
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           track_progress: true
