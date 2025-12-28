@@ -7,6 +7,17 @@ description: Generates ArgoCD Application manifests following the App-of-Apps pa
 
 Generate ArgoCD applications following the App-of-Apps pattern.
 
+## IMPORTANT: How to Use This Template
+
+1. Extract values from the issue:
+   - `helm repo add NAME URL` -> use URL as repoURL
+   - Chart version mentioned -> use as targetRevision
+   - Any custom values mentioned -> add to values section
+
+2. Fill in ALL fields - never leave placeholders like `{app-name}`
+
+3. The `values:` section must contain actual Helm values for the chart
+
 ## Stack Categories
 
 | Stack | Path | Purpose |
@@ -25,26 +36,108 @@ Generate ArgoCD applications following the App-of-Apps pattern.
 platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
 ```
 
-## Standard Template
+## Real Example: Superset
+
+If issue says: `helm repo add superset http://apache.github.io/superset/`
+
+Create file: `platform/stacks/06-labs/overlays/home/superset.yaml`
 
 ```yaml
 apps:
-  - name: {app-name}
-    namespace: {target-namespace}
-    chart: {chart-name}
-    repoURL: {helm-repo-url}
-    targetRevision: "{version}"
+  - name: superset
+    namespace: superset
+    chart: superset
+    repoURL: http://apache.github.io/superset
+    targetRevision: "0.15.0"
     createNamespace: true
     values: |
       replicaCount: 1
 
+      image:
+        repository: apache/superset
+        tag: latest
+
+      service:
+        type: ClusterIP
+        port: 8088
+
       resources:
         requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
           cpu: 500m
-          memory: 512Mi
+          memory: 1Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+
+      postgresql:
+        enabled: true
+
+      redis:
+        enabled: true
+```
+
+## Real Example: Grafana
+
+If issue says: `helm repo add grafana https://grafana.github.io/helm-charts`
+
+Create file: `platform/stacks/02-o11y/overlays/home/grafana.yaml`
+
+```yaml
+apps:
+  - name: grafana
+    namespace: monitoring
+    chart: grafana
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: "7.0.0"
+    createNamespace: true
+    values: |
+      replicas: 1
+
+      service:
+        type: ClusterIP
+        port: 3000
+
+      persistence:
+        enabled: true
+        size: 10Gi
+
+      resources:
+        requests:
+          cpu: 200m
+          memory: 256Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+
+      adminUser: admin
+      adminPassword: admin
+```
+
+## Template Structure (fill in all values)
+
+```yaml
+apps:
+  - name: <actual-app-name>
+    namespace: <actual-namespace>
+    chart: <actual-chart-name>
+    repoURL: <actual-helm-repo-url>
+    targetRevision: "<actual-version>"
+    createNamespace: true
+    values: |
+      # Add actual Helm values here based on the chart
+      replicaCount: 1
+
+      service:
+        type: ClusterIP
+        port: <app-port>
+
+      resources:
+        requests:
+          cpu: <appropriate-cpu>
+          memory: <appropriate-memory>
+        limits:
+          cpu: <appropriate-cpu>
+          memory: <appropriate-memory>
 ```
 
 ## With Infisical Secrets
