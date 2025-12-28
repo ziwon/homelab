@@ -81,10 +81,21 @@ jobs:
       - name: Read skill templates
         id: skills
         run: |
-          # Read ArgoCD generator skill for reference
-          ARGOCD_SKILL=$(cat .claude/skills/argocd-generator/SKILL.md 2>/dev/null || echo "Not found")
-          echo "argocd_skill<<EOF" >> $GITHUB_OUTPUT
-          echo "$ARGOCD_SKILL" >> $GITHUB_OUTPUT
+          # Read all skill templates from .claude/skills/
+          ALL_SKILLS=""
+          for skill_dir in .claude/skills/*/; do
+            if [ -f "${skill_dir}SKILL.md" ]; then
+              skill_name=$(basename "$skill_dir")
+              skill_content=$(cat "${skill_dir}SKILL.md")
+              ALL_SKILLS="${ALL_SKILLS}
+
+          === SKILL: ${skill_name} ===
+          ${skill_content}
+          "
+            fi
+          done
+          echo "all_skills<<EOF" >> $GITHUB_OUTPUT
+          echo "$ALL_SKILLS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Resolve issue with GPT-OSS
@@ -105,16 +116,18 @@ jobs:
           - Follow the guidelines in CLAUDE.md and .claude/rules/
           - All infrastructure is managed via ArgoCD ApplicationSets
 
-          IMPORTANT: When creating ArgoCD applications, you MUST follow this template format exactly:
-          ${{ steps.skills.outputs.argocd_skill }}
+          AVAILABLE SKILLS (use these templates when applicable):
+          ${{ steps.skills.outputs.all_skills }}
 
-          The apps format uses 'apps:' list, NOT raw ApplicationSet manifests.
-          File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+          IMPORTANT RULES:
+          - When creating ArgoCD applications, use the 'apps:' list format from argocd-generator skill
+          - Do NOT use raw ApplicationSet manifests
+          - File location for apps: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
 
           Instructions:
           1. Analyze the issue thoroughly
           2. Determine what file operations are needed (create, modify, delete)
-          3. For ArgoCD apps, use the EXACT template format from the skill above
+          3. Use the appropriate skill template when applicable
           4. Output a JSON response with the following structure:
           {
             \"analysis\": \"Brief analysis of the issue\",
