@@ -190,8 +190,10 @@ jobs:
           PR_BODY=$(echo "$RESPONSE" | jq -r '.pr_body // "Automated fix for issue #${{ github.event.issue.number }}"')
           ANALYSIS=$(echo "$RESPONSE" | jq -r '.analysis // "No analysis provided"')
 
-          # Create branch
+          # Create branch (delete existing remote branch if exists)
           BRANCH="gpt-oss/issue-${{ github.event.issue.number }}"
+          git push origin --delete "$BRANCH" 2>/dev/null || true
+          git branch -D "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
 
           # Execute each action using for loop (avoid subshell issues with while)
