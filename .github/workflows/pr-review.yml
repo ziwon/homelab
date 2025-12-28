@@ -1,25 +1,162 @@
-name: Claude PR Review
+name: PR Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled]
   pull_request_review_comment:
     types: [created]
 
 jobs:
-  claude-review:
-    # Trigger on PR events or when @claude is mentioned in review comments
+  # GPT-OSS Review (default for all PRs, or when gpt-oss label/mention)
+  gpt-oss-review:
     if: |
-      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'claude')) ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'gpt-oss')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@gpt-oss'))
+
+    runs-on: homelab-ziwon
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          DIFF=$(gh pr diff ${{ github.event.pull_request.number }} --repo ${{ github.repository }})
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Review with GPT-OSS
+        id: review
+        shell: bash
+        run: |
+          set +e
+
+          PROMPT="You are reviewing a Pull Request for a Kubernetes homelab project.
+
+          PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
+
+          Description:
+          ${{ github.event.pull_request.body }}
+
+          Diff:
+          ${{ steps.diff.outputs.diff }}
+
+          Project context:
+          - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
+          - Follow the guidelines in CLAUDE.md and .claude/rules/
+          - All infrastructure is managed via ArgoCD ApplicationSets
+
+          Instructions:
+          1. Review the code changes for:
+             - Code quality and best practices
+             - Security issues (OWASP top 10, injection vulnerabilities)
+             - Kubernetes manifest correctness
+             - ArgoCD application standards compliance
+             - Resource limits and health checks
+          2. Provide constructive feedback
+
+          Output format:
+          {
+            \"summary\": \"Brief summary of the changes\",
+            \"issues\": [
+              {\"severity\": \"high|medium|low\", \"file\": \"path/to/file\", \"description\": \"issue description\"}
+            ],
+            \"suggestions\": [\"suggestion 1\", \"suggestion 2\"],
+            \"approval\": \"approve|request_changes|comment\"
+          }
+
+          IMPORTANT: Output ONLY valid JSON, no markdown or extra text."
+
+          PAYLOAD=$(jq -n \
+            --arg model "gpt-oss-20b" \
+            --arg content "$PROMPT" \
+            '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
+
+          RESPONSE=$(curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            | jq -r '.choices[0].message.content // "Error: No response"')
+
+          echo "Raw response: $RESPONSE"
+
+          # Try to extract JSON
+          JSON_RESPONSE=$(echo "$RESPONSE" | grep -o '{.*}' | head -1 || echo "$RESPONSE")
+
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$JSON_RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = process.env.RESPONSE;
+
+            let review = { summary: "Unable to parse review", issues: [], suggestions: [], approval: "comment" };
+            try {
+              review = JSON.parse(response);
+            } catch (e) {
+              review.summary = response;
+            }
+
+            const issuesList = review.issues?.length > 0
+              ? review.issues.map(i => `- **[${i.severity?.toUpperCase()}]** \`${i.file}\`: ${i.description}`).join('\n')
+              : 'No issues found.';
+
+            const suggestionsList = review.suggestions?.length > 0
+              ? review.suggestions.map(s => `- ${s}`).join('\n')
+              : 'No additional suggestions.';
+
+            const body = `## 🤖 GPT-OSS PR Review
+
+            ### Summary
+            ${review.summary}
+
+            ### Issues
+            ${issuesList}
+
+            ### Suggestions
+            ${suggestionsList}
+
+            ---
+            *Powered by GPT-OSS-20B running on homelab*`;
+
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ github.event.pull_request.number }},
+              body: body,
+              event: review.approval === 'approve' ? 'APPROVE' : review.approval === 'request_changes' ? 'REQUEST_CHANGES' : 'COMMENT'
+            });
+        env:
+          RESPONSE: ${{ steps.review.outputs.response }}
+
+  # Claude Review (when claude label or @claude mention)
+  claude-review:
+    if: |
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
 
-    runs-on: homelab-ziwon  # Use ARC self-hosted runner for ziwon account
+    runs-on: homelab-ziwon
 
     permissions:
       contents: write
       pull-requests: write
       issues: write
-      id-token: write  # Required for claude-code-action OIDC
+      id-token: write
 
     steps:
       - name: Checkout repository
