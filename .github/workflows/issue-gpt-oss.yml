@@ -120,18 +120,29 @@ jobs:
           - Follow the guidelines in CLAUDE.md and .claude/rules/
           - All infrastructure is managed via ArgoCD ApplicationSets
 
-          AVAILABLE SKILLS (use these templates when applicable):
+          SKILLS (reference for YAML format ONLY - do NOT copy example values):
           ${ALL_SKILLS}
 
-          IMPORTANT RULES:
-          - When creating ArgoCD applications, use the 'apps:' list format from argocd-generator skill
-          - Do NOT use raw ApplicationSet manifests
-          - File location for apps: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+          CRITICAL RULES:
+          1. ALWAYS extract actual values from the issue description (URLs, versions, config)
+          2. Skills show YAML FORMAT only - never copy placeholder values like 'cpu: 100m'
+          3. When issue says 'helm repo add NAME URL', use that URL as repoURL
+          4. For ArgoCD apps, use 'apps:' list format (NOT raw ApplicationSet)
+          5. File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+
+          Helm URL conversion examples:
+          - 'helm repo add superset http://apache.github.io/superset/' -> repoURL: 'http://apache.github.io/superset'
+          - 'helm repo add grafana https://grafana.github.io/helm-charts' -> repoURL: 'https://grafana.github.io/helm-charts'
+
+          For resources/values: Use reasonable defaults for the specific application type.
+          - Web apps: cpu 200m-1000m, memory 256Mi-1Gi
+          - Databases: cpu 500m-2000m, memory 512Mi-4Gi
+          - ML/Analytics: cpu 1000m-4000m, memory 1Gi-8Gi
 
           Instructions:
-          1. Analyze the issue thoroughly
-          2. Determine what file operations are needed (create, modify, delete)
-          3. Use the appropriate skill template when applicable
+          1. Extract ALL information from the issue (URLs, versions, configs)
+          2. Use skill templates for YAML structure only
+          3. Apply extracted values to the template
           4. Output a JSON response with the following structure:
           {
             \"analysis\": \"Brief analysis of the issue\",
