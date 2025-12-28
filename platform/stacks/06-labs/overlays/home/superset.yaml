@@ -1,0 +1,31 @@
+apps:
+  - name: superset
+    namespace: superset
+    chart: superset
+    repoURL: http://apache.github.io/superset
+    targetRevision: "0.15.0"
+    createNamespace: true
+    values: |
+      replicaCount: 1
+
+      image:
+        repository: apache/superset
+        tag: 0.15.0
+
+      service:
+        type: ClusterIP
+        port: 8088
+
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+
+      postgresql:
+        enabled: true
+
+      redis:
+        enabled: true
