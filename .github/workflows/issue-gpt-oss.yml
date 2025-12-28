@@ -85,13 +85,23 @@ jobs:
               --arg content "$PROMPT" \
               '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 2048}')
 
-            curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
+            echo "Sending request to GPT-OSS..."
+            CURL_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST http://gpt.home.lab:8004/v1/chat/completions \
               -H "Content-Type: application/json" \
-              -d "$PAYLOAD" \
-              | jq -r '.choices[0].message.content // "Error: No response"' > response.txt
+              -d "$PAYLOAD")
+
+            HTTP_CODE=$(echo "$CURL_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
+            BODY=$(echo "$CURL_RESPONSE" | sed '/HTTP_CODE:/d')
+
+            echo "HTTP Status: $HTTP_CODE"
+            echo "Response body: $BODY"
+
+            echo "$BODY" | jq -r '.choices[0].message.content // "Error: No response"' > response.txt
           }
 
+          echo "=== GPT-OSS Response ==="
           cat response.txt
+          echo "========================"
 
           echo "response<<EOF" >> $GITHUB_OUTPUT
           cat response.txt >> $GITHUB_OUTPUT
