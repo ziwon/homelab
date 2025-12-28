@@ -19,6 +19,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      id-token: write  # Required for claude-code-action OIDC
 
     steps:
       - name: Run Claude Code Action
