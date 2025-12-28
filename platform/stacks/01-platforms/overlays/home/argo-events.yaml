@@ -1,0 +1,44 @@
+apps:
+  - name: argo-events
+    namespace: argo-events
+    project: dev
+    syncWave: "10"
+    source:
+      repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-events
+      targetRevision: 2.4.19
+      helm:
+        releaseName: argo-events
+        values: |
+          crds:
+            install: true
+            keep: true
+
+          controller:
+            replicas: 1
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+
+            metrics:
+              enabled: true
+              service:
+                servicePort: 8082
+
+          webhook:
+            enabled: false
+
+          configs:
+            jetstream:
+              settings:
+                maxMemoryStore: 512Mi
+                maxFileStore: 1Gi
+              streamConfig:
+                maxMsgs: 1000000
+                maxAge: 72h
+                maxBytes: 1GB
+                replicas: 1
