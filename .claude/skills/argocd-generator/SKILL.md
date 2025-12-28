@@ -12,11 +12,15 @@ Generate ArgoCD applications following the App-of-Apps pattern.
 1. Extract values from the issue:
    - `helm repo add NAME URL` -> use URL as repoURL
    - Chart version mentioned -> use as targetRevision
+   - **If issue provides values.yaml content, use it EXACTLY as provided**
    - Any custom values mentioned -> add to values section
 
 2. Fill in ALL fields - never leave placeholders like `{app-name}`
 
-3. The `values:` section must contain actual Helm values for the chart
+3. The `values:` section:
+   - **PRIORITY 1**: If the issue includes values.yaml content, copy it exactly
+   - **PRIORITY 2**: If no values provided, use sensible defaults for the app type
+   - The examples below are ONLY for reference when no values are provided
 
 ## Stack Categories
 
