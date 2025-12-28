@@ -267,7 +267,7 @@ apps:
       helm:
         releaseName: homelab-ziwon
         values: |
-          githubConfigUrl: https://github.com/ziwon
+          githubConfigUrl: https://github.com/ziwon/homelab
           githubConfigSecret: managed-github-auth-ziwon
           runnerScaleSetName: "homelab-ziwon"
 
