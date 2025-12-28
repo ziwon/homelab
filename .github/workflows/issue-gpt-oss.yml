@@ -82,6 +82,8 @@ jobs:
         id: skills
         run: |
           # Read all skill templates from .claude/skills/
+          # Use a unique delimiter to avoid conflicts with file content
+          DELIM="SKILLS_END_$(date +%s)"
           ALL_SKILLS=""
           for skill_dir in .claude/skills/*/; do
             if [ -f "${skill_dir}SKILL.md" ]; then
@@ -94,15 +96,17 @@ jobs:
           "
             fi
           done
-          echo "all_skills<<EOF" >> $GITHUB_OUTPUT
-          echo "$ALL_SKILLS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Write to file to avoid GITHUB_OUTPUT parsing issues
+          echo "$ALL_SKILLS" > /tmp/all_skills.txt
 
       - name: Resolve issue with GPT-OSS
         id: resolve
         shell: bash
         run: |
           set +e
+
+          # Read skills from file
+          ALL_SKILLS=$(cat /tmp/all_skills.txt 2>/dev/null || echo "No skills found")
 
           PROMPT="You are helping with a Kubernetes homelab project. An issue has been created.
 
@@ -117,7 +121,7 @@ jobs:
           - All infrastructure is managed via ArgoCD ApplicationSets
 
           AVAILABLE SKILLS (use these templates when applicable):
-          ${{ steps.skills.outputs.all_skills }}
+          ${ALL_SKILLS}
 
           IMPORTANT RULES:
           - When creating ArgoCD applications, use the 'apps:' list format from argocd-generator skill
