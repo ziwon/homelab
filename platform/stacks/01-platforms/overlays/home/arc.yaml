@@ -16,7 +16,7 @@ apps:
               kind: Namespace
               metadata:
                 name: arc-systems
-            
+
             - apiVersion: v1
               kind: Namespace
               metadata:
@@ -31,7 +31,7 @@ apps:
               - apiGroups: [""]
                 resources: ["secrets"]
                 verbs: ["get", "list", "watch"]
-            
+
             - apiVersion: rbac.authorization.k8s.io/v1
               kind: RoleBinding
               metadata:
@@ -65,7 +65,7 @@ apps:
                       secretNamespace: infisical
 
                 managedKubeSecretReferences:
-                  - secretName: managed-github-auth
+                  - secretName: managed-github-auth-restack
                     secretNamespace: arc-runners
                     creationPolicy: Owner
 
@@ -187,7 +187,7 @@ apps:
         releaseName: homelab-gh
         values: |
           githubConfigUrl: https://github.com/restack
-          githubConfigSecret: managed-github-auth
+          githubConfigSecret: managed-github-auth-restack
           runnerScaleSetName: "homelab-gh"
 
           minRunners: 1
@@ -228,26 +228,26 @@ apps:
                       value: unix:///var/run/docker.sock
                   volumeMounts:
                     - name: work
-                      mountPath: /home/runner/_work 
+                      mountPath: /home/runner/_work
                     - name: dind-sock
                       mountPath: /var/run
 
                 - name: dind
                   image: docker:dind
                   securityContext:
-                    privileged: true 
+                    privileged: true
                   args:
                     - dockerd
                     - --host=unix:///var/run/docker.sock
-                    - --group=1001 
+                    - --group=1001
                   env:
                     - name: DOCKER_TLS_CERTDIR
-                      value: "" 
+                      value: ""
                   volumeMounts:
                     - name: work
                       mountPath: /home/runner/_work
                     - name: dind-sock
-                      mountPath: /var/run 
+                      mountPath: /var/run
                     - name: harbor-ca
                       mountPath: /etc/docker/certs.d/harbor.home.lab
                       readOnly: true
@@ -294,7 +294,7 @@ apps:
 
                 - name: harbor-ca
                   secret:
-                    secretName: managed-github-auth
+                    secretName: managed-github-auth-ziwon
                     items:
                       - key: homelab-ca.crt
                         path: ca.crt
