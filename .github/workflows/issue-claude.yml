@@ -23,170 +23,30 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for better context
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup kubectl
-        run: |
-          # Install kubectl if not present
-          if ! command -v kubectl &> /dev/null; then
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            chmod +x kubectl
-            sudo mv kubectl /usr/local/bin/
-          fi
-
-          # Configure in-cluster authentication
-          # ARC runner pods already have ServiceAccount token mounted
-          export KUBECONFIG=/var/run/secrets/kubernetes.io/serviceaccount/token
-
-      - name: Extract issue context
-        id: context
-        run: |
-          if [ "${{ github.event_name }}" == "issues" ]; then
-            echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
-            echo "ISSUE_BODY<<EOF" >> $GITHUB_OUTPUT
-            echo "${{ github.event.issue.body }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-          else
-            echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
-            echo "ISSUE_BODY<<EOF" >> $GITHUB_OUTPUT
-            echo "${{ github.event.issue.body }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-            echo "COMMENT_BODY<<EOF" >> $GITHUB_OUTPUT
-            echo "${{ github.event.comment.body }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create branch for issue
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          BRANCH_NAME="claude/issue-${{ steps.context.outputs.ISSUE_NUMBER }}"
-          git checkout -b "$BRANCH_NAME" || git checkout "$BRANCH_NAME"
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
-
-      - name: Run Claude Code
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          # Install Claude Code CLI
-          npm install -g @anthropics/claude-code
+        with:
+          prompt: |
+            You are helping with a Kubernetes homelab project. An issue has been created.
 
-          # Build prompt for Claude
-          PROMPT="Resolve this GitHub issue:
+            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
 
-          Issue #${{ steps.context.outputs.ISSUE_NUMBER }}: ${{ steps.context.outputs.ISSUE_TITLE }}
+            Description:
+            ${{ github.event.issue.body }}
 
-          Description:
-          ${{ steps.context.outputs.ISSUE_BODY }}
+            Project context:
+            - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
+            - Follow the guidelines in CLAUDE.md and .claude/rules/
+            - All infrastructure is managed via ArgoCD ApplicationSets
+            - Use kubectl to check cluster state if needed
 
-          Instructions:
-          1. Analyze the issue thoroughly
-          2. Follow the rules in CLAUDE.md and .claude/rules/
-          3. Implement the fix or feature
-          4. Test your changes if applicable
-          5. Create a commit with a clear message
+            Instructions:
+            1. Analyze the issue thoroughly
+            2. Check ArgoCD application status if relevant
+            3. Implement the fix or feature following project standards
+            4. Create a commit with a clear message
+            5. Create a PR or comment on the issue with your findings
 
-          After completing the work, I will create a PR for review."
-
-          # Run Claude Code with the prompt
-          # Note: This will run interactively. For full automation, consider using API directly.
-          echo "$PROMPT" | npx @anthropics/claude-code --message-file -
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if [[ -n $(git status --porcelain) ]]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Verify ArgoCD sync status
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          # Check if changes affect platform/stacks (ArgoCD managed)
-          CHANGED_FILES=$(git diff --name-only origin/main)
-
-          if echo "$CHANGED_FILES" | grep -q "^platform/stacks/"; then
-            echo "Changes detected in ArgoCD-managed files. Will monitor sync status."
-
-            # Extract affected apps from changed files
-            AFFECTED_APPS=$(echo "$CHANGED_FILES" | grep "^platform/stacks/" | sed 's|platform/stacks/.*/overlays/home/\(.*\)\.yaml|\1|' | sort -u)
-
-            echo "Affected applications: $AFFECTED_APPS"
-            echo "AFFECTED_APPS<<EOF" >> $GITHUB_ENV
-            echo "$AFFECTED_APPS" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          else
-            echo "No ArgoCD-managed files changed."
-          fi
-
-      - name: Push changes and create PR
-        if: steps.changes.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git push -u origin "$BRANCH_NAME"
-
-          # Build PR body with ArgoCD sync info
-          PR_BODY="Resolves #${{ steps.context.outputs.ISSUE_NUMBER }}
-
-          This PR was automatically generated by Claude to address the issue.
-
-          ## Changes
-          Claude analyzed and implemented changes to resolve the issue.
-
-          ## ArgoCD Sync Status
-          "
-
-          if [ -n "$AFFECTED_APPS" ]; then
-            PR_BODY+="The following ArgoCD applications will be affected:
-          \`\`\`
-          $AFFECTED_APPS
-          \`\`\`
-
-          After merging, monitor sync status:
-          \`\`\`bash
-          kubectl get applications -n argocd -l app.kubernetes.io/instance=\$(echo \$AFFECTED_APPS | head -1)
-          \`\`\`
-          "
-          else
-            PR_BODY+="No ArgoCD-managed applications affected by these changes.
-          "
-          fi
-
-          PR_BODY+="
-          ## Testing
-          Please review the changes and test thoroughly before merging.
-
-          ---
-          🤖 Generated by Claude Code via GitHub Actions"
-
-          # Create PR
-          gh pr create \
-            --title "Fix: Issue #${{ steps.context.outputs.ISSUE_NUMBER }} - ${{ steps.context.outputs.ISSUE_TITLE }}" \
-            --body "$PR_BODY" \
-            --base main \
-            --head "$BRANCH_NAME"
-
-      - name: Comment on issue
-        if: steps.changes.outputs.has_changes == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh issue comment ${{ steps.context.outputs.ISSUE_NUMBER }} \
-            --body "👋 I've analyzed this issue but couldn't determine the necessary changes automatically.
-
-          Could you provide more details or clarify the requirements?
-
-          🤖 Claude Code"
+            If you make changes, create a PR. If you need more information, comment on the issue.

@@ -21,183 +21,33 @@ jobs:
       issues: write
 
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup kubectl
-        run: |
-          # Install kubectl if not present
-          if ! command -v kubectl &> /dev/null; then
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            chmod +x kubectl
-            sudo mv kubectl /usr/local/bin/
-          fi
-
-      - name: Get PR context
-        id: pr_context
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-
-          # Get PR diff
-          gh pr diff $PR_NUMBER > pr_diff.txt
-
-          # Get PR description
-          gh pr view $PR_NUMBER --json title,body --jq '{title,body}' > pr_info.json
-
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
-
-      - name: Run Claude Code Review
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          # Install Claude Code CLI
-          npm install -g @anthropics/claude-code
+        with:
+          prompt: |
+            You are reviewing a Pull Request for a Kubernetes homelab project.
 
-          # Read PR info
-          PR_TITLE=$(jq -r '.title' pr_info.json)
-          PR_BODY=$(jq -r '.body' pr_info.json)
+            PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
 
-          # Build review prompt
-          PROMPT="Review this Pull Request:
+            Description:
+            ${{ github.event.pull_request.body }}
 
-          PR #${{ steps.pr_context.outputs.PR_NUMBER }}: $PR_TITLE
+            Project context:
+            - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
+            - Follow the guidelines in CLAUDE.md and .claude/rules/
+            - All infrastructure is managed via ArgoCD ApplicationSets
 
-          Description:
-          $PR_BODY
+            Instructions:
+            1. Review the code changes for:
+               - Code quality and best practices
+               - Security issues (OWASP top 10, injection vulnerabilities)
+               - Kubernetes manifest correctness
+               - ArgoCD application standards compliance
+               - Resource limits and health checks
+            2. Check ArgoCD application status if platform/stacks files changed
+            3. If you find issues that can be auto-fixed, make the fixes and push them
+            4. Comment on the PR with your review findings
 
-          Instructions:
-          1. Review the code changes following .claude/rules/ guidelines
-          2. Check for:
-             - Code quality and best practices
-             - Security issues (OWASP top 10, command injection, etc.)
-             - Kubernetes manifest correctness (if applicable)
-             - ArgoCD application standards compliance
-             - Resource limits and health checks
-          3. Identify potential bugs or improvements
-          4. If you find issues that can be auto-fixed, make the fixes
-          5. Provide constructive feedback
-
-          Diff:
-          $(cat pr_diff.txt)
-
-          After review, I will comment with findings or push fixes if needed."
-
-          # Run Claude Code
-          echo "$PROMPT" | npx @anthropics/claude-code --message-file -
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if [[ -n $(git status --porcelain) ]]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Commit and push fixes
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add .
-          git commit -m "fix: auto-fixes from Claude Code review
-
-          🤖 Generated with Claude Code
-
-          Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
-
-          git push
-
-      - name: Check ArgoCD Application status
-        continue-on-error: true
-        run: |
-          # Get list of changed files to identify affected ArgoCD apps
-          CHANGED_FILES=$(cat pr_diff.txt | grep "^diff --git" | sed 's/^diff --git a\///' | sed 's/ b\/.*//')
-
-          if echo "$CHANGED_FILES" | grep -q "^platform/stacks/"; then
-            echo "ArgoCD-managed files detected in PR"
-
-            # Extract app names from file paths
-            AFFECTED_APPS=$(echo "$CHANGED_FILES" | grep "^platform/stacks/" | sed 's|platform/stacks/.*/overlays/home/\(.*\)\.yaml|\1|' | sort -u)
-
-            echo "Checking status for applications: $AFFECTED_APPS"
-
-            # Query ArgoCD Application status using kubectl
-            ARGOCD_STATUS=""
-            for APP in $AFFECTED_APPS; do
-              STATUS=$(kubectl get application "$APP" -n argocd -o jsonpath='{.status.sync.status}:{.status.health.status}' 2>/dev/null || echo "NotFound:Unknown")
-              ARGOCD_STATUS+="- **$APP**: Sync=$STATUS
-          "
-            done
-
-            echo "ARGOCD_STATUS<<EOF" >> $GITHUB_ENV
-            echo "$ARGOCD_STATUS" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          else
-            echo "No ArgoCD-managed files in this PR"
-            echo "ARGOCD_STATUS=" >> $GITHUB_ENV
-          fi
-
-      - name: Comment review summary
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [[ "${{ steps.changes.outputs.has_changes }}" == "true" ]]; then
-            COMMENT="## ✅ Claude Code Review Complete
-
-          I've reviewed this PR and made some automatic fixes. Please review the new commits.
-
-          ### Auto-fixed issues:
-          - Applied code quality improvements
-          - Fixed potential bugs or security issues
-          - Ensured compliance with project standards
-
-          Please review the changes and run tests before merging.
-
-          ---
-          🤖 Claude Code Review"
-          else
-            COMMENT="## ✅ Claude Code Review Complete
-
-          I've reviewed this PR and found no critical issues that require automatic fixes.
-
-          ### Review summary:
-          - Code follows project guidelines
-          - No security vulnerabilities detected
-          - Kubernetes manifests are valid (if applicable)
-
-          The PR looks good! 👍"
-          fi
-
-          # Add ArgoCD status if available
-          if [ -n "$ARGOCD_STATUS" ]; then
-            COMMENT+="
-
-          ### ArgoCD Application Status
-          Current sync and health status of affected applications:
-          $ARGOCD_STATUS
-
-          Monitor sync progress:
-          \`\`\`bash
-          kubectl get applications -n argocd
-          \`\`\`
-          "
-          fi
-
-          COMMENT+="
-
-          ---
-          🤖 Claude Code Review"
-
-          gh pr comment ${{ steps.pr_context.outputs.PR_NUMBER }} --body "$COMMENT"
+            Be constructive and helpful in your feedback.
