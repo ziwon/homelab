@@ -24,9 +24,8 @@ jobs:
     steps:
       - name: Run Claude Code Action
         uses: anthropics/claude-code-action@v1
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             You are reviewing a Pull Request for a Kubernetes homelab project.
 
