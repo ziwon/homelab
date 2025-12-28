@@ -227,3 +227,84 @@ apps:
                     - name: harbor-ca
                       mountPath: /etc/docker/certs.d/harbor.home.lab
                       readOnly: true
+
+  # Install gha-runner-scale-set for ziwon personal account
+  - name: gha-runner-scale-set-ziwon
+    namespace: arc-runners
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - gha-runner-scale-set-controller
+      - arc-runners-raw
+    source:
+      repoURL: ghcr.io/actions/actions-runner-controller-charts
+      chart: gha-runner-scale-set
+      targetRevision: 0.13.0
+      helm:
+        releaseName: homelab-ziwon
+        values: |
+          githubConfigUrl: https://github.com/ziwon
+          githubConfigSecret: managed-github-auth
+          runnerScaleSetName: "homelab-ziwon"
+
+          minRunners: 1
+          maxRunners: 3
+
+          containerMode: {}
+
+          controllerServiceAccount:
+            name: arc-gha-rs-controller
+            namespace: arc-systems
+
+          template:
+            spec:
+              imagePullSecrets:
+                - name: harbor-pull-secret
+
+              volumes:
+                - name: dind-sock
+                  emptyDir: {}
+
+                - name: work
+                  emptyDir: {}
+
+                - name: harbor-ca
+                  secret:
+                    secretName: managed-github-auth
+                    items:
+                      - key: homelab-ca.crt
+                        path: ca.crt
+
+              containers:
+                - name: runner
+                  image: harbor.home.lab/restack/actions-runner:latest
+                  imagePullPolicy: Always
+                  command: ["/home/runner/run.sh"]
+                  env:
+                    - name: DOCKER_HOST
+                      value: unix:///var/run/docker.sock
+                  volumeMounts:
+                    - name: work
+                      mountPath: /home/runner/_work
+                    - name: dind-sock
+                      mountPath: /var/run
+
+                - name: dind
+                  image: docker:dind
+                  securityContext:
+                    privileged: true
+                  args:
+                    - dockerd
+                    - --host=unix:///var/run/docker.sock
+                    - --group=1001
+                  env:
+                    - name: DOCKER_TLS_CERTDIR
+                      value: ""
+                  volumeMounts:
+                    - name: work
+                      mountPath: /home/runner/_work
+                    - name: dind-sock
+                      mountPath: /var/run
+                    - name: harbor-ca
+                      mountPath: /etc/docker/certs.d/harbor.home.lab
+                      readOnly: true

@@ -13,7 +13,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
 
-    runs-on: homelab-gh  # Use ARC self-hosted runner
+    runs-on: homelab-ziwon  # Use ARC self-hosted runner for ziwon account
 
     permissions:
       contents: write
