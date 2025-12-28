@@ -64,44 +64,191 @@ jobs:
           curl -s http://gpt.home.lab:8004/health || echo "Failed to connect to gpt.home.lab:8004"
           curl -s http://gpt.home.lab:8004/v1/models | jq '.' || echo "Failed to get models"
 
-      - name: Analyze issue with GPT-OSS
-        id: analyze
+      - name: Configure Git
+        run: |
+          git config user.name "gpt-oss[bot]"
+          git config user.email "gpt-oss[bot]@users.noreply.github.com"
+
+      - name: Resolve issue with GPT-OSS
+        id: resolve
         shell: bash
         run: |
-          set +e  # Disable exit on error for this step
-          PROMPT="Analyze this GitHub issue and suggest a solution:
+          set +e
 
-          Title: ${{ github.event.issue.title }}
+          PROMPT="You are helping with a Kubernetes homelab project. An issue has been created.
+
+          Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
 
           Description:
           ${{ github.event.issue.body }}
 
-          Provide a concise analysis and actionable recommendations."
+          Project context:
+          - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
+          - Follow the guidelines in CLAUDE.md and .claude/rules/
+          - All infrastructure is managed via ArgoCD ApplicationSets
 
-          echo "$PROMPT" | cn --config ~/.continue/config.yaml --auto -p > response.txt 2>&1 || {
-            # Fallback to direct API call
-            PAYLOAD=$(jq -n \
-              --arg model "gpt-oss-20b" \
-              --arg content "$PROMPT" \
-              '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 2048}')
-
-            curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
-              -H "Content-Type: application/json" \
-              -d "$PAYLOAD" \
-              | jq -r '.choices[0].message.content // "Error: No response"' > response.txt
+          Instructions:
+          1. Analyze the issue thoroughly
+          2. Determine what file operations are needed (create, modify, delete)
+          3. Output a JSON response with the following structure:
+          {
+            \"analysis\": \"Brief analysis of the issue\",
+            \"actions\": [
+              {\"type\": \"delete\", \"path\": \"path/to/file\"},
+              {\"type\": \"create\", \"path\": \"path/to/file\", \"content\": \"file content\"},
+              {\"type\": \"modify\", \"path\": \"path/to/file\", \"content\": \"new content\"}
+            ],
+            \"commit_message\": \"chore: description of changes\",
+            \"pr_title\": \"PR title\",
+            \"pr_body\": \"PR description\"
           }
 
+          IMPORTANT: Output ONLY valid JSON, no markdown or extra text."
+
+          PAYLOAD=$(jq -n \
+            --arg model "gpt-oss-20b" \
+            --arg content "$PROMPT" \
+            '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
+
+          RESPONSE=$(curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            | jq -r '.choices[0].message.content // "Error: No response"')
+
+          echo "Raw response: $RESPONSE"
+
+          # Extract JSON from response (handle markdown code blocks)
+          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n '/^{/,/^}/p' | head -1 || echo "$RESPONSE")
+
+          # Validate JSON
+          if ! echo "$JSON_RESPONSE" | jq empty 2>/dev/null; then
+            echo "Invalid JSON response, falling back to simple analysis"
+            echo "analysis=Failed to parse GPT-OSS response" >> $GITHUB_OUTPUT
+            echo "has_actions=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           echo "response<<EOF" >> $GITHUB_OUTPUT
-          cat response.txt >> $GITHUB_OUTPUT
+          echo "$JSON_RESPONSE" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          echo "has_actions=true" >> $GITHUB_OUTPUT
+
+      - name: Execute actions and create PR
+        if: steps.resolve.outputs.has_actions == 'true'
+        shell: bash
+        run: |
+          set +e
+
+          RESPONSE='${{ steps.resolve.outputs.response }}'
+
+          # Parse actions
+          ACTIONS=$(echo "$RESPONSE" | jq -c '.actions // []')
+          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.commit_message // "chore: automated fix by gpt-oss"')
+          PR_TITLE=$(echo "$RESPONSE" | jq -r '.pr_title // "fix: Issue #${{ github.event.issue.number }}"')
+          PR_BODY=$(echo "$RESPONSE" | jq -r '.pr_body // "Automated fix for issue #${{ github.event.issue.number }}"')
+          ANALYSIS=$(echo "$RESPONSE" | jq -r '.analysis // "No analysis provided"')
+
+          # Create branch
+          BRANCH="gpt-oss/issue-${{ github.event.issue.number }}"
+          git checkout -b "$BRANCH"
+
+          # Execute each action
+          CHANGES_MADE=false
+          echo "$ACTIONS" | jq -c '.[]' | while read -r action; do
+            TYPE=$(echo "$action" | jq -r '.type')
+            PATH=$(echo "$action" | jq -r '.path')
+
+            case "$TYPE" in
+              delete)
+                if [ -f "$PATH" ]; then
+                  git rm "$PATH"
+                  CHANGES_MADE=true
+                  echo "Deleted: $PATH"
+                fi
+                ;;
+              create)
+                CONTENT=$(echo "$action" | jq -r '.content')
+                mkdir -p "$(dirname "$PATH")"
+                echo "$CONTENT" > "$PATH"
+                git add "$PATH"
+                CHANGES_MADE=true
+                echo "Created: $PATH"
+                ;;
+              modify)
+                CONTENT=$(echo "$action" | jq -r '.content')
+                echo "$CONTENT" > "$PATH"
+                git add "$PATH"
+                CHANGES_MADE=true
+                echo "Modified: $PATH"
+                ;;
+            esac
+          done
+
+          # Check if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "no_changes=true" >> $GITHUB_ENV
+          else
+            git commit -m "$COMMIT_MSG
+
+          Closes #${{ github.event.issue.number }}
+
+          🤖 Generated by GPT-OSS-20B"
+
+            git push origin "$BRANCH"
+
+            # Create PR
+            gh pr create \
+              --title "$PR_TITLE" \
+              --body "## Analysis
+
+          $ANALYSIS
+
+          ## Changes
+
+          $PR_BODY
+
+          ---
+          Closes #${{ github.event.issue.number }}
+
+          🤖 *Generated by GPT-OSS-20B running on homelab*" \
+              --base main \
+              --head "$BRANCH"
+
+            echo "no_changes=false" >> $GITHUB_ENV
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Comment on issue
         uses: actions/github-script@v7
         with:
           script: |
-            const response = `## 🤖 GPT-OSS Analysis
+            const response = process.env.RESPONSE;
+            const noChanges = process.env.NO_CHANGES === 'true';
 
-            ${process.env.RESPONSE}
+            let analysis = "Unable to parse response";
+            try {
+              const parsed = JSON.parse(response);
+              analysis = parsed.analysis || "No analysis provided";
+            } catch (e) {
+              analysis = response;
+            }
+
+            const body = noChanges
+              ? `## 🤖 GPT-OSS Analysis
+
+            ${analysis}
+
+            No changes were needed or the requested files were not found.
+
+            ---
+            *Powered by GPT-OSS-20B running on homelab*`
+              : `## 🤖 GPT-OSS Analysis
+
+            ${analysis}
+
+            A PR has been created to resolve this issue.
 
             ---
             *Powered by GPT-OSS-20B running on homelab*`;
@@ -110,7 +257,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ github.event.issue.number }},
-              body: response
+              body: body
             });
         env:
-          RESPONSE: ${{ steps.analyze.outputs.response }}
+          RESPONSE: ${{ steps.resolve.outputs.response }}
+          NO_CHANGES: ${{ env.no_changes }}
