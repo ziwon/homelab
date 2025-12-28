@@ -140,7 +140,7 @@ apps:
                   - infisicalsecrets
                 verbs: ["get", "list"]
 
-            # Bind ClusterRole to runner ServiceAccount
+            # Bind ClusterRole to runner ServiceAccounts
             - apiVersion: rbac.authorization.k8s.io/v1
               kind: ClusterRoleBinding
               metadata:
@@ -150,8 +150,13 @@ apps:
                 kind: ClusterRole
                 name: arc-runner-reader
               subjects:
+              # restack org runner
               - kind: ServiceAccount
                 name: homelab-gh-gha-rs-no-permission
+                namespace: arc-runners
+              # ziwon personal account runner
+              - kind: ServiceAccount
+                name: homelab-ziwon-gha-rs-no-permission
                 namespace: arc-runners
 
   # Install gha-runner-scale-set-controller chart
