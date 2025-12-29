@@ -20,8 +20,9 @@ jobs:
         id: llm
         run: |
           # Check labels and mentions to determine which LLM to use
-          LABELS='${{ toJson(github.event.issue.labels.*.name) }}'
-          COMMENT='${{ github.event.comment.body }}'
+          # Use environment variables to safely handle special characters
+          LABELS="$ISSUE_LABELS"
+          COMMENT="$COMMENT_BODY"
 
           # Default values
           LLM_NAME=""
@@ -52,6 +53,9 @@ jobs:
           echo "name=$LLM_NAME" >> $GITHUB_OUTPUT
           echo "model=$LLM_MODEL" >> $GITHUB_OUTPUT
           echo "endpoint=$LLM_ENDPOINT" >> $GITHUB_OUTPUT
+        env:
+          ISSUE_LABELS: ${{ toJson(github.event.issue.labels.*.name) }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
 
       - name: Checkout repository
         if: steps.llm.outputs.skip != 'true'
