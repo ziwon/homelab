@@ -65,6 +65,30 @@ apps:
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
+            # Strategy Guardian Secrets
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-guardian-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /guardian/010101
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-guardian-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
             # Strategy Secrets: 010101
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
@@ -562,6 +586,46 @@ apps:
             notifyEnters: true
             notifyExits: true
             notifySkips: false
+
+          # -----------------------------------------------------------
+          # Email Notification
+          # -----------------------------------------------------------
+          emailShared:
+            enabled: true
+            smtpHost: "smtp-relay.sendinblue.com"
+            smtpPort: 587
+            useTls: true
+            smtpPasswordSecretName: "managed-deepfx-secrets"
+            smtpPasswordSecretKey: "EMAIL_SMTP_PASSWORD"
+            notifyEnters: true
+            notifyExits: true
+            notifySkips: false
+            subjectPrefix: "[DeepFX]"
+
+          # -----------------------------------------------------------
+          # DeepFX Strategy Guardian
+          # -----------------------------------------------------------
+          strategy-guardian:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/strategy-guardian
+              tag: latest
+            mode: "shadow"
+            logLevel: "INFO"
+            guardianInstanceId: "strategy-guardian"
+            existingSecret: "managed-deepfx-strategy-guardian-secrets"
+
+            dashboard:
+              url: "http://deepfx-live-dashboard:8080"
+
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+              timeoutMs: 15000
 
           # -----------------------------------------------------------
           # DeepFX Strategy Engine - 010101
