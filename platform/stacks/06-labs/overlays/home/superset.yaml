@@ -30,47 +30,39 @@ apps:
       redis:
         enabled: true
 
-      # Additional Superset specific configurations
+      # Superset configuration
       config:
-        # Enable Celery worker
+        # Celery worker configuration
         celery:
-          enabled: true
-        
-        # Enable Flower for Celery monitoring
+          worker:
+            concurrency: 4
+
+        # Flower monitoring
         flower:
           enabled: true
-          
-        # Global async queries
-        global_async_queries: true
-        
-        # Web server settings
-        webserver:
-          port: 8088
-          
-        # Database settings
-        database:
-          type: postgres
-          
-        # Security settings
-        security:
-          csrf_protect: true
-          
-        # Session settings
-        session:
-          timeout: 3600
-          
-        # Logging
-        logging:
-          level: INFO
-          
-        # Feature flags
-        feature_flags:
-          ENABLE_TEMPLATE_PROCESSING: true
-          
-        # Superset init script
-        init_script: |
-          #!/bin/bash
-          echo "Initializing Superset..."
-          superset db upgrade
-          superset init
-          echo "Superset initialized successfully!"
+
+      # Additional configuration for Superset
+      # This section can be extended based on requirements
+      # For now, we'll keep it minimal
+
+    extraResources:
+      - apiVersion: secrets.infisical.com/v1alpha1
+        kind: InfisicalSecret
+        metadata:
+          name: superset-raw-secrets
+        spec:
+          hostAPI: https://app.infisical.com/api
+          resyncInterval: 60
+          authentication:
+            universalAuth:
+              secretsScope:
+                projectSlug: homelab
+                envSlug: hme
+                secretsPath: "/superset"
+              credentialsRef:
+                secretName: infisical-universal-auth
+                secretNamespace: infisical
+          managedSecretReference:
+            secretName: managed-superset-secrets
+            secretNamespace: superset
+            secretType: Opaque
