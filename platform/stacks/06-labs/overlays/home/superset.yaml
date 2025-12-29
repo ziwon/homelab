@@ -30,26 +30,34 @@ apps:
       redis:
         enabled: true
 
-      # Superset configuration
+      # Superset specific configurations
+      celery:
+        enabled: true
+
+      flower:
+        enabled: true
+
+      # Enable features mentioned in issue
+      features:
+        # Enable the feature that allows Superset to use Redis for caching
+        redis: true
+
+      # Additional Superset configuration
       config:
-        # Celery worker configuration
-        celery:
-          worker:
-            concurrency: 4
+        # Enable CSRF protection
+        csrf_protect: true
 
-        # Flower monitoring
-        flower:
-          enabled: true
-
-      # Additional configuration for Superset
-      # This section can be extended based on requirements
-      # For now, we'll keep it minimal
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
 
     extraResources:
       - apiVersion: secrets.infisical.com/v1alpha1
         kind: InfisicalSecret
         metadata:
-          name: superset-raw-secrets
+          name: superset-secrets
         spec:
           hostAPI: https://app.infisical.com/api
           resyncInterval: 60
@@ -63,6 +71,6 @@ apps:
                 secretName: infisical-universal-auth
                 secretNamespace: infisical
           managedSecretReference:
-            secretName: managed-superset-secrets
+            secretName: superset-env
             secretNamespace: superset
             secretType: Opaque
