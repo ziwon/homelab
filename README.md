@@ -1,7 +1,6 @@
 # 🏠 Homelab: AI-Driven Kubernetes Platform
 
-> **Build locally. Automate globally.**  
-> A modular Kubernetes homelab designed for high-performance AI workloads, evolving from GitOps automation to autonomous AI-driven orchestration.
+> A Kubernetes-based environment for AI workloads and GitOps automation.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![K3s](https://img.shields.io/badge/Kubernetes-K3s-blue?logo=kubernetes)](https://k3s.io/)
@@ -10,124 +9,121 @@
 
 ---
 
-## 📝 Motivation
+## Motivation
 
-This project began as an effort to efficiently utilize high-performance hardware (Intel Core Ultra 9, NVIDIA RTX 5080) that would otherwise remain idle. It focuses on building a stable, reproducible Kubernetes environment to host personal AI research and automation workflows. 
+This project utilizes local hardware (Intel Core Ultra 9, NVIDIA RTX 5080) for AI research and automation. It provides a stable, reproducible Kubernetes environment for various internal services and workloads.
 
-### 💰 Cost Efficiency
-Maintaining local hardware offers significant long-term savings compared to equivalent cloud resources. For instance, an AWS [g6.8xlarge](https://instances.vantage.sh/aws/ec2/g6.8xlarge?currency=USD&region=ap-northeast-2) instance—which provides comparable compute and GPU capacity—costs approximately **$1,780/month** on-demand. This homelab provides a similar performance profile for a one-time hardware investment.
+### Cost Efficiency
+An AWS [g6.8xlarge](https://instances.vantage.sh/aws/ec2/g6.8xlarge?currency=USD&region=ap-northeast-2) instance costs approximately **$1,780/month** on-demand. This lab offers similar compute and GPU capacity through a one-time hardware investment, providing significant long-term savings.
 
 ---
 
-## 💻 Hardware
+## Hardware
 
-| Component | Specification | Highlight |
+| Component | Specification | Description |
 | :--- | :--- | :--- |
-| **CPU** | Intel Core Ultra 9 285K | 24 Cores (8P + 16E) up to 5.70 GHz |
+| **CPU** | Intel Core Ultra 9 285K | 24 Cores (8P + 16E) |
 | **GPU** | NVIDIA GeForce RTX 5080 | 16GB VRAM, 10,752 CUDA Cores |
-| **NPU** | Intel AI Boost (Gen 3) | Specialized AI acceleration |
-| **RAM** | 128GB DDR5-5600 | High-capacity Samsung modules |
-| **Networking**| Tailscale + Cilium eBPF | Encrypted Mesh + High-perf CNI |
+| **NPU** | Intel AI Boost (Gen 3) | On-chip AI acceleration |
+| **RAM** | 128GB DDR5-5600 | Samsung DDR5 |
+| **Networking**| Tailscale + Cilium eBPF | Mesh VPN and eBPF-based CNI |
 
 ---
 
-## 🏗️ Architecture: Two-Phase Deployment
+## Architecture
 
-The platform is built on a clean separation of concerns, ensuring stability and reproducibility.
+The deployment is split into two phases for manageability.
 
-### Phase 1: Bootstrap (The Foundation)
-Managed via **Helmfile** for rapid cluster initialization.
-- **Tools**: `K3s`, `Cilium`, `Infisical`, `GPU Operator`.
-- **Directory**: [`/bootstrap`](./bootstrap)
+### Phase 1: Bootstrap
+Initialization of the base infrastructure using **Helmfile**.
+- **Components**: `K3s`, `Cilium`, `Infisical`, `GPU Operator`.
+- **Location**: [`/bootstrap`](./bootstrap)
 
-### Phase 2: Platform (The Workloads)
-Managed via **Argo CD** App-of-Apps pattern (GitOps).
-- **Stacks**: Core Infra, O11y, Data, ML/AI, Application Workloads.
-- **Directory**: [`/platform`](./platform)
-
----
-
-## 🤖 AI-Powered Operations
-
-This lab goes beyond simple automation, integrating advanced AI agents directly into the operational loop.
-
-### 🔄 Autonomous AI Ops (ARC + Claude)
-We utilize **Actions Runner Controller (ARC)** to host self-hosted Kubernetes runners. These runners execute **Claude-powered workflows** that:
-- **Auto-Resolve Issues**: Labeled issues are analyzed and fixed via PRs automatically.
-- **Intelligent PR Reviews**: Claude reviews code for security (OWASP), performance, and manifest correctness.
-- **In-Cluster Context**: Agents have gated read access to cluster state via `kubectl` to verify deployment health.
-
-### 🧠 Hybrid AI Strategy
-A security-conscious, high-performance approach to LLM integration:
-- **Local (GPT-OSS / Qwen)**: Runs on-prem for high-privacy tasks and basic code analysis.
-- **Cloud (Claude / Gemini)**: Leveraged for complex research and high-order reasoning via secure workflows.
+### Phase 2: Platform
+Deployment of applications and middle-ware using **Argo CD** (GitOps).
+- **Stacks**: Core Infrastructure, Observability, Data, ML/AI, Workloads.
+- **Location**: [`/platform`](./platform)
 
 ---
 
-## ⚙️ Advanced GitOps Engine
+## AI Operations (ARC + Claude)
 
-The heart of the platform's automation is a sophisticated **ArgoCD ApplicationSet** engine.
+Automation workflows run on self-hosted Kubernetes runners via **Actions Runner Controller (ARC)**.
+- **Issue Resolution**: Automated analysis and PR generation for labeled issues.
+- **Code Review**: PR analysis for security, performance, and manifest standards.
+- **Cluster Integration**: Runners use `kubectl` with gated permissions to verify cluster state.
 
-### 🧩 Zero-Touch Service Discovery
-Our [ApplicationSet](./platform/gitops/templates/appset-app.yaml) uses a **Matrix Generator** that auto-scans the repository for YAML definitions.
-- **Matrix Generation**: Combines Git file discovery with dynamic list elements.
-- **Go Template Orchestration**: Deeply uses Go templates to automate sync waves, dependency management, and resource patching based on file structure.
-- **Infisical Integration**: native secret injection without committing sensitive data.
+### LLM Strategy
+- **Local (GPT-OSS / Qwen)**: On-premise processing for privacy and basic tasks.
+- **Cloud (Claude / Gemini)**: Utilized for complex research and reasoning via secure API integration.
 
 ---
 
-## 👾 AI & ML Orchestration
+## GitOps Infrastructure
 
-Specifically tuned for modern AI workflows, featuring advanced resource partitioning.
+Managed through **ArgoCD ApplicationSets** for automated service deployment.
+- **Matrix Generator**: Scans repository paths to discover service definitions.
+- **Go Templates**: Orchestrates sync waves, dependencies, and resource patches.
+- **Infisical**: Integrated secret management without environment exposure.
 
-### 💠 Hybrid Resource Partitioning (NVIDIA MPS + Ray)
-We optimize the **Intel Hybrid Architecture** by pinning Ray Head to E-cores and Ray Workers to P-cores, while using **NVIDIA Multi-Process Service (MPS)** to slice the GPU into 16 logical units.
+---
 
-> [!TIP]
-> This allows running 16 concurrent inference tasks (1GB each) on a single RTX 5080 without performance degradation.
+## Resource Partitioning (MPS + Ray)
+
+Optimized resource allocation for AI workloads on hybrid hardware.
+- **CPU**: Ray Head pinned to E-cores; Ray Workers pinned to P-cores.
+- **GPU**: **NVIDIA MPS** partitions the RTX 5080 into 16 logical units.
+
+> [!NOTE]
+> This setup allows 16 concurrent inference tasks with 1GB VRAM allocation each.
 > See [GPU Architecture Docs](./docs/gpu-partitioning-architecture.md).
 
 ---
 
-## 📉 Observability & Insights
+## Observability Stack
 
-Complete visibility from kernel-level eBPF traces to application-level APM.
+Instrumentation from eBPF tracing to application telemetry.
 
 ![Observability Stack](./docs/observability-stack.svg)
 
-- **Logs**: Vector → Redpanda → Quickwit (Cost-efficient S3 storage)
+### Monitoring
+- **Logs**: Vector → Redpanda → Quickwit
 - **Metrics**: VictoriaMetrics (Prometheus-compatible)
 - **Traces**: Grafana Tempo
-- **Visualization**: Unified Grafana Dashboards
+- **Visualization**: Grafana
+
+### Alerting
+Anomalies are reported to Slack:
+- **Log Monitoring**: **Vector** filters real-time error streams and dispatches notifications.
+- **Metric Thresholds**: **VictoriaMetrics (`vmalert`)** evaluates PROMQL rules and triggers alerts via **Alertmanager**.
 
 ---
 
-## 🛠️ Developer Guide
+## Developer Guide
 
 ### Prerequisites
-- [Just](https://github.com/casey/just) (Task runner)
+- [Just](https://github.com/casey/just)
 - [Helmfile](https://github.com/helmfile/helmfile)
 - [Kubectl](https://kubernetes.io/docs/reference/kubectl/)
 
-### Quick Start
+### Commands
 ```bash
-# 1. Initialize the cluster foundation
+# Initialize foundation
 cd bootstrap
 just up
 
-# 2. Check cluster status
+# Check status
 just nvidia-smi
 just argocd-password
 
-# 3. Access GitOps Dashboard
+# Access dashboard
 open https://argocd.home.lab
 ```
 
-For detailed agent rules and coding conventions, see [**AGENTS.md**](./AGENTS.md).
+For coding conventions, see [**AGENTS.md**](./AGENTS.md).
 
 ---
 
-## 📜 License
+## License
 
 MIT License © 2025 [Aaron]
-
