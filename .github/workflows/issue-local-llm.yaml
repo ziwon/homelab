@@ -219,19 +219,19 @@ jobs:
 
           # Build prompt using heredoc to /tmp/prompt.txt
           cat > /tmp/prompt.txt << 'PROMPT_EOF'
-You are helping with a Kubernetes homelab project.
-PROMPT_EOF
+          You are helping with a Kubernetes homelab project.
+          PROMPT_EOF
 
           echo "" >> /tmp/prompt.txt
           echo "$CONTEXT_NOTE" >> /tmp/prompt.txt
           echo "" >> /tmp/prompt.txt
 
           cat >> /tmp/prompt.txt << PROMPT_EOF2
-Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+          Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
 
-Description:
-${{ github.event.issue.body }}
-PROMPT_EOF2
+          Description:
+          ${{ github.event.issue.body }}
+          PROMPT_EOF2
 
           # Add PR comment history if available
           if [ -s /tmp/pr_comments.txt ]; then
@@ -242,56 +242,56 @@ PROMPT_EOF2
 
           cat >> /tmp/prompt.txt << PROMPT_EOF3
 
-Current Comment/Request:
-${{ github.event.comment.body }}
+          Current Comment/Request:
+          ${{ github.event.comment.body }}
 
-Project context:
-- This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
-- Follow the guidelines in CLAUDE.md and .claude/rules/
-- All infrastructure is managed via ArgoCD ApplicationSets
+          Project context:
+          - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
+          - Follow the guidelines in CLAUDE.md and .claude/rules/
+          - All infrastructure is managed via ArgoCD ApplicationSets
 
-SKILLS (reference for YAML format ONLY - do NOT copy example values):
-PROMPT_EOF3
+          SKILLS (reference for YAML format ONLY - do NOT copy example values):
+          PROMPT_EOF3
 
           cat /tmp/all_skills.txt >> /tmp/prompt.txt
 
           cat >> /tmp/prompt.txt << 'PROMPT_EOF4'
 
-CRITICAL RULES:
-1. ALWAYS extract actual values from the issue description (URLs, versions, config)
-2. Skills show YAML FORMAT only - never copy placeholder values like 'cpu: 100m'
-3. When issue says 'helm repo add NAME URL', use that URL as repoURL
-4. For ArgoCD apps, use 'apps:' list format (NOT raw ApplicationSet)
-5. File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+          CRITICAL RULES:
+          1. ALWAYS extract actual values from the issue description (URLs, versions, config)
+          2. Skills show YAML FORMAT only - never copy placeholder values like 'cpu: 100m'
+          3. When issue says 'helm repo add NAME URL', use that URL as repoURL
+          4. For ArgoCD apps, use 'apps:' list format (NOT raw ApplicationSet)
+          5. File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
 
-Helm URL conversion examples:
-- 'helm repo add superset http://apache.github.io/superset/' -> repoURL: 'http://apache.github.io/superset'
-- 'helm repo add grafana https://grafana.github.io/helm-charts' -> repoURL: 'https://grafana.github.io/helm-charts'
+          Helm URL conversion examples:
+          - 'helm repo add superset http://apache.github.io/superset/' -> repoURL: 'http://apache.github.io/superset'
+          - 'helm repo add grafana https://grafana.github.io/helm-charts' -> repoURL: 'https://grafana.github.io/helm-charts'
 
-For resources/values: Use reasonable defaults for the specific application type.
-- Web apps: cpu 200m-1000m, memory 256Mi-1Gi
-- Databases: cpu 500m-2000m, memory 512Mi-4Gi
-- ML/Analytics: cpu 1000m-4000m, memory 1Gi-8Gi
+          For resources/values: Use reasonable defaults for the specific application type.
+          - Web apps: cpu 200m-1000m, memory 256Mi-1Gi
+          - Databases: cpu 500m-2000m, memory 512Mi-4Gi
+          - ML/Analytics: cpu 1000m-4000m, memory 1Gi-8Gi
 
-Instructions:
-1. Extract ALL information from the issue (URLs, versions, configs)
-2. Use skill templates for YAML structure only
-3. Apply extracted values to the template
-4. Output a JSON response with the following structure:
-{
-  "analysis": "Brief analysis of the issue",
-  "actions": [
-    {"type": "delete", "path": "path/to/file"},
-    {"type": "create", "path": "path/to/file", "content": "file content"},
-    {"type": "modify", "path": "path/to/file", "content": "new content"}
-  ],
-  "commit_message": "chore: description of changes",
-  "pr_title": "PR title",
-  "pr_body": "PR description"
-}
+          Instructions:
+          1. Extract ALL information from the issue (URLs, versions, configs)
+          2. Use skill templates for YAML structure only
+          3. Apply extracted values to the template
+          4. Output a JSON response with the following structure:
+          {
+            "analysis": "Brief analysis of the issue",
+            "actions": [
+              {"type": "delete", "path": "path/to/file"},
+              {"type": "create", "path": "path/to/file", "content": "file content"},
+              {"type": "modify", "path": "path/to/file", "content": "new content"}
+            ],
+            "commit_message": "chore: description of changes",
+            "pr_title": "PR title",
+            "pr_body": "PR description"
+          }
 
-IMPORTANT: Output ONLY valid JSON, no markdown or extra text.
-PROMPT_EOF4
+          IMPORTANT: Output ONLY valid JSON, no markdown or extra text.
+          PROMPT_EOF4
 
           PAYLOAD=$(jq -n \
             --arg model "${{ steps.llm.outputs.model }}" \
