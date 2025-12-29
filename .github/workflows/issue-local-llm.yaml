@@ -59,44 +59,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Determine issue and PR context
-        if: steps.llm.outputs.skip != 'true'
-        id: context
-        run: |
-          ISSUE_NUMBER=${{ github.event.issue.number }}
-
-          # Check if this is a PR (PRs have pull_request field in issue)
-          IS_PR=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER --jq 'has("pull_request")')
-
-          if [ "$IS_PR" = "true" ]; then
-            echo "This is a PR comment"
-
-            # Get PR details and find linked issue
-            PR_BODY=$(gh pr view $ISSUE_NUMBER --json body --jq '.body')
-
-            # Extract issue number from "Closes #XX" or "Fixes #XX" pattern
-            LINKED_ISSUE=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' | head -1)
-
-            if [ -n "$LINKED_ISSUE" ]; then
-              echo "Found linked issue: #$LINKED_ISSUE"
-              echo "original_issue=$LINKED_ISSUE" >> $GITHUB_OUTPUT
-              echo "is_pr_comment=true" >> $GITHUB_OUTPUT
-              echo "pr_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-            else
-              echo "No linked issue found, using PR number"
-              echo "original_issue=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-              echo "is_pr_comment=true" >> $GITHUB_OUTPUT
-              echo "pr_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "This is an issue comment"
-            echo "original_issue=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-            echo "is_pr_comment=false" >> $GITHUB_OUTPUT
-            echo "pr_number=" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Setup Node.js
         if: steps.llm.outputs.skip != 'true'
         uses: actions/setup-node@v4
@@ -148,6 +110,44 @@ jobs:
             sudo apt-get update && sudo apt-get install gh -y
           fi
           gh --version
+
+      - name: Determine issue and PR context
+        if: steps.llm.outputs.skip != 'true'
+        id: context
+        run: |
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+
+          # Check if this is a PR (PRs have pull_request field in issue)
+          IS_PR=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER --jq 'has("pull_request")')
+
+          if [ "$IS_PR" = "true" ]; then
+            echo "This is a PR comment"
+
+            # Get PR details and find linked issue
+            PR_BODY=$(gh pr view $ISSUE_NUMBER --json body --jq '.body')
+
+            # Extract issue number from "Closes #XX" or "Fixes #XX" pattern
+            LINKED_ISSUE=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' | head -1)
+
+            if [ -n "$LINKED_ISSUE" ]; then
+              echo "Found linked issue: #$LINKED_ISSUE"
+              echo "original_issue=$LINKED_ISSUE" >> $GITHUB_OUTPUT
+              echo "is_pr_comment=true" >> $GITHUB_OUTPUT
+              echo "pr_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+            else
+              echo "No linked issue found, using PR number"
+              echo "original_issue=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+              echo "is_pr_comment=true" >> $GITHUB_OUTPUT
+              echo "pr_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "This is an issue comment"
+            echo "original_issue=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+            echo "is_pr_comment=false" >> $GITHUB_OUTPUT
+            echo "pr_number=" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Configure Git
         if: steps.llm.outputs.skip != 'true'
