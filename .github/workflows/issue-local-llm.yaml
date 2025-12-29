@@ -1,4 +1,4 @@
-name: GPT-OSS Issue Handler
+name: Local LLM Issue Handler
 
 on:
   issues:
@@ -7,12 +7,7 @@ on:
     types: [created]
 
 jobs:
-  gpt-oss-resolve:
-    # Trigger on 'gpt-oss' label or @gpt-oss mention
-    if: |
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'gpt-oss')) ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gpt-oss'))
-
+  resolve-issue:
     runs-on: homelab-ziwon
 
     permissions:
@@ -21,34 +16,75 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Determine LLM target
+        id: llm
+        run: |
+          # Check labels and mentions to determine which LLM to use
+          LABELS='${{ toJson(github.event.issue.labels.*.name) }}'
+          COMMENT='${{ github.event.comment.body }}'
+
+          # Default values
+          LLM_NAME=""
+          LLM_MODEL=""
+          LLM_ENDPOINT=""
+
+          # Check for gpt-oss
+          if echo "$LABELS" | grep -q "gpt-oss" || echo "$COMMENT" | grep -q "@gpt-oss"; then
+            LLM_NAME="gpt-oss"
+            LLM_MODEL="gpt-oss-20b"
+            LLM_ENDPOINT="http://gpt.home.lab:8004"
+          fi
+
+          # Check for qwen3 (takes precedence if both labels exist)
+          if echo "$LABELS" | grep -q "qwen3" || echo "$COMMENT" | grep -q "@qwen3"; then
+            LLM_NAME="qwen3"
+            LLM_MODEL="qwen3-32b"
+            LLM_ENDPOINT="http://qwen.home.lab:8003"
+          fi
+
+          # Exit if no matching label/mention found
+          if [ -z "$LLM_NAME" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "name=$LLM_NAME" >> $GITHUB_OUTPUT
+          echo "model=$LLM_MODEL" >> $GITHUB_OUTPUT
+          echo "endpoint=$LLM_ENDPOINT" >> $GITHUB_OUTPUT
+
       - name: Checkout repository
+        if: steps.llm.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
+        if: steps.llm.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Continue CLI
+        if: steps.llm.outputs.skip != 'true'
         run: |
           npm install -g @continuedev/cli
           cn --version
 
       - name: Setup Continue config
+        if: steps.llm.outputs.skip != 'true'
         run: |
           mkdir -p ~/.continue
-          cat > ~/.continue/config.yaml << 'EOF'
+          cat > ~/.continue/config.yaml << EOF
           name: Local Config
           version: 1.0.0
           schema: v1
           models:
-            - name: "gpt-oss-20b"
+            - name: "${{ steps.llm.outputs.model }}"
               provider: "openai"
-              model: "gpt-oss-20b"
+              model: "${{ steps.llm.outputs.model }}"
               apiKey: "not-needed"
-              apiBase: "http://gpt.home.lab:8004"
+              apiBase: "${{ steps.llm.outputs.endpoint }}"
               capabilities:
                 - tool_use
                 - autocomplete
@@ -58,13 +94,15 @@ jobs:
                 - apply
           EOF
 
-      - name: Test GPT-OSS connectivity
+      - name: Test LLM connectivity
+        if: steps.llm.outputs.skip != 'true'
         run: |
-          echo "Testing connection to GPT-OSS server..."
-          curl -s http://gpt.home.lab:8004/health || echo "Failed to connect to gpt.home.lab:8004"
-          curl -s http://gpt.home.lab:8004/v1/models | jq '.' || echo "Failed to get models"
+          echo "Testing connection to ${{ steps.llm.outputs.name }} server..."
+          curl -s ${{ steps.llm.outputs.endpoint }}/health || echo "Failed to connect to ${{ steps.llm.outputs.endpoint }}"
+          curl -s ${{ steps.llm.outputs.endpoint }}/v1/models | jq '.' || echo "Failed to get models"
 
       - name: Setup GitHub CLI
+        if: steps.llm.outputs.skip != 'true'
         run: |
           if ! command -v gh &> /dev/null; then
             curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -74,11 +112,13 @@ jobs:
           gh --version
 
       - name: Configure Git
+        if: steps.llm.outputs.skip != 'true'
         run: |
-          git config user.name "gpt-oss[bot]"
-          git config user.email "gpt-oss[bot]@users.noreply.github.com"
+          git config user.name "${{ steps.llm.outputs.name }}[bot]"
+          git config user.email "${{ steps.llm.outputs.name }}[bot]@users.noreply.github.com"
 
       - name: Read skill templates
+        if: steps.llm.outputs.skip != 'true'
         id: skills
         run: |
           # Read all skill templates from .claude/skills/
@@ -99,7 +139,8 @@ jobs:
           # Write to file to avoid GITHUB_OUTPUT parsing issues
           echo "$ALL_SKILLS" > /tmp/all_skills.txt
 
-      - name: Resolve issue with GPT-OSS
+      - name: Resolve issue with Local LLM
+        if: steps.llm.outputs.skip != 'true'
         id: resolve
         shell: bash
         run: |
@@ -159,11 +200,11 @@ jobs:
           IMPORTANT: Output ONLY valid JSON, no markdown or extra text."
 
           PAYLOAD=$(jq -n \
-            --arg model "gpt-oss-20b" \
+            --arg model "${{ steps.llm.outputs.model }}" \
             --arg content "$PROMPT" \
             '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
 
-          RESPONSE=$(curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
+          RESPONSE=$(curl -s -X POST ${{ steps.llm.outputs.endpoint }}/v1/chat/completions \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
             | jq -r '.choices[0].message.content // "Error: No response"')
@@ -176,7 +217,7 @@ jobs:
           # Validate JSON
           if ! echo "$JSON_RESPONSE" | jq empty 2>/dev/null; then
             echo "Invalid JSON response, falling back to simple analysis"
-            echo "analysis=Failed to parse GPT-OSS response" >> $GITHUB_OUTPUT
+            echo "analysis=Failed to parse LLM response" >> $GITHUB_OUTPUT
             echo "has_actions=false" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -187,22 +228,24 @@ jobs:
           echo "has_actions=true" >> $GITHUB_OUTPUT
 
       - name: Execute actions and create PR
-        if: steps.resolve.outputs.has_actions == 'true'
+        if: steps.llm.outputs.skip != 'true' && steps.resolve.outputs.has_actions == 'true'
         shell: bash
         run: |
           set +e
 
           RESPONSE='${{ steps.resolve.outputs.response }}'
+          LLM_NAME="${{ steps.llm.outputs.name }}"
+          LLM_MODEL="${{ steps.llm.outputs.model }}"
 
           # Parse actions
           ACTIONS=$(echo "$RESPONSE" | jq -c '.actions // []')
-          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.commit_message // "chore: automated fix by gpt-oss"')
+          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.commit_message // "chore: automated fix by '"$LLM_NAME"'"')
           PR_TITLE=$(echo "$RESPONSE" | jq -r '.pr_title // "fix: Issue #${{ github.event.issue.number }}"')
           PR_BODY=$(echo "$RESPONSE" | jq -r '.pr_body // "Automated fix for issue #${{ github.event.issue.number }}"')
           ANALYSIS=$(echo "$RESPONSE" | jq -r '.analysis // "No analysis provided"')
 
           # Check if branch/PR already exists
-          BRANCH="gpt-oss/issue-${{ github.event.issue.number }}"
+          BRANCH="${LLM_NAME}/issue-${{ github.event.issue.number }}"
           EXISTING_PR=$(gh pr list --head "$BRANCH" --json url --jq '.[0].url' 2>/dev/null || echo "")
 
           if [ -n "$EXISTING_PR" ]; then
@@ -257,7 +300,7 @@ jobs:
 
           Closes #${{ github.event.issue.number }}
 
-          🤖 Generated by GPT-OSS-20B"
+          🤖 Generated by ${LLM_MODEL}"
 
             git push origin "$BRANCH"
 
@@ -282,7 +325,7 @@ jobs:
           ---
           Closes #${{ github.event.issue.number }}
 
-          🤖 *Generated by GPT-OSS-20B running on homelab*" \
+          🤖 *Generated by ${LLM_MODEL} running on homelab*" \
                 --base main \
                 --head "$BRANCH" 2>&1 | tail -1)
               echo "Created new PR: $PR_URL"
@@ -296,12 +339,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Comment on issue
+        if: steps.llm.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
             const response = process.env.RESPONSE;
             const noChanges = process.env.NO_CHANGES === 'true';
             const prUrl = process.env.PR_URL || '';
+            const llmName = process.env.LLM_NAME;
+            const llmModel = process.env.LLM_MODEL;
 
             let analysis = "Unable to parse response";
             try {
@@ -315,32 +361,32 @@ jobs:
 
             let body;
             if (noChanges) {
-              body = `## 🤖 GPT-OSS Analysis
+              body = `## 🤖 ${llmName} Analysis
 
             ${analysis}
 
             No changes were needed or the requested files were not found.
 
             ---
-            *Powered by GPT-OSS-20B running on homelab*`;
+            *Powered by ${llmModel} running on homelab*`;
             } else if (isUpdate) {
-              body = `## 🤖 GPT-OSS Analysis
+              body = `## 🤖 ${llmName} Analysis
 
             ${analysis}
 
             **PR Updated:** ${prUrl}
 
             ---
-            *Powered by GPT-OSS-20B running on homelab*`;
+            *Powered by ${llmModel} running on homelab*`;
             } else {
-              body = `## 🤖 GPT-OSS Analysis
+              body = `## 🤖 ${llmName} Analysis
 
             ${analysis}
 
             **PR Created:** ${prUrl}
 
             ---
-            *Powered by GPT-OSS-20B running on homelab*`;
+            *Powered by ${llmModel} running on homelab*`;
             }
 
             await github.rest.issues.createComment({
@@ -354,3 +400,5 @@ jobs:
           NO_CHANGES: ${{ env.no_changes }}
           PR_URL: ${{ env.pr_url }}
           IS_UPDATE: ${{ env.is_update }}
+          LLM_NAME: ${{ steps.llm.outputs.name }}
+          LLM_MODEL: ${{ steps.llm.outputs.model }}

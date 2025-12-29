@@ -7,13 +7,8 @@ on:
     types: [created]
 
 jobs:
-  # GPT-OSS Review (default for all PRs, or when gpt-oss label/mention)
-  gpt-oss-review:
-    if: |
-      (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'claude')) ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'gpt-oss')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@gpt-oss'))
-
+  # Local LLM Review (only when gpt-oss or qwen3 label/mention)
+  local-llm-review:
     runs-on: homelab-ziwon
 
     permissions:
@@ -22,13 +17,52 @@ jobs:
       issues: write
 
     steps:
+      - name: Determine LLM target
+        id: llm
+        run: |
+          # Check labels and mentions to determine which LLM to use
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          COMMENT='${{ github.event.comment.body }}'
+
+          # Default values
+          LLM_NAME=""
+          LLM_MODEL=""
+          LLM_ENDPOINT=""
+
+          # Check for gpt-oss
+          if echo "$LABELS" | grep -q "gpt-oss" || echo "$COMMENT" | grep -q "@gpt-oss"; then
+            LLM_NAME="gpt-oss"
+            LLM_MODEL="gpt-oss-20b"
+            LLM_ENDPOINT="http://gpt.home.lab:8004"
+          fi
+
+          # Check for qwen3 (takes precedence if both labels exist)
+          if echo "$LABELS" | grep -q "qwen3" || echo "$COMMENT" | grep -q "@qwen3"; then
+            LLM_NAME="qwen3"
+            LLM_MODEL="qwen3-32b"
+            LLM_ENDPOINT="http://qwen.home.lab:8003"
+          fi
+
+          # Skip if no local LLM label/mention found (claude will handle it)
+          if [ -z "$LLM_NAME" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "name=$LLM_NAME" >> $GITHUB_OUTPUT
+          echo "model=$LLM_MODEL" >> $GITHUB_OUTPUT
+          echo "endpoint=$LLM_ENDPOINT" >> $GITHUB_OUTPUT
+
       - name: Checkout repository
+        if: steps.llm.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Setup GitHub CLI
+        if: steps.llm.outputs.skip != 'true'
         run: |
           if ! command -v gh &> /dev/null; then
             curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -38,6 +72,7 @@ jobs:
           gh --version
 
       - name: Get PR diff
+        if: steps.llm.outputs.skip != 'true'
         id: diff
         run: |
           DIFF=$(gh pr diff ${{ github.event.pull_request.number }} --repo ${{ github.repository }})
@@ -47,7 +82,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Review with GPT-OSS
+      - name: Review with Local LLM
+        if: steps.llm.outputs.skip != 'true'
         id: review
         shell: bash
         run: |
@@ -90,11 +126,11 @@ jobs:
           IMPORTANT: Output ONLY valid JSON, no markdown or extra text."
 
           PAYLOAD=$(jq -n \
-            --arg model "gpt-oss-20b" \
+            --arg model "${{ steps.llm.outputs.model }}" \
             --arg content "$PROMPT" \
             '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
 
-          RESPONSE=$(curl -s -X POST http://gpt.home.lab:8004/v1/chat/completions \
+          RESPONSE=$(curl -s -X POST ${{ steps.llm.outputs.endpoint }}/v1/chat/completions \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
             | jq -r '.choices[0].message.content // "Error: No response"')
@@ -109,10 +145,13 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Post review comment
+        if: steps.llm.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
             const response = process.env.RESPONSE;
+            const llmName = process.env.LLM_NAME;
+            const llmModel = process.env.LLM_MODEL;
 
             let review = { summary: "Unable to parse review", issues: [], suggestions: [], approval: "comment" };
             try {
@@ -129,7 +168,7 @@ jobs:
               ? review.suggestions.map(s => `- ${s}`).join('\n')
               : 'No additional suggestions.';
 
-            const body = `## 🤖 GPT-OSS PR Review
+            const body = `## 🤖 ${llmName} PR Review
 
             ### Summary
             ${review.summary}
@@ -141,7 +180,7 @@ jobs:
             ${suggestionsList}
 
             ---
-            *Powered by GPT-OSS-20B running on homelab*`;
+            *Powered by ${llmModel} running on homelab*`;
 
             await github.rest.pulls.createReview({
               owner: context.repo.owner,
@@ -152,10 +191,13 @@ jobs:
             });
         env:
           RESPONSE: ${{ steps.review.outputs.response }}
+          LLM_NAME: ${{ steps.llm.outputs.name }}
+          LLM_MODEL: ${{ steps.llm.outputs.model }}
 
-  # Claude Review (when claude label or @claude mention)
+  # Claude Review (default, or when claude label/mention)
   claude-review:
     if: |
+      (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'gpt-oss') && !contains(github.event.pull_request.labels.*.name, 'qwen3')) ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
 
