@@ -1,0 +1,76 @@
+apps:
+  - name: superset
+    namespace: superset
+    chart: superset
+    repoURL: http://apache.github.io/superset
+    targetRevision: "0.15.0"
+    createNamespace: true
+    values: |
+      replicaCount: 1
+
+      image:
+        repository: apache/superset
+        tag: latest
+
+      service:
+        type: ClusterIP
+        port: 8088
+
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+
+      postgresql:
+        enabled: true
+
+      redis:
+        enabled: true
+
+      # Additional Superset specific configurations
+      config:
+        # Enable Celery worker
+        celery:
+          enabled: true
+        
+        # Enable Flower for Celery monitoring
+        flower:
+          enabled: true
+          
+        # Global async queries
+        global_async_queries: true
+        
+        # Web server settings
+        webserver:
+          port: 8088
+          
+        # Database settings
+        database:
+          type: postgres
+          
+        # Security settings
+        security:
+          csrf_protect: true
+          
+        # Session settings
+        session:
+          timeout: 3600
+          
+        # Logging
+        logging:
+          level: INFO
+          
+        # Feature flags
+        feature_flags:
+          ENABLE_TEMPLATE_PROCESSING: true
+          
+        # Superset init script
+        init_script: |
+          #!/bin/bash
+          echo "Initializing Superset..."
+          superset db upgrade
+          superset init
+          echo "Superset initialized successfully!"
