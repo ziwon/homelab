@@ -322,33 +322,33 @@ apps:
                       - name: deepfx-live-dashboard
                         port: 8080
 
-              # -----------------------------------------------------------
-              # Argo Workflows RBAC: 이노메 인증, k3s containerd에다가 박아버려야 하는데..
-              # -----------------------------------------------------------
-              - apiVersion: rbac.authorization.k8s.io/v1
-                kind: Role
-                metadata:
-                  name: argo-harbor-secret-reader
-                  namespace: deepfx
-                rules:
-                  - apiGroups: [""]
-                    resources: ["secrets"]
-                    resourceNames: ["harbor-secret"]
-                    verbs: ["get"]
+            # -----------------------------------------------------------
+            # Argo Workflows RBAC: 이노메 인증, k3s containerd에다가 박아버려야 하는데..
+            # -----------------------------------------------------------
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: Role
+              metadata:
+                name: argo-harbor-secret-reader
+                namespace: deepfx
+              rules:
+                - apiGroups: [""]
+                  resources: ["secrets"]
+                  resourceNames: ["harbor-secret"]
+                  verbs: ["get"]
 
-                - apiVersion: rbac.authorization.k8s.io/v1
-                  kind: RoleBinding
-                  metadata:
-                    name: argo-harbor-secret-reader-binding
-                    namespace: deepfx
-                  subjects:
-                    - kind: ServiceAccount
-                      name: argo-workflows-workflow-controller
-                      namespace: argo-workflows
-                  roleRef:
-                    apiGroup: rbac.authorization.k8s.io
-                    kind: Role
-                    name: argo-harbor-secret-reader
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: RoleBinding
+              metadata:
+                name: argo-harbor-secret-reader-binding
+                namespace: deepfx
+              subjects:
+                - kind: ServiceAccount
+                  name: argo-workflows-workflow-controller
+                  namespace: argo-workflows
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: Role
+                name: argo-harbor-secret-reader
 
   # ------------------------------------------------------------------
   # Feast Registry Init Job
