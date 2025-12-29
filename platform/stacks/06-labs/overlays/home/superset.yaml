@@ -1,5 +1,3 @@
-# Superset - Modern data exploration platform
-
 apps:
   - name: superset
     namespace: superset
@@ -32,8 +30,45 @@ apps:
       redis:
         enabled: true
 
+      # Enable Celery worker
       celery:
         enabled: true
 
+      # Enable Flower monitoring
       flower:
         enabled: true
+
+      # Additional Superset configuration
+      config:
+        # Enable CSRF protection
+        CSRF_ENABLED: true
+        # Enable CORS
+        CORS_ORIGINS: "*"
+        # Enable SSL (if needed)
+        SSL_ENABLED: false
+
+      # Set default admin user
+      admin:
+        username: admin
+        password: admin
+        email: admin@example.com
+        first_name: Admin
+        last_name: User
+
+      # Persistence configuration
+      persistence:
+        enabled: true
+        size: 10Gi
+
+      # Ingress configuration (if needed)
+      ingress:
+        enabled: false
+        hosts:
+          - host: superset.home.lab
+            paths:
+              - path: /
+                pathType: Prefix
+        tls:
+          - secretName: superset-tls
+            hosts:
+              - superset.home.lab
