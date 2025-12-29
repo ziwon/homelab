@@ -44,31 +44,38 @@ apps:
         CSRF_ENABLED: true
         # Enable CORS
         CORS_ORIGINS: "*"
-        # Enable SSL (if needed)
-        SSL_ENABLED: false
+        # Enable security headers
+        SECURITY_HEADERS: true
 
-      # Set default admin user
-      admin:
-        username: admin
-        password: admin
-        email: admin@example.com
-        first_name: Admin
-        last_name: User
+      # Set up ingress if needed
+      ingress:
+        enabled: false
 
       # Persistence configuration
       persistence:
-        enabled: true
-        size: 10Gi
-
-      # Ingress configuration (if needed)
-      ingress:
         enabled: false
-        hosts:
-          - host: superset.home.lab
-            paths:
-              - path: /
-                pathType: Prefix
-        tls:
-          - secretName: superset-tls
-            hosts:
-              - superset.home.lab
+
+      # Node selector and tolerations
+      nodeSelector: {}
+      tolerations: []
+
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+
+      # Liveness and readiness probes
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8088
+        initialDelaySeconds: 30
+        periodSeconds: 10
+
+      readinessProbe:
+        httpGet:
+          path: /ready
+          port: 8088
+        initialDelaySeconds: 5
+        periodSeconds: 5
