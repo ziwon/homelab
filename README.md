@@ -1,207 +1,133 @@
-# 🏠 homelab (A playground for AI Agents)
+# 🏠 Homelab: AI-Driven Kubernetes Platform
 
-A modular Kubernetes homelab that evolves from GitOps automation to AI-driven orchestration, enabling reproducible, adaptive deployments across local and edge clusters.
-(K3s + Helmfile + Argo CD + AIOps workflows)
+> **Build locally. Automate globally.**  
+> A modular Kubernetes homelab designed for high-performance AI workloads, evolving from GitOps automation to autonomous AI-driven orchestration.
 
-## Why a Homelab?
-
-> Motivation: I bought a powerful desktop, only to realize the CPU and GPU were spending most of their time doing absolutely nothing. As an engineer, that kind of idle hardware triggers a deep urge to fix things. So this homelab was born:
-> 
-> A comparable AWS [g6.8xlarge](https://instances.vantage.sh/aws/ec2/g6.8xlarge?currency=USD&region=ap-northeast-2) runs $1,783/month On-Demand. My homelab cost less than that.
-
-### Hardware Specs
-- **CPU:** Intel Core Ultra 9 285K (2P + 8E + 14 LP-E cores @ 5.70 GHz)  
-- **GPU:** NVIDIA Geforce RTX 5080 (84 SM for 10,752 CUDA cores)
-- **NPU:** Intel AI Boost (Gen 3) — for when the GPU is busy and the CPU wants to pretend it's useful
-- **RAM:** SANSUNG DDR5 5600 128 GB (32 GB x 4) — for peace of mind and aggressive multitasking
-
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![K3s](https://img.shields.io/badge/Kubernetes-K3s-blue?logo=kubernetes)](https://k3s.io/)
+[![ArgoCD](https://img.shields.io/badge/GitOps-Argo%20CD-orange?logo=argo)](https://argoproj.github.io/cd/)
+[![NVIDIA](https://img.shields.io/badge/GPU-NVIDIA%20RTX%205080-green?logo=nvidia)](https://www.nvidia.com)
 
 ---
 
-## Overview
+## 📝 Motivation
 
-| Phase | Directory | Tool | Purpose |
-|--------|------------|------|----------|
-| **1️⃣ Bootstrap** | [`/bootstrap`](./bootstrap) | 🧰 Helmfile | Cluster provisioning & base infrastructure setup |
-| **2️⃣ Platform** | [`/platform`](./platform) | 🚀 Argo CD | GitOps-driven operations for apps, workloads, and etc. |
+This project began as an effort to efficiently utilize high-performance hardware (Intel Core Ultra 9, NVIDIA RTX 5080) that would otherwise remain idle. It focuses on building a stable, reproducible Kubernetes environment to host personal AI research and automation workflows. 
 
----
-
-## Features
-
-- **K3s-ready**: Optimized for single-node or lightweight multi-node clusters.  
-- **Cilium eBPF Networking**: Secure and high-performance data plane.  
-- **GitOps-first Design**: Declarative Argo CD App-of-Apps pattern.  
-- **Infisical Operator Integration**: Secure external secret management.  
-- **Modular Helmfile Releases**: Each infra component managed independently.  
+### 💰 Cost Efficiency
+Maintaining local hardware offers significant long-term savings compared to equivalent cloud resources. For instance, an AWS [g6.8xlarge](https://instances.vantage.sh/aws/ec2/g6.8xlarge?currency=USD&region=ap-northeast-2) instance—which provides comparable compute and GPU capacity—costs approximately **$1,780/month** on-demand. This homelab provides a similar performance profile for a one-time hardware investment.
 
 ---
 
-## Infrastructure
+## 💻 Hardware
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        External Access                          │
-├─────────────────────────────────────────────────────────────────┤
-│  Tailscale VPN (Private DNS)     Cloudflared (Public DNS)       │
-│  home.lab → Load Balancer        restack.tech → Tunnel → Pod    │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                      Load Balancer Layer                        │
-├─────────────────────────────────────────────────────────────────┤
-│  Gateway (x.x.x.x/30)      │    CoreDNS External (x.x.x.x/31)   │
-│  HTTP/HTTPS Traffic        │    DNS Queries (home.lab)          │
-│  Cilium L2 Announcements   │    Cilium L2 Announcements         │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    Kubernetes (K3s) Cluster                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌────────────────┐  ┌──────────────┐  ┌────────────────────┐   │
-│  │  Cilium CNI    │  │  Gateway API │  │  CoreDNS (Custom)  │   │
-│  │  - eBPF Proxy  │  │  - Envoy     │  │  - home.lab zone   │   │
-│  │  - L2 LB       │  │  - HTTPRoute │  │  - Split DNS       │   │
-│  └────────────────┘  └──────────────┘  └────────────────────┘   │
-│                                                                 │
-│  ┌────────────────┐  ┌──────────────┐  ┌────────────────────┐   │
-│  │  ArgoCD        │  │  GPU Operator│  │  Infisical Operator│   │
-│  │  - GitOps      │  │  - NVIDIA    │  │  - Secrets Mgmt    │   │
-│  │  - CD Pipeline │  │  - Runtime   │  │  - Env Injection   │   │
-│  └────────────────┘  └──────────────┘  └────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Component | Specification | Highlight |
+| :--- | :--- | :--- |
+| **CPU** | Intel Core Ultra 9 285K | 24 Cores (8P + 16E) up to 5.70 GHz |
+| **GPU** | NVIDIA GeForce RTX 5080 | 16GB VRAM, 10,752 CUDA Cores |
+| **NPU** | Intel AI Boost (Gen 3) | Specialized AI acceleration |
+| **RAM** | 128GB DDR5-5600 | High-capacity Samsung modules |
+| **Networking**| Tailscale + Cilium eBPF | Encrypted Mesh + High-perf CNI |
 
-## GitOps Platform Managements
-```
-                         ┌───────────────────────────────┐
-                         │           GitHub              │
-                         │                               │
-                         │  ┌─────────────────────────┐  │
-Dev Laptop               │  │ homelab repo            │  │
-                         │  │ - argocd apps/          │  │
-                         │  │ - helmfile/             │  │
-   git push ─────────────┼──┤ - app-of-apps           │  │
-                         │  └─────────────────────────┘  │
-   git push ─────────────│  ┌─────────────────────────┐  │
- (code change)           │  │ landing-page repo       │  │
-                         │  │ - app source            │  │
-                         │  │ - Dockerfile            │  │
-                         │  └─────────────────────────┘  │
-   git push ─────────────│  ┌─────────────────────────┐  │
- (code change)           │  │ gpu-scheduler repo      │  │
-                         │  │ - controller / webhook  │  │
-                         │  │ - Dockerfile            │  │
-                         │  └─────────────────────────┘  │
-                         │                               │
-                         │  GitHub Actions               │
-                         │  ┌─────────────────────────┐  │
-                         │  │ k8s-manifests-updater   │  │
-                         │  │ (custom action)         │  │
-                         │  └─────────────────────────┘  │
-                         └──────────────┬────────────────┘
-                                        │
-                                        │ triggers CI
-                                        ▼
-                    ┌────────────────────────────────────────┐
-                    │     K8s Cluster (home.lab)             │
-                    │                                        │
-                    │  ┌──────────────────────────────────┐  │
-                    │  │ Actions Runner Controller (ARC)  │  │
-                    |  | - AutoscalingRunnerSet           │  │
-                    │  │ - self-hosted runners            │  │
-                    │  └───────────────┬──────────────────┘  │
-                    │                  │                     │
-                    │                  ▼                    │
-                    │        ┌───────────────────────┐       │
-                    │        │     Buildkit Pods     │       │
-                    │        │  (buildkitd executor) │       │
-                    │        │                       │       │
-                    │        │  buildctl build       │       │
-                    │        │    cache-from:        │       │
-                    │        │      harbor/...:buildcache    │
-                    │        │    cache-to:          │       │
-                    │        │      harbor/...:buildcache    │
-                    │        └─────────┬────────────┘        │
-                    │                  │                     │
-                    │   OCI images     │   + cache layers    │
-                    │        push      ▼                    │
-                    │        ┌───────────────────────┐       │
-                    │        │        Harbor         │       │
-                    │        │ harbor.home.lab       │       │
-                    │        │   landing-page:tag    │       │
-                    │        │   gpu-scheduler:tag   │       │
-                    │        │   buildcache:latest   │       │
-                    │        └─────────┬────────────┘        │
-                    │                  │                     |
-                    │ k8s-manifests-updater (restack.ai[bot])│
-                    │                  │  in app of apps YAML│
-                    │                  ▼                    │
-                    │  ┌──────────────────────────────────┐  │
-                    │  │   homelab repo (GitHub)          │  │
-                    │  │   - k8s manifests                │  │
-                    │  │   - helm values (image tag)      │  │
-                    │  └──────────────────────────────────┘  │
-                    └───────────────────┬────────────────────┘
-                                        │ Git pull (desired state)
-                                        ▼
-                       ┌────────────────────────────────┐
-                       │             Argo CD            │
-                       │  - App of Apps                 │
-                       │  - Sync manifests              │
-                       └───────────────┬────────────────┘
-                                       │
-                                       │ apply manifests
-                                       ▼
-                  ┌─────────────────────────────────────────┐
-                  │       Workload Namespaces               │
-                  │  - landing-page deployment              │
-                  │  - gpu-scheduler controller             │
-                  │  - vector / quickwit / redpanda         │
-                  │  - monitoring stack                     │
-                  └─────────────────────────────────────────┘
-
-```
-## Observability
-<img src="./docs/observability-stack.svg"/>
-
-## Agent Ops
-
-(Planning)
-```
-[User Browser]
-    │
-    ▼
-[Agents UI (Playground Web)]
-    │  HTTP
-    ▼
-[Agents API / Orchestrator]  ────→  [n8n Workflows]
-    │                                   │
-    │ events                            │ calls
-    ▼                                   ▼
-[Redpanda]  ←──── logs ──── [Vector]   [LLM / RAG / MCP Services]
-    │                             │
-    │ ingest                      │ traces / metrics
-    ▼                             ▼
-[Quickwit]                [VictoriaMetrics]   [Tempo]
-    └──────────────┬───────────────┬────────────┘
-                   ▼               ▼
-                        [Grafana]
-                   - Logs: Quickwit
-                   - Metrics: VM
-                   - Traces: Tempo
-                   - APM/Periscope View
-```
 ---
 
-## License
+## 🏗️ Architecture: Two-Phase Deployment
+
+The platform is built on a clean separation of concerns, ensuring stability and reproducibility.
+
+### Phase 1: Bootstrap (The Foundation)
+Managed via **Helmfile** for rapid cluster initialization.
+- **Tools**: `K3s`, `Cilium`, `Infisical`, `GPU Operator`.
+- **Directory**: [`/bootstrap`](./bootstrap)
+
+### Phase 2: Platform (The Workloads)
+Managed via **Argo CD** App-of-Apps pattern (GitOps).
+- **Stacks**: Core Infra, O11y, Data, ML/AI, Application Workloads.
+- **Directory**: [`/platform`](./platform)
+
+---
+
+## 🤖 AI-Powered Operations
+
+This lab goes beyond simple automation, integrating advanced AI agents directly into the operational loop.
+
+### 🔄 Autonomous AI Ops (ARC + Claude)
+We utilize **Actions Runner Controller (ARC)** to host self-hosted Kubernetes runners. These runners execute **Claude-powered workflows** that:
+- **Auto-Resolve Issues**: Labeled issues are analyzed and fixed via PRs automatically.
+- **Intelligent PR Reviews**: Claude reviews code for security (OWASP), performance, and manifest correctness.
+- **In-Cluster Context**: Agents have gated read access to cluster state via `kubectl` to verify deployment health.
+
+### 🧠 Hybrid AI Strategy
+A security-conscious, high-performance approach to LLM integration:
+- **Local (GPT-OSS / Qwen)**: Runs on-prem for high-privacy tasks and basic code analysis.
+- **Cloud (Claude / Gemini)**: Leveraged for complex research and high-order reasoning via secure workflows.
+
+---
+
+## ⚙️ Advanced GitOps Engine
+
+The heart of the platform's automation is a sophisticated **ArgoCD ApplicationSet** engine.
+
+### 🧩 Zero-Touch Service Discovery
+Our [ApplicationSet](./platform/gitops/templates/appset-app.yaml) uses a **Matrix Generator** that auto-scans the repository for YAML definitions.
+- **Matrix Generation**: Combines Git file discovery with dynamic list elements.
+- **Go Template Orchestration**: Deeply uses Go templates to automate sync waves, dependency management, and resource patching based on file structure.
+- **Infisical Integration**: native secret injection without committing sensitive data.
+
+---
+
+## 👾 AI & ML Orchestration
+
+Specifically tuned for modern AI workflows, featuring advanced resource partitioning.
+
+### 💠 Hybrid Resource Partitioning (NVIDIA MPS + Ray)
+We optimize the **Intel Hybrid Architecture** by pinning Ray Head to E-cores and Ray Workers to P-cores, while using **NVIDIA Multi-Process Service (MPS)** to slice the GPU into 16 logical units.
+
+> [!TIP]
+> This allows running 16 concurrent inference tasks (1GB each) on a single RTX 5080 without performance degradation.
+> See [GPU Architecture Docs](./docs/gpu-partitioning-architecture.md).
+
+---
+
+## 📉 Observability & Insights
+
+Complete visibility from kernel-level eBPF traces to application-level APM.
+
+![Observability Stack](./docs/observability-stack.svg)
+
+- **Logs**: Vector → Redpanda → Quickwit (Cost-efficient S3 storage)
+- **Metrics**: VictoriaMetrics (Prometheus-compatible)
+- **Traces**: Grafana Tempo
+- **Visualization**: Unified Grafana Dashboards
+
+---
+
+## 🛠️ Developer Guide
+
+### Prerequisites
+- [Just](https://github.com/casey/just) (Task runner)
+- [Helmfile](https://github.com/helmfile/helmfile)
+- [Kubectl](https://kubernetes.io/docs/reference/kubectl/)
+
+### Quick Start
+```bash
+# 1. Initialize the cluster foundation
+cd bootstrap
+just up
+
+# 2. Check cluster status
+just nvidia-smi
+just argocd-password
+
+# 3. Access GitOps Dashboard
+open https://argocd.home.lab
+```
+
+For detailed agent rules and coding conventions, see [**AGENTS.md**](./AGENTS.md).
+
+---
+
+## 📜 License
 
 MIT License © 2025 [Aaron]
 
----
-
-> *“Build locally. Automate globally.”*
-> — homelab philosophy
