@@ -1,104 +1,165 @@
 apps:
+  # -----------------------------------------------------------
+  # Superset Bootstrap (Infisical Secrets)
+  # -----------------------------------------------------------
+  - name: superset-raw
+    namespace: superset
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            # -----------------------------------------------------------
+            # Superset Secrets from Infisical
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-superset-secrets
+                namespace: superset
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-superset-secrets
+                    secretNamespace: superset
+                    creationPolicy: Owner
+
+  # -----------------------------------------------------------
+  # Superset Installation
+  # -----------------------------------------------------------
   - name: superset
     namespace: superset
-    chart: superset
-    repoURL: http://apache.github.io/superset
-    targetRevision: "0.15.0"
-    createNamespace: true
-    values: |
-      replicaCount: 1
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: http://apache.github.io/superset
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: superset
+        values: |
+          replicaCount: 1
 
-      image:
-        repository: apache/superset
-        tag: latest
+          image:
+            repository: apache/superset
+            tag: latest
 
-      service:
-        type: ClusterIP
-        port: 8088
+          service:
+            type: ClusterIP
+            port: 8088
 
-      resources:
-        requests:
-          cpu: 500m
-          memory: 1Gi
-        limits:
-          cpu: 2000m
-          memory: 4Gi
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
 
-      postgresql:
-        enabled: true
+          # Disable embedded PostgreSQL and Redis - use external services
+          postgresql:
+            enabled: false
 
-      redis:
-        enabled: true
+          redis:
+            enabled: false
 
-      config:
-        extraConfig:
-          CELERY_WORKER: "celery worker"
-          CELERY_BEAT: "celery beat"
-          FLOWER: "flower"
+          # PostgreSQL connection configuration
+          extraEnv:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: SUPERSET_SECRET_KEY
+            - name: DATABASE_HOST
+              value: cluster-pg-db-ha.postgres.svc
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_DB
+              value: superset
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: DB_USER
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: DB_PASSWORD
+            # Redis connection
+            - name: REDIS_HOST
+              value: redis-0.redis-headless.redis.svc
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: REDIS_PASSWORD
 
-      superset_init:
-        enabled: true
-        command: ["/bin/sh", "-c", "superset init"]
+          # Database URI configuration
+          configOverrides:
+            secret: |
+              SQLALCHEMY_DATABASE_URI = f"postgresql://{os.environ['DATABASE_USER']}:{os.environ['DATABASE_PASSWORD']}@{os.environ['DATABASE_HOST']}:{os.environ['DATABASE_PORT']}/{os.environ['DATABASE_DB']}"
+              REDIS_HOST = os.environ['REDIS_HOST']
+              REDIS_PORT = os.environ['REDIS_PORT']
+              SECRET_KEY = os.environ['SUPERSET_SECRET_KEY']
 
-      env:
-        - name: SUPERSET_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: superset-env
-              key: SUPERSET_SECRET_KEY
-        - name: SUPERSET_DATABASE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: superset-env
-              key: SUPERSET_DATABASE_PASSWORD
+          supersetNode:
+            replicaCount: 1
 
-      ingress:
-        enabled: true
-        hosts:
-          - host: superset.home.lab
-            paths:
-              - path: /
-                pathType: Prefix
-        tls:
-          - hosts:
-              - superset.home.lab
-            secretName: superset-tls
+          supersetWorker:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 2Gi
 
-      persistence:
-        enabled: true
-        size: 10Gi
+          supersetCeleryBeat:
+            enabled: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
 
-      securityContext:
-        runAsNonRoot: true
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-
-      livenessProbe:
-        httpGet:
-          path: /health
-          port: 8088
-        initialDelaySeconds: 30
-        periodSeconds: 10
-
-      readinessProbe:
-        httpGet:
-          path: /ready
-          port: 8088
-        initialDelaySeconds: 5
-        periodSeconds: 5
-
-      nodeSelector:
-        kubernetes.io/os: linux
-
-      tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Equal
-
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/master
-                    operator: Exists
+          init:
+            enabled: true
+            initContainers:
+              - name: wait-for-postgres
+                image: busybox:latest
+                command:
+                  - sh
+                  - -c
+                  - |
+                    until nc -z cluster-pg-db-ha.postgres.svc 5432; do
+                      echo "Waiting for PostgreSQL..."
+                      sleep 2
+                    done
+            command:
+              - /bin/sh
+              - -c
+              - |
+                superset db upgrade
+                superset init
