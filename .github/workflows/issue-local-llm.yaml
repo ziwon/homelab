@@ -204,26 +204,37 @@ jobs:
             --arg content "$PROMPT" \
             '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
 
-          RESPONSE=$(curl -s -X POST ${{ steps.llm.outputs.endpoint }}/v1/chat/completions \
+          # Save response to file to handle multiline JSON safely
+          curl -s -X POST ${{ steps.llm.outputs.endpoint }}/v1/chat/completions \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
-            | jq -r '.choices[0].message.content // "Error: No response"')
+            | jq -r '.choices[0].message.content // "Error: No response"' > /tmp/llm_response.txt
 
-          echo "Raw response: $RESPONSE"
+          echo "Raw response:"
+          cat /tmp/llm_response.txt
 
           # Extract JSON from response (handle markdown code blocks)
-          JSON_RESPONSE=$(echo "$RESPONSE" | sed -n '/^{/,/^}/p' | head -1 || echo "$RESPONSE")
+          if grep -q '```' /tmp/llm_response.txt; then
+            # Extract JSON from markdown code block
+            sed -n '/```json/,/```/p' /tmp/llm_response.txt | sed '1d;$d' > /tmp/llm_response_clean.json
+          else
+            # Use response as-is
+            cp /tmp/llm_response.txt /tmp/llm_response_clean.json
+          fi
 
           # Validate JSON
-          if ! echo "$JSON_RESPONSE" | jq empty 2>/dev/null; then
+          if ! jq empty /tmp/llm_response_clean.json 2>/dev/null; then
             echo "Invalid JSON response, falling back to simple analysis"
+            echo "JSON parsing error details:"
+            jq empty /tmp/llm_response_clean.json 2>&1 || true
             echo "analysis=Failed to parse LLM response" >> $GITHUB_OUTPUT
             echo "has_actions=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
+          # Save to output using heredoc for safety
           echo "response<<EOF" >> $GITHUB_OUTPUT
-          echo "$JSON_RESPONSE" >> $GITHUB_OUTPUT
+          cat /tmp/llm_response_clean.json >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "has_actions=true" >> $GITHUB_OUTPUT
 
