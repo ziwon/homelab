@@ -232,10 +232,12 @@ jobs:
             exit 0
           fi
 
-          # Save to output using heredoc for safety
-          echo "response<<EOF" >> $GITHUB_OUTPUT
-          cat /tmp/llm_response_clean.json >> $GITHUB_OUTPUT
+          # Extract analysis for comment
+          ANALYSIS=$(jq -r '.analysis // "No analysis provided"' /tmp/llm_response_clean.json)
+          echo "analysis<<EOF" >> $GITHUB_OUTPUT
+          echo "$ANALYSIS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
           echo "has_actions=true" >> $GITHUB_OUTPUT
 
       - name: Execute actions and create PR
@@ -244,16 +246,17 @@ jobs:
         run: |
           set +e
 
-          RESPONSE='${{ steps.resolve.outputs.response }}'
+          # Read JSON from file instead of variable to avoid multiline issues
+          RESPONSE_FILE="/tmp/llm_response_clean.json"
           LLM_NAME="${{ steps.llm.outputs.name }}"
           LLM_MODEL="${{ steps.llm.outputs.model }}"
 
-          # Parse actions
-          ACTIONS=$(echo "$RESPONSE" | jq -c '.actions // []')
-          COMMIT_MSG=$(echo "$RESPONSE" | jq -r '.commit_message // "chore: automated fix by '"$LLM_NAME"'"')
-          PR_TITLE=$(echo "$RESPONSE" | jq -r '.pr_title // "fix: Issue #${{ github.event.issue.number }}"')
-          PR_BODY=$(echo "$RESPONSE" | jq -r '.pr_body // "Automated fix for issue #${{ github.event.issue.number }}"')
-          ANALYSIS=$(echo "$RESPONSE" | jq -r '.analysis // "No analysis provided"')
+          # Parse actions from file
+          ACTIONS=$(jq -c '.actions // []' "$RESPONSE_FILE")
+          COMMIT_MSG=$(jq -r '.commit_message // "chore: automated fix by '"$LLM_NAME"'"' "$RESPONSE_FILE")
+          PR_TITLE=$(jq -r '.pr_title // "fix: Issue #${{ github.event.issue.number }}"' "$RESPONSE_FILE")
+          PR_BODY=$(jq -r '.pr_body // "Automated fix for issue #${{ github.event.issue.number }}"' "$RESPONSE_FILE")
+          ANALYSIS=$(jq -r '.analysis // "No analysis provided"' "$RESPONSE_FILE")
 
           # Check if branch/PR already exists
           BRANCH="${LLM_NAME}/issue-${{ github.event.issue.number }}"
@@ -354,20 +357,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const response = process.env.RESPONSE;
+            const analysis = process.env.ANALYSIS || "No analysis provided";
             const noChanges = process.env.NO_CHANGES === 'true';
             const prUrl = process.env.PR_URL || '';
             const llmName = process.env.LLM_NAME;
             const llmModel = process.env.LLM_MODEL;
-
-            let analysis = "Unable to parse response";
-            try {
-              const parsed = JSON.parse(response);
-              analysis = parsed.analysis || "No analysis provided";
-            } catch (e) {
-              analysis = response;
-            }
-
             const isUpdate = process.env.IS_UPDATE === 'true';
 
             let body;
@@ -407,7 +401,7 @@ jobs:
               body: body
             });
         env:
-          RESPONSE: ${{ steps.resolve.outputs.response }}
+          ANALYSIS: ${{ steps.resolve.outputs.analysis }}
           NO_CHANGES: ${{ env.no_changes }}
           PR_URL: ${{ env.pr_url }}
           IS_UPDATE: ${{ env.is_update }}
