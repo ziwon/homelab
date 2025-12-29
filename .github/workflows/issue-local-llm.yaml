@@ -194,71 +194,108 @@ jobs:
           # Determine context
           IS_PR_COMMENT="${{ steps.context.outputs.is_pr_comment }}"
           ORIGINAL_ISSUE="${{ steps.context.outputs.original_issue }}"
+          PR_NUMBER="${{ steps.context.outputs.pr_number }}"
 
+          # Get PR comment history if this is a PR comment
           if [ "$IS_PR_COMMENT" = "true" ]; then
             CONTEXT_NOTE="IMPORTANT: This is a follow-up request on an existing Pull Request. You should ADD TO or MODIFY the existing changes, not create everything from scratch. The changes you make will be committed to the existing PR branch."
+
+            # Fetch PR comment history to a file
+            echo "" > /tmp/pr_comments.txt
+            gh pr view $PR_NUMBER --json comments --jq '.comments[] | "[\(.author.login) at \(.createdAt)]:\n\(.body)\n---\n"' > /tmp/pr_comments.txt 2>/dev/null || true
+
+            if [ -s /tmp/pr_comments.txt ]; then
+              PR_COMMENT_HISTORY="
+          PR Comment History (for context):
+          $(cat /tmp/pr_comments.txt)
+          "
+            else
+              PR_COMMENT_HISTORY=""
+            fi
           else
             CONTEXT_NOTE="This is a new issue request."
+            PR_COMMENT_HISTORY=""
           fi
 
-          PROMPT="You are helping with a Kubernetes homelab project.
+          # Build prompt using heredoc to /tmp/prompt.txt
+          cat > /tmp/prompt.txt << 'PROMPT_EOF'
+You are helping with a Kubernetes homelab project.
+PROMPT_EOF
 
-          ${CONTEXT_NOTE}
+          echo "" >> /tmp/prompt.txt
+          echo "$CONTEXT_NOTE" >> /tmp/prompt.txt
+          echo "" >> /tmp/prompt.txt
 
-          Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+          cat >> /tmp/prompt.txt << PROMPT_EOF2
+Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
 
-          Description:
-          ${{ github.event.issue.body }}
+Description:
+${{ github.event.issue.body }}
+PROMPT_EOF2
 
-          Comment/Request:
-          ${{ github.event.comment.body }}
+          # Add PR comment history if available
+          if [ -s /tmp/pr_comments.txt ]; then
+            echo "" >> /tmp/prompt.txt
+            echo "PR Comment History (for context):" >> /tmp/prompt.txt
+            cat /tmp/pr_comments.txt >> /tmp/prompt.txt
+          fi
 
-          Project context:
-          - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
-          - Follow the guidelines in CLAUDE.md and .claude/rules/
-          - All infrastructure is managed via ArgoCD ApplicationSets
+          cat >> /tmp/prompt.txt << PROMPT_EOF3
 
-          SKILLS (reference for YAML format ONLY - do NOT copy example values):
-          ${ALL_SKILLS}
+Current Comment/Request:
+${{ github.event.comment.body }}
 
-          CRITICAL RULES:
-          1. ALWAYS extract actual values from the issue description (URLs, versions, config)
-          2. Skills show YAML FORMAT only - never copy placeholder values like 'cpu: 100m'
-          3. When issue says 'helm repo add NAME URL', use that URL as repoURL
-          4. For ArgoCD apps, use 'apps:' list format (NOT raw ApplicationSet)
-          5. File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+Project context:
+- This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
+- Follow the guidelines in CLAUDE.md and .claude/rules/
+- All infrastructure is managed via ArgoCD ApplicationSets
 
-          Helm URL conversion examples:
-          - 'helm repo add superset http://apache.github.io/superset/' -> repoURL: 'http://apache.github.io/superset'
-          - 'helm repo add grafana https://grafana.github.io/helm-charts' -> repoURL: 'https://grafana.github.io/helm-charts'
+SKILLS (reference for YAML format ONLY - do NOT copy example values):
+PROMPT_EOF3
 
-          For resources/values: Use reasonable defaults for the specific application type.
-          - Web apps: cpu 200m-1000m, memory 256Mi-1Gi
-          - Databases: cpu 500m-2000m, memory 512Mi-4Gi
-          - ML/Analytics: cpu 1000m-4000m, memory 1Gi-8Gi
+          cat /tmp/all_skills.txt >> /tmp/prompt.txt
 
-          Instructions:
-          1. Extract ALL information from the issue (URLs, versions, configs)
-          2. Use skill templates for YAML structure only
-          3. Apply extracted values to the template
-          4. Output a JSON response with the following structure:
-          {
-            \"analysis\": \"Brief analysis of the issue\",
-            \"actions\": [
-              {\"type\": \"delete\", \"path\": \"path/to/file\"},
-              {\"type\": \"create\", \"path\": \"path/to/file\", \"content\": \"file content\"},
-              {\"type\": \"modify\", \"path\": \"path/to/file\", \"content\": \"new content\"}
-            ],
-            \"commit_message\": \"chore: description of changes\",
-            \"pr_title\": \"PR title\",
-            \"pr_body\": \"PR description\"
-          }
+          cat >> /tmp/prompt.txt << 'PROMPT_EOF4'
 
-          IMPORTANT: Output ONLY valid JSON, no markdown or extra text."
+CRITICAL RULES:
+1. ALWAYS extract actual values from the issue description (URLs, versions, config)
+2. Skills show YAML FORMAT only - never copy placeholder values like 'cpu: 100m'
+3. When issue says 'helm repo add NAME URL', use that URL as repoURL
+4. For ArgoCD apps, use 'apps:' list format (NOT raw ApplicationSet)
+5. File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+
+Helm URL conversion examples:
+- 'helm repo add superset http://apache.github.io/superset/' -> repoURL: 'http://apache.github.io/superset'
+- 'helm repo add grafana https://grafana.github.io/helm-charts' -> repoURL: 'https://grafana.github.io/helm-charts'
+
+For resources/values: Use reasonable defaults for the specific application type.
+- Web apps: cpu 200m-1000m, memory 256Mi-1Gi
+- Databases: cpu 500m-2000m, memory 512Mi-4Gi
+- ML/Analytics: cpu 1000m-4000m, memory 1Gi-8Gi
+
+Instructions:
+1. Extract ALL information from the issue (URLs, versions, configs)
+2. Use skill templates for YAML structure only
+3. Apply extracted values to the template
+4. Output a JSON response with the following structure:
+{
+  "analysis": "Brief analysis of the issue",
+  "actions": [
+    {"type": "delete", "path": "path/to/file"},
+    {"type": "create", "path": "path/to/file", "content": "file content"},
+    {"type": "modify", "path": "path/to/file", "content": "new content"}
+  ],
+  "commit_message": "chore: description of changes",
+  "pr_title": "PR title",
+  "pr_body": "PR description"
+}
+
+IMPORTANT: Output ONLY valid JSON, no markdown or extra text.
+PROMPT_EOF4
 
           PAYLOAD=$(jq -n \
             --arg model "${{ steps.llm.outputs.model }}" \
-            --arg content "$PROMPT" \
+            --rawfile content /tmp/prompt.txt \
             '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
 
           # Save response to file to handle multiline JSON safely
