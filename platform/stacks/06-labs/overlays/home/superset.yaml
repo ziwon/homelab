@@ -30,47 +30,75 @@ apps:
       redis:
         enabled: true
 
-      # Superset specific configurations
-      celery:
-        enabled: true
-
-      flower:
-        enabled: true
-
-      # Enable features mentioned in issue
-      features:
-        # Enable the feature that allows Superset to use Redis for caching
-        redis: true
-
-      # Additional Superset configuration
       config:
-        # Enable CSRF protection
-        csrf_protect: true
+        extraConfig:
+          CELERY_WORKER: "celery worker"
+          CELERY_BEAT: "celery beat"
+          FLOWER: "flower"
 
-      # Security context
+      superset_init:
+        enabled: true
+        command: ["/bin/sh", "-c", "superset init"]
+
+      env:
+        - name: SUPERSET_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: superset-env
+              key: SUPERSET_SECRET_KEY
+        - name: SUPERSET_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: superset-env
+              key: SUPERSET_DATABASE_PASSWORD
+
+      ingress:
+        enabled: true
+        hosts:
+          - host: superset.home.lab
+            paths:
+              - path: /
+                pathType: Prefix
+        tls:
+          - hosts:
+              - superset.home.lab
+            secretName: superset-tls
+
+      persistence:
+        enabled: true
+        size: 10Gi
+
       securityContext:
         runAsNonRoot: true
         readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
 
-    extraResources:
-      - apiVersion: secrets.infisical.com/v1alpha1
-        kind: InfisicalSecret
-        metadata:
-          name: superset-secrets
-        spec:
-          hostAPI: https://app.infisical.com/api
-          resyncInterval: 60
-          authentication:
-            universalAuth:
-              secretsScope:
-                projectSlug: homelab
-                envSlug: hme
-                secretsPath: "/superset"
-              credentialsRef:
-                secretName: infisical-universal-auth
-                secretNamespace: infisical
-          managedSecretReference:
-            secretName: superset-env
-            secretNamespace: superset
-            secretType: Opaque
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8088
+        initialDelaySeconds: 30
+        periodSeconds: 10
+
+      readinessProbe:
+        httpGet:
+          path: /ready
+          port: 8088
+        initialDelaySeconds: 5
+        periodSeconds: 5
+
+      nodeSelector:
+        kubernetes.io/os: linux
+
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Equal
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/master
+                    operator: Exists
