@@ -79,7 +79,7 @@ apps:
                     secretsScope:
                       projectSlug: deepfx
                       envSlug: "home"
-                      secretsPath: /guardian/010101
+                      secretsPath: /guardian
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
