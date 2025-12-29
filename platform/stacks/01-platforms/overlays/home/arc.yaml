@@ -218,7 +218,7 @@ apps:
 
                 - name: harbor-ca
                   secret:
-                    secretName: managed-github-auth
+                    secretName: managed-github-auth-restack
                     items:
                       - key: homelab-ca.crt
                         path: ca.crt
