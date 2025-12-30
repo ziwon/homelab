@@ -1,0 +1,148 @@
+apps:
+  - name: superset
+    namespace: superset
+    chart: superset
+    repoURL: http://apache.github.io/superset
+    targetRevision: "0.15.0"
+    createNamespace: true
+    values: |
+      # Basic configuration
+      replicaCount: 1
+
+      image:
+        repository: apachesuperset.docker.scarf.sh/apache/superset
+        tag: "0.15.0"
+        pullPolicy: IfNotPresent
+
+      service:
+        type: ClusterIP
+        port: 8088
+
+      # Resource limits
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+
+      # Enable postgresql and redis dependencies
+      postgresql:
+        enabled: true
+        auth:
+          username: superset
+          password: superset
+          database: superset
+        primary:
+          persistence:
+            enabled: true
+            accessModes:
+              - ReadWriteOnce
+
+      redis:
+        enabled: true
+        auth:
+          enabled: false
+          password: superset
+        master:
+          persistence:
+            enabled: false
+            accessModes:
+              - ReadWriteOnce
+
+      # Security context
+      supersetNode:
+        podSecurityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+
+      # Init container settings
+      init:
+        createAdmin: true
+        adminUser:
+          username: admin
+          firstname: Superset
+          lastname: Admin
+          email: admin@superset.com
+          password: admin
+
+      # Enable probes
+      supersetNode:
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          timeoutSeconds: 1
+          failureThreshold: 60
+          periodSeconds: 5
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          timeoutSeconds: 1
+          failureThreshold: 3
+          periodSeconds: 15
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          timeoutSeconds: 1
+          failureThreshold: 3
+          periodSeconds: 15
+          successThreshold: 1
+
+      # Enable worker probes
+      supersetWorker:
+        livenessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - celery -A superset.tasks.celery_app:app inspect ping -d celery@$HOSTNAME
+          initialDelaySeconds: 120
+          timeoutSeconds: 60
+          failureThreshold: 3
+          periodSeconds: 60
+          successThreshold: 1
+
+      # Set runAsUser to 0 for compatibility (as per original values)
+      runAsUser: 0
+
+      # Secret management
+      secretEnv:
+        create: true
+
+      # Extra labels
+      extraLabels:
+        app.kubernetes.io/name: superset
+        app.kubernetes.io/instance: superset
+        app.kubernetes.io/managed-by: argocd
+
+    extraResources:
+      - apiVersion: secrets.infisical.com/v1alpha1
+        kind: InfisicalSecret
+        metadata:
+          name: managed-superset-secrets
+        spec:
+          hostAPI: https://app.infisical.com/api
+          resyncInterval: 60
+          authentication:
+            universalAuth:
+              secretsScope:
+                projectSlug: homelab
+                envSlug: hme
+                secretsPath: "/superset"
+              credentialsRef:
+                secretName: infisical-universal-auth
+                secretNamespace: infisical
+          managedSecretReference:
+            secretName: superset-env
+            secretNamespace: superset
+            secretType: Opaque
