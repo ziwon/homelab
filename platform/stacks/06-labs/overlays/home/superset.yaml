@@ -1,0 +1,141 @@
+apps:
+  - name: superset-raw
+    namespace: labs
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-superset-secrets
+                namespace: labs
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-superset-secrets
+                    secretNamespace: labs
+                    creationPolicy: Owner
+  - name: superset
+    namespace: labs
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: http://apache.github.io/superset
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: my-superset
+        values: |
+          # Disable default postgresql and redis since we'll use external
+          postgresql:
+            enabled: false
+          redis:
+            enabled: false
+          
+          # Configure external database connections
+          supersetNode:
+            connections:
+              db_host: cluster-pg-db-pgbouncer.postgres.svc
+              db_port: "5432"
+              db_user: superset
+              db_pass: ""
+              db_name: superset
+              redis_host: cluster-redis-redis-ha-redis-sentinel.redis.svc
+              redis_port: "26379"
+              redis_cache_db: "1"
+              redis_celery_db: "0"
+              
+          # Use managed secrets
+          envFromSecret: managed-superset-secrets
+          
+          # Resource configuration
+          supersetNode:
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: 2000m
+                memory: 4Gi
+          
+          supersetWorker:
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 2Gi
+          
+          # Service configuration
+          service:
+            type: ClusterIP
+            port: 8088
+          
+          # Enable ingress
+          ingress:
+            enabled: true
+            hosts:
+              - superset.home.lab
+            path: /
+            
+          # Security context
+          supersetNode:
+            podSecurityContext:
+              runAsNonRoot: true
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+            containerSecurityContext:
+              runAsNonRoot: true
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+          
+          # Init container resources
+          init:
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          
+          # Enable example data loading
+          init:
+            loadExamples: false
+            createAdmin: true
+            adminUser:
+              username: admin
+              firstname: Superset
+              lastname: Admin
+              email: admin@superset.com
+              password: admin
+          
+          # Replicas
+          supersetNode:
+            replicas:
+              enabled: true
+              replicaCount: 1
+          
+          supersetWorker:
+            replicas:
+              enabled: true
+              replicaCount: 1
