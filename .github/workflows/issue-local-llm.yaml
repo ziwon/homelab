@@ -151,7 +151,10 @@ jobs:
           base_branch: main
           bot_name: ${{ steps.llm.outputs.name }}
           post_comment: 'true'
-          github_token: ${{ github.token }}
+          # GitHub App authentication
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          installation_id: ${{ secrets.APP_INSTALLATION_ID }}
 
       - name: Output result
         if: steps.llm.outputs.skip != 'true'

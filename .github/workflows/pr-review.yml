@@ -103,7 +103,10 @@ jobs:
           comment_body: ${{ github.event.comment.body }}
           bot_name: ${{ steps.llm.outputs.name }}
           post_comment: 'true'
-          github_token: ${{ github.token }}
+          # GitHub App authentication
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          installation_id: ${{ secrets.APP_INSTALLATION_ID }}
 
       - name: Output review result
         if: steps.llm.outputs.skip != 'true'
