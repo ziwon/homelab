@@ -134,6 +134,13 @@ jobs:
           6. Follow Kubernetes and ArgoCD best practices
           PROMPT_EOF2
 
+      - name: Test LLM connectivity
+        if: steps.llm.outputs.skip != 'true'
+        run: |
+          echo "Testing connectivity to ${{ steps.llm.outputs.endpoint }}"
+          curl -v -m 5 ${{ steps.llm.outputs.endpoint }}/health || echo "Health check failed"
+          curl -v -m 5 ${{ steps.llm.outputs.endpoint }}/v1/models || echo "Models endpoint failed"
+
       - name: Call restack-code action
         if: steps.llm.outputs.skip != 'true'
         id: restack
