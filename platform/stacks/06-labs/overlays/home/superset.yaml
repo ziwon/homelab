@@ -31,19 +31,28 @@ apps:
           username: superset
           password: superset
           database: superset
+        image:
+          tag: "14.17.0-debian-12-r3"
         primary:
           service:
             ports:
               postgresql: "5432"
+          persistence:
+            enabled: true
+            accessModes:
+              - ReadWriteOnce
 
       redis:
         enabled: true
+        architecture: standalone
         auth:
           enabled: false
           password: superset
         master:
           persistence:
             enabled: false
+            accessModes:
+              - ReadWriteOnce
 
       init:
         enabled: true
@@ -54,76 +63,26 @@ apps:
           lastname: Admin
           email: admin@superset.com
           password: admin
+        loadExamples: false
 
-      extraEnv: {}
+      supersetNode:
+        replicas:
+          enabled: true
+          replicaCount: 1
+        connections:
+          db_user: superset
+          db_pass: superset
+          db_name: superset
 
-      extraSecretEnv: {}
+      supersetWorker:
+        replicas:
+          enabled: true
+          replicaCount: 1
 
-      configOverrides: {}
-
-      configOverridesFiles: {}
-
-      extraConfigs: {}
-
-      extraSecrets: {}
-
-      extraVolumes: []
-
-      extraVolumeMounts: []
-
-      extraLabels: {}
-
-      secretEnv:
-        create: true
-
-      serviceAccount:
-        create: false
-
-      ingress:
-        enabled: false
-
-      tolerations: []
-
-      affinity: {}
-
-      nodeSelector: {}
-
-      priorityClassName: ~
-
-      topologySpreadConstraints: []
-
-      podDisruptionBudget:
-        enabled: false
-
-      livenessProbe:
-        httpGet:
-          path: /health
-          port: http
-        initialDelaySeconds: 15
-        timeoutSeconds: 1
-        failureThreshold: 3
-        periodSeconds: 15
-        successThreshold: 1
-
-      readinessProbe:
-        httpGet:
-          path: /health
-          port: http
-        initialDelaySeconds: 15
-        timeoutSeconds: 1
-        failureThreshold: 3
-        periodSeconds: 15
-        successThreshold: 1
-
-      startupProbe:
-        httpGet:
-          path: /health
-          port: http
-        initialDelaySeconds: 15
-        timeoutSeconds: 1
-        failureThreshold: 60
-        periodSeconds: 5
-        successThreshold: 1
+      extraLabels:
+        app.kubernetes.io/name: superset
+        app.kubernetes.io/instance: superset
+        app.kubernetes.io/managed-by: argocd
 
     extraResources:
       - apiVersion: secrets.infisical.com/v1alpha1
