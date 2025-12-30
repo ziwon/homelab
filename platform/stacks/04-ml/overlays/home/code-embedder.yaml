@@ -26,6 +26,27 @@ apps:
                   kubernetes.io/service-account.name: code-embedder-runner
               type: kubernetes.io/service-account-token
 
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-workflows-secrets
+                namespace: code-embedder
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /argo-workflows
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-workflows-secrets
+                    secretNamespace: code-embedder
+                    creationPolicy: Owner
+
             - apiVersion: v1
               kind: Service
               metadata:
