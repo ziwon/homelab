@@ -159,6 +159,33 @@ apps:
                 name: homelab-ziwon-gha-rs-no-permission
                 namespace: arc-runners
 
+            # External Service for restack-ai LLM endpoint
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: restack-ai
+                namespace: arc-runners
+              spec:
+                type: ClusterIP
+                ports:
+                  - name: http
+                    port: 80
+                    targetPort: 8003
+                    protocol: TCP
+
+            - apiVersion: v1
+              kind: Endpoints
+              metadata:
+                name: restack-ai
+                namespace: arc-runners
+              subsets:
+                - addresses:
+                    - ip: 172.17.0.1
+                  ports:
+                    - name: http
+                      port: 8003
+                      protocol: TCP
+
   # Install gha-runner-scale-set-controller chart
   - name: gha-runner-scale-set-controller
     namespace: arc-systems

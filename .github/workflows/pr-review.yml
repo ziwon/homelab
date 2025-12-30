@@ -36,11 +36,18 @@ jobs:
             LLM_ENDPOINT="http://gpt.home.lab:8004"
           fi
 
-          # Check for qwen3 (takes precedence if both labels exist)
+          # Check for qwen3
           if echo "$LABELS" | grep -q "qwen3" || echo "$COMMENT" | grep -q "@qwen3"; then
             LLM_NAME="qwen3"
             LLM_MODEL="qwen3-32b"
             LLM_ENDPOINT="http://qwen.home.lab:8003"
+          fi
+
+          # Check for restack-ai (takes precedence if multiple labels exist)
+          if echo "$LABELS" | grep -q "restack-ai" || echo "$COMMENT" | grep -q "@restack-ai"; then
+            LLM_NAME="restack-ai"
+            LLM_MODEL="qwen3-coder:30b"
+            LLM_ENDPOINT="http://restack-ai"
           fi
 
           # Skip if no local LLM label/mention found (claude will handle it)

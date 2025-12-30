@@ -336,7 +336,7 @@ services:
       - --flash-attn
       - auto
       - --alias
-      - qwen3-coder
+      - qwen3-coder:30b
     cpuset: "0-7"
     ports:
       - "8003:8003"
