@@ -1,129 +1,137 @@
-# 🏠 Homelab: AI-Driven Kubernetes Platform
+# 🏠 Homelab
 
-> A Kubernetes-based environment for AI workloads and GitOps automation.
-
+[![K3s](https://img.shields.io/badge/K3s-Kubernetes-326CE5?logo=kubernetes)](https://k3s.io/)
+[![ArgoCD](https://img.shields.io/badge/Argo%20CD-GitOps-EF7B4D?logo=argo)](https://argoproj.github.io/cd/)
+[![NVIDIA](https://img.shields.io/badge/RTX%205080-GPU-76B900?logo=nvidia)](https://www.nvidia.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![K3s](https://img.shields.io/badge/Kubernetes-K3s-blue?logo=kubernetes)](https://k3s.io/)
-[![ArgoCD](https://img.shields.io/badge/GitOps-Argo%20CD-orange?logo=argo)](https://argoproj.github.io/cd/)
-[![NVIDIA](https://img.shields.io/badge/GPU-NVIDIA%20RTX%205080-green?logo=nvidia)](https://www.nvidia.com)
 
----
-
-## Motivation
-
-This project utilizes local hardware (Intel Core Ultra 9, NVIDIA RTX 5080) for AI research and automation. It provides a stable, reproducible Kubernetes environment for various internal services and workloads.
-
-### Cost Efficiency
-An AWS [g6.8xlarge](https://instances.vantage.sh/aws/ec2/g6.8xlarge?currency=USD&region=ap-northeast-2) instance costs approximately **$1,780/month** on-demand. This lab offers similar compute and GPU capacity through a one-time hardware investment, providing significant long-term savings.
-
----
+Kubernetes platform for AI/ML workloads. K3s cluster with GitOps automation.
 
 ## Hardware
 
-| Component | Specification | Description |
-| :--- | :--- | :--- |
-| **CPU** | Intel Core Ultra 9 285K | 24 Cores (8P + 16E) |
-| **GPU** | NVIDIA GeForce RTX 5080 | 16GB VRAM, 10,752 CUDA Cores |
-| **NPU** | Intel AI Boost (Gen 3) | On-chip AI acceleration |
-| **RAM** | 128GB DDR5-5600 | Samsung DDR5 |
-| **Networking**| Tailscale + Cilium eBPF | Mesh VPN and eBPF-based CNI |
+| Component | Spec |
+|-----------|------|
+| CPU | Intel Core Ultra 9 285K (8P + 16E cores) |
+| GPU | NVIDIA RTX 5080 16GB |
+| RAM | 128GB DDR5-5600 |
+| Storage | XFS (/cache, /data) |
 
----
+Comparable to AWS g6.8xlarge (~$1,780/month).
+
+## Directory Structure
+
+```
+homelab/
+├── bootstrap/          # Phase 1: Helmfile cluster init
+│   ├── helmfile.yaml
+│   ├── Justfile
+│   └── releases/       # argocd, cilium, gpu-operator, infisical
+├── platform/           # Phase 2: Argo CD GitOps
+│   ├── gitops/         # ApplicationSet templates
+│   └── stacks/         # Kustomize overlays (00-core ~ 06-labs)
+└── docs/               # Architecture docs
+```
 
 ## Architecture
 
-The deployment is split into two phases for manageability.
+Two-phase deployment:
 
-### Phase 1: Bootstrap
-Initialization of the base infrastructure using **Helmfile**.
-- **Components**: `K3s`, `Cilium`, `Infisical`, `GPU Operator`.
-- **Location**: [`/bootstrap`](./bootstrap)
+```
+Phase 1: Bootstrap (Helmfile)
+├── K3s cluster
+├── Cilium eBPF CNI
+├── GPU Operator
+└── Infisical secrets
 
-### Phase 2: Platform
-Deployment of applications and middle-ware using **Argo CD** (GitOps).
-- **Stacks**: Core Infrastructure, Observability, Data, ML/AI, Workloads.
-- **Location**: [`/platform`](./platform)
+Phase 2: Platform (Argo CD)
+├── 00-core      # cert-manager, cloudflared, tailscale
+├── 01-platforms # argo-workflows, harbor, buildkit
+├── 02-o11y      # grafana, tempo, quickwit
+├── 03-data      # postgres, redis, clickhouse, redpanda
+├── 04-ml        # feast, mlflow, ray, qdrant
+├── 05-workloads # deepfx, mt5-trader
+└── 06-labs      # jupyterhub, n8n, superset
+```
 
----
+## Stack
 
-## AI Operations (ARC + Claude)
+| Layer | Tech |
+|-------|------|
+| Cluster | K3s |
+| Network | Cilium eBPF + Gateway API |
+| GitOps | Argo CD (App-of-Apps) |
+| Secrets | Infisical Operator |
+| GPU | NVIDIA MPS + Ray |
+| Observability | VictoriaMetrics, Tempo, Pyroscope, Quickwit, Grafana |
+| Data | PostgreSQL, Redis, ClickHouse, Redpanda |
+| ML | Feast, MLflow, Ray, Qdrant |
 
-Automation workflows run on self-hosted Kubernetes runners via **Actions Runner Controller (ARC)**.
-- **Issue Resolution**: Automated analysis and PR generation for labeled issues.
-- **Code Review**: PR analysis for security, performance, and manifest standards.
-- **Cluster Integration**: Runners use `kubectl` with gated permissions to verify cluster state.
+## GPU Partitioning
 
-### LLM Strategy
-- **Local (GPT-OSS / Qwen)**: On-premise processing for privacy and basic tasks.
-- **Cloud (Claude / Gemini)**: Utilized for complex research and reasoning via secure API integration.
+NVIDIA MPS splits RTX 5080 into 16 logical units (1GB each). Ray schedules workloads across hybrid cores:
 
----
+- **P-cores (0-7)**: GPU tasks, training, inference
+- **E-cores (8-23)**: Control plane, scheduling
 
-## GitOps Infrastructure
+See [GPU Partitioning](./docs/gpu-partitioning.md).
 
-Managed through **ArgoCD ApplicationSets** for automated service deployment.
-- **Matrix Generator**: Scans repository paths to discover service definitions.
-- **Go Templates**: Orchestrates sync waves, dependencies, and resource patches.
-- **Infisical**: Integrated secret management without environment exposure.
+## Observability
 
----
+```
+Logs:    Vector → Redpanda → Quickwit → Grafana
+Metrics: Prometheus → VictoriaMetrics → Grafana
+Traces:  OTel SDK → Alloy → Tempo → Grafana
+APM:     Pyroscope (service map, trace-log correlation, error analysis)
+```
 
-## Resource Partitioning (MPS + Ray)
-
-Optimized resource allocation for AI workloads on hybrid hardware.
-- **CPU**: Ray Head pinned to E-cores; Ray Workers pinned to P-cores.
-- **GPU**: **NVIDIA MPS** partitions the RTX 5080 into 16 logical units.
-
-> [!NOTE]
-> This setup allows 16 concurrent inference tasks with 1GB VRAM allocation each.
-> See [GPU Architecture Docs](./docs/gpu-partitioning-architecture.md).
-
----
-
-## Observability Stack
-
-Instrumentation from eBPF tracing to application telemetry.
-
-![Observability Stack](./docs/observability-stack.svg)
-
-### Monitoring
-- **Logs**: Vector → Redpanda → Quickwit
-- **Metrics**: VictoriaMetrics (Prometheus-compatible)
-- **Traces**: Grafana Tempo
-- **Visualization**: Grafana
-
-### Alerting
-Anomalies are reported to Slack:
-- **Log Monitoring**: **Vector** filters real-time error streams and dispatches notifications.
-- **Metric Thresholds**: **VictoriaMetrics (`vmalert`)** evaluates PROMQL rules and triggers alerts via **Alertmanager**.
-
----
-
-## Developer Guide
+## Quick Start
 
 ### Prerequisites
-- [Just](https://github.com/casey/just)
-- [Helmfile](https://github.com/helmfile/helmfile)
-- [Kubectl](https://kubernetes.io/docs/reference/kubectl/)
 
-### Commands
+- [just](https://github.com/casey/just) - Command runner
+- [helmfile](https://github.com/helmfile/helmfile) - Helm release management
+- [kubectl](https://kubernetes.io/docs/reference/kubectl/) - Kubernetes CLI
+
+### Bootstrap
+
 ```bash
-# Initialize foundation
 cd bootstrap
 just up
-
-# Check status
 just nvidia-smi
 just argocd-password
 
-# Access dashboard
+export KUBECONFIG=$HOME/.kube/config.home
+kubectl get pods -A
 open https://argocd.home.lab
 ```
 
-For coding conventions, see [**AGENTS.md**](./AGENTS.md).
+## Networking
 
----
+| Domain | Method |
+|--------|--------|
+| `*.home.lab` | Tailscale + CoreDNS |
+| `*.restack.tech` | Cloudflare Tunnel |
+
+## AI Operations
+
+GitHub Actions runners (ARC) with Claude integration:
+
+- Issue analysis and PR generation
+- Code review for security and performance
+- Manifest validation
+
+Multi-LLM routing:
+- Local (Qwen): Privacy-sensitive tasks
+- Cloud (Claude, Gemini): Complex reasoning
+
+## Docs
+
+- [System Architecture](./docs/architecture.md)
+- [GPU Partitioning](./docs/gpu-partitioning.md)
+- [Feature Store](./docs/feature-store.md)
+- [Observability](./docs/observability.md)
+- [Agent Instructions](./AGENTS.md)
 
 ## License
 
-MIT License © 2025 [Aaron]
+MIT
