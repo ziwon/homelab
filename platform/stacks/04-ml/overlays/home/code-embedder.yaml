@@ -16,6 +16,8 @@ apps:
               metadata:
                 name: code-embedder-runner
                 namespace: code-embedder
+              imagePullSecrets:
+                - name: harbor-secret
 
             - apiVersion: v1
               kind: Secret
