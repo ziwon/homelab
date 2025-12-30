@@ -134,7 +134,7 @@ jobs:
   # Claude Review (default, or when claude label/mention)
   claude-review:
     if: |
-      (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'gpt-oss') && !contains(github.event.pull_request.labels.*.name, 'qwen3')) ||
+      (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'gpt-oss') && !contains(github.event.pull_request.labels.*.name, 'qwen3') && !contains(github.event.pull_request.labels.*.name, 'restack-ai')) ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
 
