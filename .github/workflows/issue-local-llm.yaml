@@ -188,3 +188,15 @@ jobs:
           if [ -n "${{ steps.restack.outputs.commit_sha }}" ]; then
             echo "Commit SHA: ${{ steps.restack.outputs.commit_sha }}"
           fi
+
+      - name: Add label to created PR
+        if: steps.llm.outputs.skip != 'true' && steps.restack.outputs.pr_url != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_URL="${{ steps.restack.outputs.pr_url }}"
+          PR_NUMBER=$(echo "$PR_URL" | sed -n 's|.*/pull/\([0-9]*\).*|\1|p')
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" --add-label "${{ steps.llm.outputs.name }}"
+            echo "Added label '${{ steps.llm.outputs.name }}' to PR #$PR_NUMBER"
+          fi
