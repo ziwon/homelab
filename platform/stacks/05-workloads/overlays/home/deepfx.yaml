@@ -591,16 +591,8 @@ apps:
           # Email Notification
           # -----------------------------------------------------------
           emailShared:
-            enabled: true
-            smtpHost: "smtp-relay.sendinblue.com"
-            smtpPort: 587
-            useTls: true
-            smtpPasswordSecretName: "managed-deepfx-secrets"
-            smtpPasswordSecretKey: "EMAIL_SMTP_PASSWORD"
-            notifyEnters: true
-            notifyExits: true
-            notifySkips: false
-            subjectPrefix: "[DeepFX]"
+            secretName: "managed-deepfx-secrets"
+            secretKey: "DEEPFX_EMAIL_NOTIFICATION"
 
           # -----------------------------------------------------------
           # DeepFX Strategy Guardian
