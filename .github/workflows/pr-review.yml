@@ -61,43 +61,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Setup GitHub CLI
+      - name: Prepare review prompt
         if: steps.llm.outputs.skip != 'true'
         run: |
-          if ! command -v gh &> /dev/null; then
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt-get update && sudo apt-get install gh -y
-          fi
-          gh --version
-
-      - name: Get PR diff
-        if: steps.llm.outputs.skip != 'true'
-        id: diff
-        run: |
-          DIFF=$(gh pr diff ${{ github.event.pull_request.number }} --repo ${{ github.repository }})
-          echo "diff<<EOF" >> $GITHUB_OUTPUT
-          echo "$DIFF" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Review with Local LLM
-        if: steps.llm.outputs.skip != 'true'
-        id: review
-        shell: bash
-        run: |
-          set +e
-
-          PROMPT="You are reviewing a Pull Request for a Kubernetes homelab project.
-
-          PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
-
-          Description:
-          ${{ github.event.pull_request.body }}
-
-          Diff:
-          ${{ steps.diff.outputs.diff }}
+          cat > /tmp/review_prompt.txt << 'PROMPT_EOF'
+          You are reviewing a Pull Request for a Kubernetes homelab project.
 
           Project context:
           - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
@@ -112,87 +80,36 @@ jobs:
              - ArgoCD application standards compliance
              - Resource limits and health checks
           2. Provide constructive feedback
+          3. Post a review comment with your findings
 
-          Output format:
-          {
-            \"summary\": \"Brief summary of the changes\",
-            \"issues\": [
-              {\"severity\": \"high|medium|low\", \"file\": \"path/to/file\", \"description\": \"issue description\"}
-            ],
-            \"suggestions\": [\"suggestion 1\", \"suggestion 2\"],
-            \"approval\": \"approve|request_changes|comment\"
-          }
+          Be thorough but constructive in your review.
+          PROMPT_EOF
 
-          IMPORTANT: Output ONLY valid JSON, no markdown or extra text."
-
-          PAYLOAD=$(jq -n \
-            --arg model "${{ steps.llm.outputs.model }}" \
-            --arg content "$PROMPT" \
-            '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
-
-          RESPONSE=$(curl -s -X POST ${{ steps.llm.outputs.endpoint }}/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            | jq -r '.choices[0].message.content // "Error: No response"')
-
-          echo "Raw response: $RESPONSE"
-
-          # Try to extract JSON
-          JSON_RESPONSE=$(echo "$RESPONSE" | grep -o '{.*}' | head -1 || echo "$RESPONSE")
-
-          echo "response<<EOF" >> $GITHUB_OUTPUT
-          echo "$JSON_RESPONSE" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Post review comment
+      - name: Call restack-code for PR review
         if: steps.llm.outputs.skip != 'true'
-        uses: actions/github-script@v7
+        id: review
+        uses: restack/actions/actions/restack-code@v1
         with:
-          script: |
-            const response = process.env.RESPONSE;
-            const llmName = process.env.LLM_NAME;
-            const llmModel = process.env.LLM_MODEL;
+          llm_url: ${{ steps.llm.outputs.endpoint }}/v1/chat/completions
+          model: ${{ steps.llm.outputs.model }}
+          temperature: '0.1'
+          max_tokens: '4096'
+          timeout_ms: '300000'
+          prompt_file: /tmp/review_prompt.txt
+          include_patch: 'true'
+          pr_number: ${{ github.event.pull_request.number }}
+          pr_title_context: ${{ github.event.pull_request.title }}
+          pr_body_context: ${{ github.event.pull_request.body }}
+          comment_body: ${{ github.event.comment.body }}
+          bot_name: ${{ steps.llm.outputs.name }}
+          post_comment: 'true'
+          github_token: ${{ github.token }}
 
-            let review = { summary: "Unable to parse review", issues: [], suggestions: [], approval: "comment" };
-            try {
-              review = JSON.parse(response);
-            } catch (e) {
-              review.summary = response;
-            }
-
-            const issuesList = review.issues?.length > 0
-              ? review.issues.map(i => `- **[${i.severity?.toUpperCase()}]** \`${i.file}\`: ${i.description}`).join('\n')
-              : 'No issues found.';
-
-            const suggestionsList = review.suggestions?.length > 0
-              ? review.suggestions.map(s => `- ${s}`).join('\n')
-              : 'No additional suggestions.';
-
-            const body = `## 🤖 ${llmName} PR Review
-
-            ### Summary
-            ${review.summary}
-
-            ### Issues
-            ${issuesList}
-
-            ### Suggestions
-            ${suggestionsList}
-
-            ---
-            *Powered by ${llmModel} running on homelab*`;
-
-            await github.rest.pulls.createReview({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ github.event.pull_request.number }},
-              body: body,
-              event: review.approval === 'approve' ? 'APPROVE' : review.approval === 'request_changes' ? 'REQUEST_CHANGES' : 'COMMENT'
-            });
-        env:
-          RESPONSE: ${{ steps.review.outputs.response }}
-          LLM_NAME: ${{ steps.llm.outputs.name }}
-          LLM_MODEL: ${{ steps.llm.outputs.model }}
+      - name: Output review result
+        if: steps.llm.outputs.skip != 'true'
+        run: |
+          echo "Review completed by ${{ steps.llm.outputs.name }}"
+          echo "Summary: ${{ steps.review.outputs.summary }}"
 
   # Claude Review (default, or when claude label/mention)
   claude-review:

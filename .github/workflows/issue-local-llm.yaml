@@ -63,109 +63,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        if: steps.llm.outputs.skip != 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Continue CLI
-        if: steps.llm.outputs.skip != 'true'
-        run: |
-          npm install -g @continuedev/cli
-          cn --version
-
-      - name: Setup Continue config
-        if: steps.llm.outputs.skip != 'true'
-        run: |
-          mkdir -p ~/.continue
-          cat > ~/.continue/config.yaml << EOF
-          name: Local Config
-          version: 1.0.0
-          schema: v1
-          models:
-            - name: "${{ steps.llm.outputs.model }}"
-              provider: "openai"
-              model: "${{ steps.llm.outputs.model }}"
-              apiKey: "not-needed"
-              apiBase: "${{ steps.llm.outputs.endpoint }}"
-              capabilities:
-                - tool_use
-                - autocomplete
-              roles:
-                - chat
-                - edit
-                - apply
-          EOF
-
-      - name: Test LLM connectivity
-        if: steps.llm.outputs.skip != 'true'
-        run: |
-          echo "Testing connection to ${{ steps.llm.outputs.name }} server..."
-          curl -s ${{ steps.llm.outputs.endpoint }}/health || echo "Failed to connect to ${{ steps.llm.outputs.endpoint }}"
-          curl -s ${{ steps.llm.outputs.endpoint }}/v1/models | jq '.' || echo "Failed to get models"
-
-      - name: Setup GitHub CLI
-        if: steps.llm.outputs.skip != 'true'
-        run: |
-          if ! command -v gh &> /dev/null; then
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt-get update && sudo apt-get install gh -y
-          fi
-          gh --version
-
-      - name: Determine issue and PR context
-        if: steps.llm.outputs.skip != 'true'
-        id: context
-        run: |
-          ISSUE_NUMBER=${{ github.event.issue.number }}
-
-          # Check if this is a PR (PRs have pull_request field in issue)
-          IS_PR=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER --jq 'has("pull_request")')
-
-          if [ "$IS_PR" = "true" ]; then
-            echo "This is a PR comment"
-
-            # Get PR details and find linked issue
-            PR_BODY=$(gh pr view $ISSUE_NUMBER --json body --jq '.body')
-
-            # Extract issue number from "Closes #XX" or "Fixes #XX" pattern
-            LINKED_ISSUE=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' | head -1)
-
-            if [ -n "$LINKED_ISSUE" ]; then
-              echo "Found linked issue: #$LINKED_ISSUE"
-              echo "original_issue=$LINKED_ISSUE" >> $GITHUB_OUTPUT
-              echo "is_pr_comment=true" >> $GITHUB_OUTPUT
-              echo "pr_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-            else
-              echo "No linked issue found, using PR number"
-              echo "original_issue=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-              echo "is_pr_comment=true" >> $GITHUB_OUTPUT
-              echo "pr_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "This is an issue comment"
-            echo "original_issue=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-            echo "is_pr_comment=false" >> $GITHUB_OUTPUT
-            echo "pr_number=" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Configure Git
-        if: steps.llm.outputs.skip != 'true'
-        run: |
-          git config user.name "${{ steps.llm.outputs.name }}[bot]"
-          git config user.email "${{ steps.llm.outputs.name }}[bot]@users.noreply.github.com"
-
       - name: Read skill templates
         if: steps.llm.outputs.skip != 'true'
         id: skills
         run: |
           # Read all skill templates from .claude/skills/
-          # Use a unique delimiter to avoid conflicts with file content
-          DELIM="SKILLS_END_$(date +%s)"
           ALL_SKILLS=""
           for skill_dir in .claude/skills/*/; do
             if [ -f "${skill_dir}SKILL.md" ]; then
@@ -178,72 +80,15 @@ jobs:
           "
             fi
           done
-          # Write to file to avoid GITHUB_OUTPUT parsing issues
+          # Write to file for prompt generation
           echo "$ALL_SKILLS" > /tmp/all_skills.txt
 
-      - name: Resolve issue with Local LLM
+      - name: Prepare prompt file
         if: steps.llm.outputs.skip != 'true'
-        id: resolve
-        shell: bash
         run: |
-          set +e
-
-          # Read skills from file
-          ALL_SKILLS=$(cat /tmp/all_skills.txt 2>/dev/null || echo "No skills found")
-
-          # Determine context
-          IS_PR_COMMENT="${{ steps.context.outputs.is_pr_comment }}"
-          ORIGINAL_ISSUE="${{ steps.context.outputs.original_issue }}"
-          PR_NUMBER="${{ steps.context.outputs.pr_number }}"
-
-          # Get PR comment history if this is a PR comment
-          if [ "$IS_PR_COMMENT" = "true" ]; then
-            CONTEXT_NOTE="IMPORTANT: This is a follow-up request on an existing Pull Request. You should ADD TO or MODIFY the existing changes, not create everything from scratch. The changes you make will be committed to the existing PR branch."
-
-            # Fetch PR comment history to a file
-            echo "" > /tmp/pr_comments.txt
-            gh pr view $PR_NUMBER --json comments --jq '.comments[] | "[\(.author.login) at \(.createdAt)]:\n\(.body)\n---\n"' > /tmp/pr_comments.txt 2>/dev/null || true
-
-            if [ -s /tmp/pr_comments.txt ]; then
-              PR_COMMENT_HISTORY="
-          PR Comment History (for context):
-          $(cat /tmp/pr_comments.txt)
-          "
-            else
-              PR_COMMENT_HISTORY=""
-            fi
-          else
-            CONTEXT_NOTE="This is a new issue request."
-            PR_COMMENT_HISTORY=""
-          fi
-
-          # Build prompt using heredoc to /tmp/prompt.txt
+          # Build comprehensive prompt with project context
           cat > /tmp/prompt.txt << 'PROMPT_EOF'
           You are helping with a Kubernetes homelab project.
-          PROMPT_EOF
-
-          echo "" >> /tmp/prompt.txt
-          echo "$CONTEXT_NOTE" >> /tmp/prompt.txt
-          echo "" >> /tmp/prompt.txt
-
-          cat >> /tmp/prompt.txt << PROMPT_EOF2
-          Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
-
-          Description:
-          ${{ github.event.issue.body }}
-          PROMPT_EOF2
-
-          # Add PR comment history if available
-          if [ -s /tmp/pr_comments.txt ]; then
-            echo "" >> /tmp/prompt.txt
-            echo "PR Comment History (for context):" >> /tmp/prompt.txt
-            cat /tmp/pr_comments.txt >> /tmp/prompt.txt
-          fi
-
-          cat >> /tmp/prompt.txt << PROMPT_EOF3
-
-          Current Comment/Request:
-          ${{ github.event.comment.body }}
 
           Project context:
           - This is a GitOps-driven Kubernetes homelab with K3s, ArgoCD, and ARC
@@ -251,11 +96,11 @@ jobs:
           - All infrastructure is managed via ArgoCD ApplicationSets
 
           SKILLS (reference for YAML format ONLY - do NOT copy example values):
-          PROMPT_EOF3
+          PROMPT_EOF
 
           cat /tmp/all_skills.txt >> /tmp/prompt.txt
 
-          cat >> /tmp/prompt.txt << 'PROMPT_EOF4'
+          cat >> /tmp/prompt.txt << 'PROMPT_EOF2'
 
           CRITICAL RULES:
           1. ALWAYS extract actual values from the issue description (URLs, versions, config)
@@ -277,248 +122,44 @@ jobs:
           1. Extract ALL information from the issue (URLs, versions, configs)
           2. Use skill templates for YAML structure only
           3. Apply extracted values to the template
-          4. Output a JSON response with the following structure:
-          {
-            "analysis": "Brief analysis of the issue",
-            "actions": [
-              {"type": "delete", "path": "path/to/file"},
-              {"type": "create", "path": "path/to/file", "content": "file content"},
-              {"type": "modify", "path": "path/to/file", "content": "new content"}
-            ],
-            "commit_message": "chore: description of changes",
-            "pr_title": "PR title",
-            "pr_body": "PR description"
-          }
+          4. Analyze the issue thoroughly and implement the requested changes
+          5. Create files, modify configurations as needed
+          6. Follow Kubernetes and ArgoCD best practices
+          PROMPT_EOF2
 
-          IMPORTANT: Output ONLY valid JSON, no markdown or extra text.
-          PROMPT_EOF4
-
-          PAYLOAD=$(jq -n \
-            --arg model "${{ steps.llm.outputs.model }}" \
-            --rawfile content /tmp/prompt.txt \
-            '{model: $model, messages: [{role: "user", content: $content}], max_tokens: 4096, temperature: 0.1}')
-
-          # Save response to file to handle multiline JSON safely
-          curl -s -X POST ${{ steps.llm.outputs.endpoint }}/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            | jq -r '.choices[0].message.content // "Error: No response"' > /tmp/llm_response.txt
-
-          echo "Raw response:"
-          cat /tmp/llm_response.txt
-
-          # Extract JSON from response (handle markdown code blocks)
-          if grep -q '```' /tmp/llm_response.txt; then
-            # Extract JSON from markdown code block
-            sed -n '/```json/,/```/p' /tmp/llm_response.txt | sed '1d;$d' > /tmp/llm_response_clean.json
-          else
-            # Use response as-is
-            cp /tmp/llm_response.txt /tmp/llm_response_clean.json
-          fi
-
-          # Validate JSON
-          if ! jq empty /tmp/llm_response_clean.json 2>/dev/null; then
-            echo "Invalid JSON response, falling back to simple analysis"
-            echo "JSON parsing error details:"
-            jq empty /tmp/llm_response_clean.json 2>&1 || true
-            echo "analysis=Failed to parse LLM response" >> $GITHUB_OUTPUT
-            echo "has_actions=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Extract analysis for comment
-          ANALYSIS=$(jq -r '.analysis // "No analysis provided"' /tmp/llm_response_clean.json)
-          echo "analysis<<EOF" >> $GITHUB_OUTPUT
-          echo "$ANALYSIS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          echo "has_actions=true" >> $GITHUB_OUTPUT
-
-      - name: Execute actions and create PR
-        if: steps.llm.outputs.skip != 'true' && steps.resolve.outputs.has_actions == 'true'
-        shell: bash
-        run: |
-          set +e
-
-          # Read JSON from file instead of variable to avoid multiline issues
-          RESPONSE_FILE="/tmp/llm_response_clean.json"
-          LLM_NAME="${{ steps.llm.outputs.name }}"
-          LLM_MODEL="${{ steps.llm.outputs.model }}"
-
-          # Parse actions from file
-          ACTIONS=$(jq -c '.actions // []' "$RESPONSE_FILE")
-          COMMIT_MSG=$(jq -r '.commit_message // "chore: automated fix by '"$LLM_NAME"'"' "$RESPONSE_FILE")
-          PR_TITLE=$(jq -r '.pr_title // "fix: Issue #${{ github.event.issue.number }}"' "$RESPONSE_FILE")
-          PR_BODY=$(jq -r '.pr_body // "Automated fix for issue #${{ github.event.issue.number }}"' "$RESPONSE_FILE")
-          ANALYSIS=$(jq -r '.analysis // "No analysis provided"' "$RESPONSE_FILE")
-
-          # Determine branch name based on context
-          IS_PR_COMMENT="${{ steps.context.outputs.is_pr_comment }}"
-          ORIGINAL_ISSUE="${{ steps.context.outputs.original_issue }}"
-          PR_NUMBER="${{ steps.context.outputs.pr_number }}"
-
-          if [ "$IS_PR_COMMENT" = "true" ]; then
-            # This is a PR comment - use the existing PR's branch
-            EXISTING_PR_BRANCH=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
-            BRANCH="$EXISTING_PR_BRANCH"
-            echo "PR comment detected, using existing branch: $BRANCH"
-          else
-            # This is an issue comment - use standard branch naming
-            BRANCH="${LLM_NAME}/issue-${ORIGINAL_ISSUE}"
-            echo "Issue comment detected, using branch: $BRANCH"
-          fi
-
-          EXISTING_PR=$(gh pr list --head "$BRANCH" --json url --jq '.[0].url' 2>/dev/null || echo "")
-
-          if [ -n "$EXISTING_PR" ]; then
-            # PR exists, checkout existing branch and pull latest
-            echo "Existing PR found: $EXISTING_PR"
-            git fetch origin "$BRANCH" 2>/dev/null || true
-            git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH" origin/"$BRANCH"
-            git pull origin "$BRANCH" --rebase 2>/dev/null || true
-          else
-            # No existing PR, create new branch (delete old if exists)
-            git push origin --delete "$BRANCH" 2>/dev/null || true
-            git branch -D "$BRANCH" 2>/dev/null || true
-            git checkout -b "$BRANCH"
-          fi
-
-          # Execute each action using for loop (avoid subshell issues with while)
-          ACTION_COUNT=$(echo "$ACTIONS" | jq 'length')
-          for i in $(seq 0 $((ACTION_COUNT - 1))); do
-            action=$(echo "$ACTIONS" | jq -c ".[$i]")
-            TYPE=$(echo "$action" | jq -r '.type')
-            FILE_PATH=$(echo "$action" | jq -r '.path')
-
-            case "$TYPE" in
-              delete)
-                if [ -f "$FILE_PATH" ]; then
-                  git rm "$FILE_PATH"
-                  echo "Deleted: $FILE_PATH"
-                fi
-                ;;
-              create)
-                CONTENT=$(echo "$action" | jq -r '.content')
-                mkdir -p "$(dirname "$FILE_PATH")"
-                echo "$CONTENT" > "$FILE_PATH"
-                git add "$FILE_PATH"
-                echo "Created: $FILE_PATH"
-                ;;
-              modify)
-                CONTENT=$(echo "$action" | jq -r '.content')
-                echo "$CONTENT" > "$FILE_PATH"
-                git add "$FILE_PATH"
-                echo "Modified: $FILE_PATH"
-                ;;
-            esac
-          done
-
-          # Check if there are staged changes
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            echo "no_changes=true" >> $GITHUB_ENV
-          else
-            # Determine commit message based on context
-            if [ "$IS_PR_COMMENT" = "true" ]; then
-              COMMIT_FOOTER="Related to #${ORIGINAL_ISSUE}"
-            else
-              COMMIT_FOOTER="Closes #${ORIGINAL_ISSUE}"
-            fi
-
-            git commit -m "$COMMIT_MSG
-
-          $COMMIT_FOOTER
-
-          🤖 Generated by ${LLM_MODEL}"
-
-            git push origin "$BRANCH"
-
-            # Check if PR already exists (use shell variable, not env)
-            if [ -n "$EXISTING_PR" ]; then
-              # PR already exists, just update it
-              PR_URL="$EXISTING_PR"
-              echo "Updated existing PR: $PR_URL"
-              echo "is_update=true" >> $GITHUB_ENV
-            else
-              # Create new PR
-              PR_URL=$(gh pr create \
-                --title "$PR_TITLE" \
-                --body "## Analysis
-
-          $ANALYSIS
-
-          ## Changes
-
-          $PR_BODY
-
-          ---
-          Closes #${ORIGINAL_ISSUE}
-
-          🤖 *Generated by ${LLM_MODEL} running on homelab*" \
-                --base main \
-                --head "$BRANCH" 2>&1 | tail -1)
-              echo "Created new PR: $PR_URL"
-              echo "is_update=false" >> $GITHUB_ENV
-            fi
-
-            echo "pr_url=$PR_URL" >> $GITHUB_ENV
-            echo "no_changes=false" >> $GITHUB_ENV
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Comment on issue
+      - name: Call restack-code action
         if: steps.llm.outputs.skip != 'true'
-        uses: actions/github-script@v7
+        id: restack
+        uses: restack/actions/actions/restack-code@v1
         with:
-          script: |
-            const analysis = process.env.ANALYSIS || "No analysis provided";
-            const noChanges = process.env.NO_CHANGES === 'true';
-            const prUrl = process.env.PR_URL || '';
-            const llmName = process.env.LLM_NAME;
-            const llmModel = process.env.LLM_MODEL;
-            const isUpdate = process.env.IS_UPDATE === 'true';
+          llm_url: ${{ steps.llm.outputs.endpoint }}/v1/chat/completions
+          model: ${{ steps.llm.outputs.model }}
+          temperature: '0.1'
+          max_tokens: '4096'
+          timeout_ms: '300000'
+          prompt_file: /tmp/prompt.txt
+          issue_number: ${{ github.event.issue.number }}
+          issue_title: ${{ github.event.issue.title }}
+          issue_body: ${{ github.event.issue.body }}
+          comment_body: ${{ github.event.comment.body }}
+          commit: 'true'
+          commit_message: 'chore: automated fix by ${{ steps.llm.outputs.name }}'
+          create_pr: 'true'
+          pr_title: 'fix: Issue #${{ github.event.issue.number }}'
+          pr_body: 'Automated fix for issue #${{ github.event.issue.number }}'
+          branch: ${{ steps.llm.outputs.name }}/issue-${{ github.event.issue.number }}
+          base_branch: main
+          bot_name: ${{ steps.llm.outputs.name }}
+          post_comment: 'true'
+          github_token: ${{ github.token }}
 
-            let body;
-            if (noChanges) {
-              body = `## 🤖 ${llmName} Analysis
-
-            ${analysis}
-
-            No changes were needed or the requested files were not found.
-
-            ---
-            *Powered by ${llmModel} running on homelab*`;
-            } else if (isUpdate) {
-              body = `## 🤖 ${llmName} Analysis
-
-            ${analysis}
-
-            **PR Updated:** ${prUrl}
-
-            ---
-            *Powered by ${llmModel} running on homelab*`;
-            } else {
-              body = `## 🤖 ${llmName} Analysis
-
-            ${analysis}
-
-            **PR Created:** ${prUrl}
-
-            ---
-            *Powered by ${llmModel} running on homelab*`;
-            }
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: ${{ github.event.issue.number }},
-              body: body
-            });
-        env:
-          ANALYSIS: ${{ steps.resolve.outputs.analysis }}
-          NO_CHANGES: ${{ env.no_changes }}
-          PR_URL: ${{ env.pr_url }}
-          IS_UPDATE: ${{ env.is_update }}
-          LLM_NAME: ${{ steps.llm.outputs.name }}
-          LLM_MODEL: ${{ steps.llm.outputs.model }}
+      - name: Output result
+        if: steps.llm.outputs.skip != 'true'
+        run: |
+          echo "Summary: ${{ steps.restack.outputs.summary }}"
+          if [ -n "${{ steps.restack.outputs.pr_url }}" ]; then
+            echo "PR created: ${{ steps.restack.outputs.pr_url }}"
+          fi
+          if [ -n "${{ steps.restack.outputs.commit_sha }}" ]; then
+            echo "Commit SHA: ${{ steps.restack.outputs.commit_sha }}"
+          fi
