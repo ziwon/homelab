@@ -188,6 +188,8 @@ apps:
               endpoints:
                 - addresses:
                     - 172.17.0.1
+                  conditions:
+                    ready: true
 
   # Install gha-runner-scale-set-controller chart
   - name: gha-runner-scale-set-controller
