@@ -113,6 +113,9 @@ apps:
               spec:
                 serviceAccountName: code-embedder-runner
                 entrypoint: main
+                onExit: exit-handler
+                imagePullSecrets:
+                  - name: harbor-secret
                 arguments:
                   parameters:
                     - name: git-repo
