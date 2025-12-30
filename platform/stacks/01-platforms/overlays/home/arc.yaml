@@ -173,18 +173,21 @@ apps:
                     targetPort: 8003
                     protocol: TCP
 
-            - apiVersion: v1
-              kind: Endpoints
+            - apiVersion: discovery.k8s.io/v1
+              kind: EndpointSlice
               metadata:
                 name: restack-ai
                 namespace: arc-runners
-              subsets:
+                labels:
+                  kubernetes.io/service-name: restack-ai
+              addressType: IPv4
+              ports:
+                - name: http
+                  port: 8003
+                  protocol: TCP
+              endpoints:
                 - addresses:
-                    - ip: 172.17.0.1
-                  ports:
-                    - name: http
-                      port: 8003
-                      protocol: TCP
+                    - 172.17.0.1
 
   # Install gha-runner-scale-set-controller chart
   - name: gha-runner-scale-set-controller
