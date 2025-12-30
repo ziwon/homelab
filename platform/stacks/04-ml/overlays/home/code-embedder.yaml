@@ -1,0 +1,183 @@
+apps:
+  - name: code-embedder-raw
+    namespace: code-embedder
+    project: dev
+    syncWave: "10"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: code-embedder-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: ServiceAccount
+              metadata:
+                name: code-embedder-runner
+                namespace: code-embedder
+
+            - apiVersion: v1
+              kind: Secret
+              metadata:
+                name: code-embedder-runner-token
+                namespace: code-embedder
+                annotations:
+                  kubernetes.io/service-account.name: code-embedder-runner
+              type: kubernetes.io/service-account-token
+
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: restack-ai-embedding
+                namespace: code-embedder
+              spec:
+                type: ClusterIP
+                ports:
+                - name: http
+                  port: 80
+                  targetPort: 8080
+                  protocol: TCP
+
+            - apiVersion: discovery.k8s.io/v1
+              kind: EndpointSlice
+              metadata:
+                name: restack-ai-embedding
+                namespace: code-embedder
+                labels:
+                  kubernetes.io/service-name: restack-ai-embedding
+              addressType: IPv4
+              ports:
+                - name: http
+                  port: 8080
+                  protocol: TCP
+              endpoints:
+                - addresses:
+                    - 172.16.0.48
+                  conditions:
+                    ready: true
+
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: Role
+              metadata:
+                name: code-embedder-runner
+                namespace: code-embedder
+              rules:
+                - apiGroups: ["argoproj.io"]
+                  resources: ["workflows", "workflowtemplates"]
+                  verbs: ["get", "list", "watch", "create"]
+
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: RoleBinding
+              metadata:
+                name: code-embedder-runner
+                namespace: code-embedder
+              subjects:
+                - kind: ServiceAccount
+                  name: code-embedder-runner
+                  namespace: code-embedder
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: Role
+                name: code-embedder-runner
+
+            - apiVersion: argoproj.io/v1alpha1
+              kind: WorkflowTemplate
+              metadata:
+                name: code-embedder
+                namespace: code-embedder
+              spec:
+                serviceAccountName: code-embedder-runner
+                entrypoint: main
+                arguments:
+                  parameters:
+                    - name: git-repo
+                      value: https://github.com/ziwon/homelab.git
+                    - name: git-base-ref
+                      value: ""
+                    - name: git-head-ref
+                      value: ""
+                    - name: image
+                      value: harbor.home.lab/restack/apps/code-embedder:latest
+                    - name: qdrant-url
+                      value: http://qdrant.qdrant.svc:6333
+                    - name: qdrant-collection
+                      value: codebase-bge-m3
+                    - name: llm-embed-url
+                      value: http://restack-ai-embedding
+                    - name: full-reindex
+                      value: "false"
+                volumes:
+                  - name: workspace
+                    emptyDir: {}
+                templates:
+                  - name: main
+                    dag:
+                      tasks:
+                        - name: git-clone
+                          template: git-clone
+                        - name: embed
+                          dependencies: [git-clone]
+                          template: embed
+
+                  - name: git-clone
+                    container:
+                      image: alpine/git:2.45.2
+                      command: ["/bin/sh", "-c"]
+                      args:
+                        - |
+                          set -eu
+                          git clone "{{workflow.parameters.git-repo}}" /workspace/repo
+                          if [ -n "{{workflow.parameters.git-base-ref}}" ]; then
+                            git -C /workspace/repo fetch origin "{{workflow.parameters.git-base-ref}}"
+                          fi
+                          if [ -n "{{workflow.parameters.git-head-ref}}" ]; then
+                            git -C /workspace/repo fetch origin "{{workflow.parameters.git-head-ref}}"
+                            git -C /workspace/repo checkout "{{workflow.parameters.git-head-ref}}"
+                          fi
+                      volumeMounts:
+                        - name: workspace
+                          mountPath: /workspace
+                      resources:
+                        requests:
+                          cpu: 100m
+                          memory: 128Mi
+                        limits:
+                          cpu: 500m
+                          memory: 512Mi
+
+                  - name: embed
+                    container:
+                      image: "{{workflow.parameters.image}}"
+                      command: ["code-embedder"]
+                      env:
+                        - name: REPO_PATH
+                          value: /workspace/repo
+                        - name: REPO_NAME
+                          value: homelab
+                        - name: GIT_BASE_REF
+                          value: "{{workflow.parameters.git-base-ref}}"
+                        - name: GIT_HEAD_REF
+                          value: "{{workflow.parameters.git-head-ref}}"
+                        - name: FULL_REINDEX
+                          value: "{{workflow.parameters.full-reindex}}"
+                        - name: QDRANT_URL
+                          value: "{{workflow.parameters.qdrant-url}}"
+                        - name: QDRANT_COLLECTION
+                          value: "{{workflow.parameters.qdrant-collection}}"
+                        - name: LLM_EMBED_URL
+                          value: "{{workflow.parameters.llm-embed-url}}"
+                        - name: STORE_TEXT
+                          value: "true"
+                        - name: CREATE_TEXT_INDEX
+                          value: "true"
+                      volumeMounts:
+                        - name: workspace
+                          mountPath: /workspace
+                      resources:
+                        requests:
+                          cpu: 500m
+                          memory: 1Gi
+                        limits:
+                          cpu: "2"
+                          memory: 4Gi
