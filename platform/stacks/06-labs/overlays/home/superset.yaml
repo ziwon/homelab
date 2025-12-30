@@ -11,6 +11,7 @@ apps:
       image:
         repository: apachesuperset.docker.scarf.sh/apache/superset
         tag: ~
+        pullPolicy: IfNotPresent
 
       service:
         type: ClusterIP
@@ -40,8 +41,12 @@ apps:
         auth:
           enabled: false
           password: superset
+        master:
+          persistence:
+            enabled: false
 
       init:
+        enabled: true
         createAdmin: true
         adminUser:
           username: admin
@@ -50,12 +55,75 @@ apps:
           email: admin@superset.com
           password: admin
 
-      extraEnv:
-        GUNICORN_TIMEOUT: 300
-        SERVER_WORKER_AMOUNT: 4
+      extraEnv: {}
 
-      extraSecretEnv:
-        SUPERSET_SECRET_KEY: "CHANGE_ME_TO_A_COMPLEX_RANDOM_SECRET"
+      extraSecretEnv: {}
+
+      configOverrides: {}
+
+      configOverridesFiles: {}
+
+      extraConfigs: {}
+
+      extraSecrets: {}
+
+      extraVolumes: []
+
+      extraVolumeMounts: []
+
+      extraLabels: {}
+
+      secretEnv:
+        create: true
+
+      serviceAccount:
+        create: false
+
+      ingress:
+        enabled: false
+
+      tolerations: []
+
+      affinity: {}
+
+      nodeSelector: {}
+
+      priorityClassName: ~
+
+      topologySpreadConstraints: []
+
+      podDisruptionBudget:
+        enabled: false
+
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: http
+        initialDelaySeconds: 15
+        timeoutSeconds: 1
+        failureThreshold: 3
+        periodSeconds: 15
+        successThreshold: 1
+
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: http
+        initialDelaySeconds: 15
+        timeoutSeconds: 1
+        failureThreshold: 3
+        periodSeconds: 15
+        successThreshold: 1
+
+      startupProbe:
+        httpGet:
+          path: /health
+          port: http
+        initialDelaySeconds: 15
+        timeoutSeconds: 1
+        failureThreshold: 60
+        periodSeconds: 5
+        successThreshold: 1
 
     extraResources:
       - apiVersion: secrets.infisical.com/v1alpha1
