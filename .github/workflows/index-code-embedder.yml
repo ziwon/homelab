@@ -22,7 +22,7 @@ env:
   IMAGE: harbor.home.lab/restack/apps/code-embedder:latest
   QDRANT_URL: http://qdrant.qdrant.svc:6333
   QDRANT_COLLECTION: codebase-bge-m3
-  LLM_EMBED_URL: http://llama-cpp-embed.home.lab:8080
+  LLM_EMBED_URL: http://restack-ai-embedding
 
 jobs:
   submit:
