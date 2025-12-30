@@ -8,6 +8,26 @@ on:
 
 jobs:
   resolve-issue:
+    # Trigger conditions:
+    # 1. Issue labeled with local LLM labels (gpt-oss, qwen3, restack-ai)
+    # 2. Issue/comment mentions local LLM (@gpt-oss, @qwen3, @restack-ai)
+    # 3. Skip bot comments to prevent infinite loop
+    if: |
+      (github.event_name == 'issues' && github.event.action == 'labeled' &&
+       (contains(github.event.issue.labels.*.name, 'gpt-oss') ||
+        contains(github.event.issue.labels.*.name, 'qwen3') ||
+        contains(github.event.issue.labels.*.name, 'restack-ai'))) ||
+      (github.event_name == 'issues' && github.event.action == 'opened' &&
+       (contains(github.event.issue.body, '@gpt-oss') ||
+        contains(github.event.issue.body, '@qwen3') ||
+        contains(github.event.issue.body, '@restack-ai'))) ||
+      (github.event_name == 'issue_comment' &&
+       !contains(github.event.comment.user.login, '[bot]') &&
+       !startsWith(github.event.comment.user.login, 'app/') &&
+       (contains(github.event.comment.body, '@gpt-oss') ||
+        contains(github.event.comment.body, '@qwen3') ||
+        contains(github.event.comment.body, '@restack-ai')))
+
     runs-on: homelab-ziwon
 
     permissions:
