@@ -128,19 +128,18 @@ jobs:
           Instructions:
           1. Analyze the issue and extract all information (URLs, versions, configs)
           2. Create the necessary YAML files following skill templates
-          3. Respond in this EXACT JSON format:
+          3. Output ONLY valid JSON in this exact format (no text before or after):
 
-          {
-            "analysis": "Brief analysis of what you're implementing",
-            "actions": [
-              {"type": "create", "path": "platform/stacks/.../file.yaml", "content": "full YAML content here"}
-            ],
-            "commit_message": "feat: descriptive commit message",
-            "pr_title": "feat: PR title",
-            "pr_body": "Description of changes"
-          }
+          {"analysis":"Brief analysis","actions":[{"type":"create","path":"platform/stacks/.../file.yaml","content":"YAML content"}],"commit_message":"feat: message","pr_title":"feat: title","pr_body":"description"}
 
-          CRITICAL: Output ONLY the JSON object, no markdown code blocks, no extra text.
+          CRITICAL RULES FOR OUTPUT:
+          - Start output with { (opening brace)
+          - End output with } (closing brace)
+          - NO markdown code blocks (no ```)
+          - NO explanatory text before or after JSON
+          - NO trailing commas
+          - Escape quotes in content with \"
+          - Use \n for newlines in content field
           PROMPT_EOF2
 
       - name: Test LLM connectivity
