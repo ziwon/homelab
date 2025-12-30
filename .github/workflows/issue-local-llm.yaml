@@ -159,7 +159,7 @@ jobs:
           model: ${{ steps.llm.outputs.model }}
           temperature: '0.1'
           max_tokens: '4096'
-          timeout_ms: '300000'
+          timeout_ms: '600000'
           prompt_file: /tmp/prompt.txt
           issue_number: ${{ github.event.issue.number }}
           issue_title: ${{ github.event.issue.title }}
