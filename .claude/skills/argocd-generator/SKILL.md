@@ -7,7 +7,69 @@ description: Generates ArgoCD Application manifests following the App-of-Apps pa
 
 Generate ArgoCD applications following the App-of-Apps pattern.
 
-## IMPORTANT: How to Use This Template
+## CRITICAL: Helm Chart Values Analysis
+
+**Before creating any Helm-based application, you MUST:**
+
+1. **Fetch and analyze the chart's values.yaml** from the official repository
+2. **Understand all available configuration options** - do NOT use minimal/placeholder values
+3. **Configure production-ready settings** including:
+   - Database connections (PostgreSQL, Redis, etc.)
+   - Persistence/storage settings
+   - Authentication and security settings
+   - Resource requests/limits appropriate for the workload
+   - Service configuration
+   - Environment-specific settings for homelab
+
+**DO NOT** create oversimplified values like:
+```yaml
+# BAD - Too minimal, missing critical configuration
+values: |
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+```
+
+**DO** analyze the chart thoroughly and configure properly:
+```yaml
+# GOOD - Properly configured based on chart analysis
+values: |
+  replicaCount: 1
+
+  # Database configuration (if chart supports it)
+  postgresql:
+    enabled: false  # Use external PostgreSQL
+
+  extraEnvVars:
+    - name: DATABASE_HOST
+      value: cluster-pg-db-pgbouncer.postgres.svc
+    - name: DATABASE_PORT
+      value: "5432"
+
+  extraEnvVarsSecret: superset-managed-secrets
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: local-path
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+```
+
+---
+
+## How to Use This Template
 
 1. Extract values from the issue:
    - `helm repo add NAME URL` -> use URL as repoURL
@@ -19,8 +81,9 @@ Generate ArgoCD applications following the App-of-Apps pattern.
 
 3. The `values:` section:
    - **PRIORITY 1**: If the issue includes values.yaml content, copy it exactly
-   - **PRIORITY 2**: If no values provided, use sensible defaults for the app type
-   - The examples below are ONLY for reference when no values are provided
+   - **PRIORITY 2**: If no values provided, **fetch and analyze the chart's values.yaml first**
+   - Configure all relevant sections based on the chart's capabilities
+   - The examples below are ONLY structural references, not complete configurations
 
 ## Stack Categories
 
