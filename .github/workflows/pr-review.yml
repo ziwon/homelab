@@ -80,16 +80,26 @@ jobs:
           - All infrastructure is managed via ArgoCD ApplicationSets
 
           Instructions:
-          1. Review the code changes for:
-             - Code quality and best practices
-             - Security issues (OWASP top 10, injection vulnerabilities)
-             - Kubernetes manifest correctness
-             - ArgoCD application standards compliance
-             - Resource limits and health checks
-          2. Provide constructive feedback
-          3. Post a review comment with your findings
+          Review the code changes and provide feedback.
 
-          Be thorough but constructive in your review.
+          Focus on:
+          - Code quality and best practices
+          - Security issues (OWASP top 10, injection vulnerabilities)
+          - Kubernetes manifest correctness
+          - ArgoCD application standards compliance
+          - Resource limits and health checks
+
+          Respond in this EXACT JSON format:
+          {
+            "analysis": "Overall review summary and verdict (LGTM, needs changes, etc)",
+            "actions": [],
+            "commit_message": "",
+            "pr_title": "",
+            "pr_body": ""
+          }
+
+          CRITICAL: Output ONLY the JSON object, no markdown, no extra text.
+          The analysis field will be posted as a PR comment automatically.
           PROMPT_EOF
 
       - name: Call restack-code for PR review

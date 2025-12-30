@@ -126,12 +126,21 @@ jobs:
           - ML/Analytics: cpu 1000m-4000m, memory 1Gi-8Gi
 
           Instructions:
-          1. Extract ALL information from the issue (URLs, versions, configs)
-          2. Use skill templates for YAML structure only
-          3. Apply extracted values to the template
-          4. Analyze the issue thoroughly and implement the requested changes
-          5. Create files, modify configurations as needed
-          6. Follow Kubernetes and ArgoCD best practices
+          1. Analyze the issue and extract all information (URLs, versions, configs)
+          2. Create the necessary YAML files following skill templates
+          3. Respond in this EXACT JSON format:
+
+          {
+            "analysis": "Brief analysis of what you're implementing",
+            "actions": [
+              {"type": "create", "path": "platform/stacks/.../file.yaml", "content": "full YAML content here"}
+            ],
+            "commit_message": "feat: descriptive commit message",
+            "pr_title": "feat: PR title",
+            "pr_body": "Description of changes"
+          }
+
+          CRITICAL: Output ONLY the JSON object, no markdown code blocks, no extra text.
           PROMPT_EOF2
 
       - name: Test LLM connectivity
