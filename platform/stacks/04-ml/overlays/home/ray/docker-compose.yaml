@@ -188,6 +188,53 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
+  # llama.cpp - Embeddings (bge-m3)
+  # ---------------------------------------------------------------------------
+  llama-cpp-embed:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-cpp-embed
+    runtime: nvidia
+    restart: unless-stopped
+    depends_on:
+      nvidia-mps:
+        condition: service_healthy
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
+      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=30
+    volumes:
+      - /data/LLM/models/ggml-org/:/models:ro
+      - /cache/nvidia-mps/pipe:/mps/pipe:ro
+    command:
+      - --model
+      - /models/bge-m3-Q8_0-GGUF/bge-m3-q8_0.gguf
+      - --embedding
+      - --ctx-size
+      - "8192"
+      - --batch-size
+      - "8192"
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
   # Main Brain: DeepSeek R1 (Distill Qwen3 8B)
   # ---------------------------------------------------------------------------
   llama-cpp-main:

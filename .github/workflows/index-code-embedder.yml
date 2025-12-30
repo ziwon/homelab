@@ -1,0 +1,77 @@
+name: Index Code Embedder
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      full_reindex:
+        description: 'Force full reindex'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  ARGO_WORKFLOWS_BASE_URL: http://argo-workflows-server.argo-workflows.svc:2746
+  ARGO_WORKFLOWS_NAMESPACE: code-embedder
+  WORKFLOW_TEMPLATE: code-embedder
+  GIT_REPO: https://github.com/ziwon/homelab.git
+  IMAGE: harbor.home.lab/restack/apps/code-embedder:latest
+  QDRANT_URL: http://qdrant.qdrant.svc:6333
+  QDRANT_COLLECTION: codebase-bge-m3
+  LLM_EMBED_URL: http://llama-cpp-embed.home.lab:8080
+
+jobs:
+  submit:
+    runs-on: homelab-ziwon
+    steps:
+      - name: Build submit payload
+        id: payload
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          FULL_REINDEX_INPUT="${{ github.event.inputs.full_reindex }}"
+
+          if [ -n "${FULL_REINDEX_INPUT}" ]; then
+            FULL_REINDEX="${FULL_REINDEX_INPUT}"
+          else
+            if [ "${BEFORE}" = "0000000000000000000000000000000000000000" ]; then
+              FULL_REINDEX="true"
+              BEFORE=""
+            else
+              FULL_REINDEX="false"
+            fi
+          fi
+
+          cat > /tmp/payload.json << EOF_JSON
+          {
+            "resourceKind": "WorkflowTemplate",
+            "resourceName": "${WORKFLOW_TEMPLATE}",
+            "submitOptions": {
+              "name": "code-embedder-${GITHUB_RUN_ID}",
+              "parameters": [
+                "git-repo=${GIT_REPO}",
+                "git-base-ref=${BEFORE}",
+                "git-head-ref=${AFTER}",
+                "full-reindex=${FULL_REINDEX}",
+                "image=${IMAGE}",
+                "qdrant-url=${QDRANT_URL}",
+                "qdrant-collection=${QDRANT_COLLECTION}",
+                "llm-embed-url=${LLM_EMBED_URL}"
+              ]
+            }
+          }
+          EOF_JSON
+
+      - name: Submit workflow
+        env:
+          ARGO_WORKFLOWS_TOKEN: ${{ secrets.ARGO_WORKFLOWS_TOKEN }}
+        run: |
+          curl -sS -f -X POST \
+            "${ARGO_WORKFLOWS_BASE_URL}/api/v1/workflows/${ARGO_WORKFLOWS_NAMESPACE}/submit" \
+            -H "Authorization: Bearer ${ARGO_WORKFLOWS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json

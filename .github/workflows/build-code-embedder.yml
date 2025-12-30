@@ -1,0 +1,81 @@
+name: Build Code Embedder Image
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/code-embedder/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: harbor.home.lab
+  BUILDKIT_HOST: tcp://buildkitd.buildkit.svc.cluster.local:1234
+  REPO: restack/apps
+
+jobs:
+  build:
+    runs-on: homelab-ziwon
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up build metadata
+        id: meta
+        run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="${{ github.ref_name }}-$(git rev-parse --short HEAD)"
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+          IMAGE_BASE="${{ env.REGISTRY }}/${{ env.REPO }}/code-embedder"
+          echo "image_base=${IMAGE_BASE}" >> $GITHUB_OUTPUT
+
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${IMAGE_BASE}:${VERSION}" >> $GITHUB_OUTPUT
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "${IMAGE_BASE}:latest" >> $GITHUB_OUTPUT
+          fi
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx with remote BuildKit
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: remote
+          endpoint: ${{ env.BUILDKIT_HOST }}
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: '${{ secrets.HARBOR_USERNAME }}'
+          password: '${{ secrets.HARBOR_PASSWORD }}'
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/code-embedder
+          file: apps/code-embedder/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            COMMIT=${{ steps.meta.outputs.commit }}
+            BUILD_DATE=${{ steps.meta.outputs.date }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}/code-embedder:cache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}/code-embedder:cache,mode=max
+
+      - name: Image summary
+        run: |
+          echo "### code-embedder Image Built Successfully :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          while IFS= read -r tag; do
+            echo "- \`${tag}\`" >> $GITHUB_STEP_SUMMARY
+          done <<< "${{ steps.meta.outputs.tags }}"

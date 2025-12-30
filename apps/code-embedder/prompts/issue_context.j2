@@ -1,0 +1,58 @@
+{#
+  [Role]
+  이 템플릿은 검색된 코드(RAG Context)와 사용자의 이슈(Issue Description)를
+  LLM에게 구조화된 XML 포맷으로 전달합니다.
+#}
+
+<codebase_context>
+    <description>
+    아래는 프로젝트의 기존 인프라 설정 및 소스 코드의 일부입니다.
+    새로운 작업을 수행할 때 이 코드들의 구조(App-of-Apps 패턴, Naming Convention, Directory Structure)를 참고하여 일관성을 유지하세요.
+    </description>
+
+    {% for chunk in chunks %}
+    <file_context id="{{ loop.index }}">
+        <metadata>
+            <path>{{ chunk.file_path }}</path>
+            <language>{{ chunk.language | default('yaml') }}</language>
+
+            <resource_identity>
+                {% if chunk.app_name %}
+                Type: ArgoCDApp
+                AppName: {{ chunk.app_name }} (Namespace: {{ chunk.app_namespace | default('default') }})
+                Chart: {{ chunk.chart_name | default('kustomize') }}
+                BlockKey: {{ chunk.block_key | default('N/A') }} {% if chunk.embedded_kind %}EmbeddedResource: {{ chunk.embedded_kind }} / {{ chunk.embedded_name }}{% endif %}
+                ConfigPath: {{ chunk.yaml_path }}
+                {% else %}
+                Type: SourceCode
+                Structure: {{ chunk.structure | default('N/A') }}
+                {% endif %}
+            </resource_identity>
+
+            <relevance_score>{{ chunk.score | round(4) }}</relevance_score>
+        </metadata>
+        <content>
+{{ chunk.code_content }}
+        </content>
+    </file_context>
+    {% endfor %}
+</codebase_context>
+
+<user_issue>
+    <description>
+    사용자가 요청한 작업 내용입니다.
+    한국어 설명과 함께 참고용 설정 값(values.yaml, command 등)이 포함되어 있을 수 있습니다.
+    </description>
+    <content>
+{{ issue_description }}
+    </content>
+</user_issue>
+
+<instruction>
+위의 <codebase_context>에 나타난 **ArgoCD App-of-Apps 패턴(raw 차트 활용, InfisicalSecret 구조 등)**을 분석하고,
+이를 바탕으로 <user_issue>의 요구사항을 구현하는 코드를 작성하세요.
+
+1. **Style Consistency**: 기존 파일(예: arc.yaml)의 들여쓰기, 네이밍 규칙, 메타데이터 구조를 그대로 따르세요.
+2. **Configuration**: 이슈 내용에 포함된 버전(0.15.0)과 Helm Values 참고 값을 정확히 반영하세요.
+3. **Output**: 수정하거나 새로 생성해야 할 파일 경로와 전체 파일 내용을 마크다운 코드 블록으로 제시하세요.
+</instruction>
