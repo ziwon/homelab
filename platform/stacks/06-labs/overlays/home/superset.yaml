@@ -1,0 +1,113 @@
+apps:
+  - name: superset
+    namespace: superset
+    chart: superset
+    repoURL: http://apache.github.io/superset
+    targetRevision: "0.15.0"
+    createNamespace: true
+    values: |
+      # Basic configuration
+      replicaCount: 1
+
+      # Image configuration
+      image:
+        repository: apachesuperset.docker.scarf.sh/apache/superset
+        tag: ~
+        pullPolicy: IfNotPresent
+
+      # Service configuration
+      service:
+        type: ClusterIP
+        port: 8088
+
+      # Resource limits and requests
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+
+      # PostgreSQL configuration (using dependency)
+      postgresql:
+        enabled: true
+        auth:
+          username: superset
+          password: superset
+          database: superset
+        primary:
+          persistence:
+            enabled: true
+            accessModes:
+              - ReadWriteOnce
+
+      # Redis configuration (using dependency)
+      redis:
+        enabled: true
+        auth:
+          enabled: false
+          password: superset
+        master:
+          persistence:
+            enabled: false
+            accessModes:
+              - ReadWriteOnce
+
+      # Superset node configuration
+      supersetNode:
+        replicas:
+          enabled: true
+          replicaCount: 1
+        
+      # Superset worker configuration
+      supersetWorker:
+        replicas:
+          enabled: true
+          replicaCount: 1
+        
+      # Init configuration
+      init:
+        enabled: true
+        createAdmin: true
+        adminUser:
+          username: admin
+          firstname: Superset
+          lastname: Admin
+          email: admin@superset.com
+          password: admin
+        
+      # Security context
+      podSecurityContext: {}
+      containerSecurityContext: {}
+
+      # Default probes
+      startupProbe:
+        httpGet:
+          path: /health
+          port: http
+        initialDelaySeconds: 15
+        timeoutSeconds: 1
+        failureThreshold: 60
+        periodSeconds: 5
+        successThreshold: 1
+      
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: http
+        initialDelaySeconds: 15
+        timeoutSeconds: 1
+        failureThreshold: 3
+        periodSeconds: 15
+        successThreshold: 1
+      
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: http
+        initialDelaySeconds: 15
+        timeoutSeconds: 1
+        failureThreshold: 3
+        periodSeconds: 15
+        successThreshold: 1
