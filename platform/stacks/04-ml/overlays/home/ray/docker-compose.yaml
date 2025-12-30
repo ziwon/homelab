@@ -303,7 +303,7 @@ services:
     runtime: nvidia
     restart: unless-stopped
     profiles:
-      - code
+      - qwen3
     depends_on:
       nvidia-mps:
         condition: service_healthy
@@ -311,7 +311,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_MPS_PIPE_DIRECTORY=/mps/pipe
-      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=50
+      - CUDA_MPS_ACTIVE_THREAD_PERCENTAGE=70
     volumes:
       - /data/LLM/models/lmstudio-community:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
@@ -323,11 +323,15 @@ services:
       - --port
       - "8003"
       - --n-gpu-layers
-      - "28"
+      - "30"
       - --ctx-size
       - "24513"
       - --parallel
       - "1"
+      - --cache-type-k
+      - "q8_0"
+      - --cache-type-v
+      - "q8_0"
       - --cont-batching
       - --flash-attn
       - auto
