@@ -211,6 +211,8 @@ apps:
                           value: "true"
                         - name: CREATE_TEXT_INDEX
                           value: "true"
+                        - name: EMBED_BATCH_SIZE
+                          value: "1"
                       resources:
                         requests:
                           cpu: 500m
