@@ -116,6 +116,10 @@ apps:
                 serviceAccountName: code-embedder-runner
                 entrypoint: main
                 onExit: exit-handler
+                ttlStrategy:
+                  secondsAfterCompletion: 86400
+                  secondsAfterSuccess: 86400
+                  secondsAfterFailure: 172800
                 imagePullSecrets:
                   - name: harbor-secret
                 arguments:
