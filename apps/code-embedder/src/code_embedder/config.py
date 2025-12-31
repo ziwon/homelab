@@ -110,6 +110,7 @@ class Config:
     max_file_bytes: int
     chunk_max_lines: int
     chunk_overlap_lines: int
+    chunk_max_chars: int | None
     full_reindex: bool
     enable_delete: bool
     dry_run: bool
@@ -194,6 +195,10 @@ class Config:
         max_file_bytes = int(os.getenv("MAX_FILE_BYTES", "1000000"))
         chunk_max_lines = int(os.getenv("CHUNK_MAX_LINES", "200"))
         chunk_overlap_lines = int(os.getenv("CHUNK_OVERLAP_LINES", "20"))
+        chunk_max_chars_value = os.getenv("CHUNK_MAX_CHARS")
+        chunk_max_chars = int(chunk_max_chars_value) if chunk_max_chars_value else None
+        if chunk_max_chars is not None and chunk_max_chars <= 0:
+            chunk_max_chars = None
 
         full_reindex = _get_bool(os.getenv("FULL_REINDEX"), False)
         enable_delete = _get_bool(os.getenv("ENABLE_DELETE"), True)
@@ -237,6 +242,7 @@ class Config:
             max_file_bytes=max_file_bytes,
             chunk_max_lines=chunk_max_lines,
             chunk_overlap_lines=chunk_overlap_lines,
+            chunk_max_chars=chunk_max_chars,
             full_reindex=full_reindex,
             enable_delete=enable_delete,
             dry_run=dry_run,

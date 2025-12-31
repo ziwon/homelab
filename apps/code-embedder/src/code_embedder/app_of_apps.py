@@ -30,6 +30,7 @@ def parse_app_of_apps(
     yaml_content: str,
     chunk_max_lines: int,
     chunk_overlap_lines: int,
+    chunk_max_chars: int | None,
 ) -> list[AppChunk]:
     data = _safe_load_yaml(yaml_content)
     if not isinstance(data, dict):
@@ -64,6 +65,7 @@ def parse_app_of_apps(
             None,
             chunk_max_lines,
             chunk_overlap_lines,
+            chunk_max_chars,
         )
         chunk_id = _append_block_chunks(
             chunks,
@@ -78,6 +80,7 @@ def parse_app_of_apps(
             chunk_max_lines,
             chunk_overlap_lines,
             skip_keys={"values"},
+            chunk_max_chars=chunk_max_chars,
         )
 
         if chart_name == "kustomize":
@@ -102,6 +105,7 @@ def parse_app_of_apps(
                     chunk_max_lines,
                     chunk_overlap_lines,
                     block_key="kustomize",
+                    chunk_max_chars=chunk_max_chars,
                 )
 
         values = None
@@ -141,6 +145,7 @@ def parse_app_of_apps(
                         chunk_max_lines,
                         chunk_overlap_lines,
                         block_key="values",
+                        chunk_max_chars=chunk_max_chars,
                     )
                     chunk_id = _append_block_chunks(
                         chunks,
@@ -154,6 +159,7 @@ def parse_app_of_apps(
                         name,
                         chunk_max_lines,
                         chunk_overlap_lines,
+                        chunk_max_chars=chunk_max_chars,
                     )
                 continue
 
@@ -170,6 +176,7 @@ def parse_app_of_apps(
             chunk_max_lines,
             chunk_overlap_lines,
             block_key="values",
+            chunk_max_chars=chunk_max_chars,
         )
         chunk_id = _append_block_chunks(
             chunks,
@@ -183,6 +190,7 @@ def parse_app_of_apps(
             "values.yaml",
             chunk_max_lines,
             chunk_overlap_lines,
+            chunk_max_chars=chunk_max_chars,
         )
 
     return chunks
@@ -201,8 +209,9 @@ def _append_chunks(
     chunk_max_lines: int,
     chunk_overlap_lines: int,
     block_key: str | None = None,
+    chunk_max_chars: int | None = None,
 ) -> int:
-    for chunk in chunk_text(content, chunk_max_lines, chunk_overlap_lines):
+    for chunk in chunk_text(content, chunk_max_lines, chunk_overlap_lines, chunk_max_chars):
         chunks.append(
             AppChunk(
                 text=chunk.text,
@@ -235,6 +244,7 @@ def _append_block_chunks(
     chunk_max_lines: int,
     chunk_overlap_lines: int,
     skip_keys: set[str] | None = None,
+    chunk_max_chars: int | None = None,
 ) -> int:
     blocks = extract_yaml_block_scalars(content)
     if not blocks:
@@ -244,7 +254,7 @@ def _append_block_chunks(
         if skip_keys and block.key in skip_keys:
             continue
         block_path = f"{yaml_path}.block[key={block.key}]"
-        for chunk in chunk_text(block.text, chunk_max_lines, chunk_overlap_lines):
+        for chunk in chunk_text(block.text, chunk_max_lines, chunk_overlap_lines, chunk_max_chars):
             chunks.append(
                 AppChunk(
                     text=chunk.text,

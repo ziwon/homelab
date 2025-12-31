@@ -118,6 +118,8 @@ apps:
                           value: "120"
                         - name: CHUNK_OVERLAP_LINES
                           value: "10"
+                        - name: CHUNK_MAX_CHARS
+                          value: "12000"
                         - name: PROMPT_TEMPLATE_PATH
                           value: /app/prompts/app_of_apps_context.j2
                         ports:
@@ -295,6 +297,8 @@ apps:
                           value: "120"
                         - name: CHUNK_OVERLAP_LINES
                           value: "10"
+                        - name: CHUNK_MAX_CHARS
+                          value: "12000"
                         - name: EMBED_BATCH_SIZE
                           value: "1"
                       resources:

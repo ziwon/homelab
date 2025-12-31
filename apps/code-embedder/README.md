@@ -76,6 +76,7 @@ export PROMPT_TEMPLATE_PATH=apps/code-embedder/prompts/app_of_apps_context.j2
 - MAX_FILE_BYTES: Max file size in bytes (default: 1000000)
 - CHUNK_MAX_LINES: Max lines per chunk (default: 200)
 - CHUNK_OVERLAP_LINES: Overlap lines between chunks (default: 20)
+- CHUNK_MAX_CHARS: Max characters per chunk (optional, to avoid oversized embedding inputs)
 - STORE_TEXT: true to store chunk text for BM25 (default: true)
 - TEXT_FIELD: Payload field for stored text (default: text)
 - CREATE_TEXT_INDEX: true to create Qdrant text index (default: true)

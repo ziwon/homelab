@@ -418,6 +418,7 @@ def _build_chunks(config: Config, rel_path: str, file_text: str) -> list[EmbedCh
             yaml_content=file_text,
             chunk_max_lines=config.chunk_max_lines,
             chunk_overlap_lines=config.chunk_overlap_lines,
+            chunk_max_chars=config.chunk_max_chars,
         )
         if app_chunks:
             return [_from_app_chunk(chunk) for chunk in app_chunks]
@@ -436,7 +437,12 @@ def _build_chunks(config: Config, rel_path: str, file_text: str) -> list[EmbedCh
             embedded_name=None,
             block_key=None,
         )
-        for chunk in chunk_text(file_text, config.chunk_max_lines, config.chunk_overlap_lines)
+        for chunk in chunk_text(
+            file_text,
+            config.chunk_max_lines,
+            config.chunk_overlap_lines,
+            config.chunk_max_chars,
+        )
     ]
     if rel_path.endswith((".yaml", ".yml")):
         base_chunks.extend(_yaml_block_chunks(config, file_text, offset=len(base_chunks)))
@@ -464,7 +470,12 @@ def _yaml_block_chunks(config: Config, file_text: str, offset: int) -> list[Embe
     chunk_id = offset
     blocks = extract_yaml_block_scalars(file_text)
     for block in blocks:
-        for chunk in chunk_text(block.text, config.chunk_max_lines, config.chunk_overlap_lines):
+        for chunk in chunk_text(
+            block.text,
+            config.chunk_max_lines,
+            config.chunk_overlap_lines,
+            config.chunk_max_chars,
+        ):
             chunks.append(
                 EmbedChunk(
                     text=chunk.text,
