@@ -11,9 +11,9 @@ Kubernetes-native platform for logging, metrics, tracing, and APM.
 │                              Data Flow                                          │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
-│  Logs:    Pods → Vector → VRL Filter → Redpanda → Quickwit → Grafana       │
-│  Metrics: OTel SDK → Alloy → VictoriaMetrics → Grafana                       │
-│  Traces:  OTel SDK → Alloy → Tempo → Grafana                                 │
+│  Logs:    Pods → Vector → VRL Filter → Redpanda → Quickwit → Grafana            │
+│  Metrics: OTel SDK → Alloy → VictoriaMetrics → Grafana                          │
+│  Traces:  OTel SDK → Alloy → Tempo → Grafana                                    │
 │  APM:     Pyroscope (service map, trace-log correlation)                        │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
