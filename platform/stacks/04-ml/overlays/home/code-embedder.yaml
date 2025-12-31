@@ -136,9 +136,6 @@ apps:
                       value: http://restack-ai-embedding
                     - name: full-reindex
                       value: "false"
-                volumes:
-                  - name: workspace
-                    emptyDir: {}
                 templates:
                   - name: main
                     dag:
@@ -148,6 +145,10 @@ apps:
                         - name: embed
                           dependencies: [git-clone]
                           template: embed
+                          arguments:
+                            artifacts:
+                              - name: repo
+                                from: "{{tasks.git-clone.outputs.artifacts.repo}}"
 
                   - name: git-clone
                     container:
@@ -164,9 +165,6 @@ apps:
                             git -C /workspace/repo fetch origin "{{workflow.parameters.git-head-ref}}"
                             git -C /workspace/repo checkout "{{workflow.parameters.git-head-ref}}"
                           fi
-                      volumeMounts:
-                        - name: workspace
-                          mountPath: /workspace
                       resources:
                         requests:
                           cpu: 100m
@@ -174,8 +172,16 @@ apps:
                         limits:
                           cpu: 500m
                           memory: 512Mi
+                    outputs:
+                      artifacts:
+                        - name: repo
+                          path: /workspace/repo
 
                   - name: embed
+                    inputs:
+                      artifacts:
+                        - name: repo
+                          path: /workspace/repo
                     container:
                       image: "{{workflow.parameters.image}}"
                       command: ["code-embedder"]
@@ -200,9 +206,6 @@ apps:
                           value: "true"
                         - name: CREATE_TEXT_INDEX
                           value: "true"
-                      volumeMounts:
-                        - name: workspace
-                          mountPath: /workspace
                       resources:
                         requests:
                           cpu: 500m
