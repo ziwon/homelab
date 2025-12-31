@@ -80,6 +80,80 @@ apps:
                   conditions:
                     ready: true
 
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: code-embedder-api
+                namespace: code-embedder
+                labels:
+                  app.kubernetes.io/name: code-embedder-api
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: code-embedder-api
+                template:
+                  metadata:
+                    labels:
+                      app.kubernetes.io/name: code-embedder-api
+                  spec:
+                    containers:
+                      - name: api
+                        image: harbor.home.lab/restack/apps/code-embedder:latest
+                        command: ["code-embedder-api"]
+                        env:
+                          - name: QDRANT_URL
+                            value: http://qdrant.qdrant.svc:6333
+                          - name: QDRANT_COLLECTION
+                            value: codebase-bge-m3
+                          - name: LLM_EMBED_URL
+                            value: http://restack-ai-embedding
+                          - name: REPO_NAME
+                            value: homelab
+                        - name: STORE_TEXT
+                          value: "true"
+                        - name: CREATE_TEXT_INDEX
+                          value: "true"
+                        - name: CHUNK_MAX_LINES
+                          value: "120"
+                        - name: CHUNK_OVERLAP_LINES
+                          value: "10"
+                        - name: PROMPT_TEMPLATE_PATH
+                          value: /app/prompts/app_of_apps_context.j2
+                        ports:
+                          - name: http
+                            containerPort: 8090
+                            protocol: TCP
+                        readinessProbe:
+                          httpGet:
+                            path: /health
+                            port: http
+                          initialDelaySeconds: 5
+                          periodSeconds: 10
+                          timeoutSeconds: 3
+                        resources:
+                          requests:
+                            cpu: 100m
+                            memory: 256Mi
+                          limits:
+                            cpu: "1"
+                            memory: 1Gi
+
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: code-embedder-api
+                namespace: code-embedder
+              spec:
+                type: ClusterIP
+                selector:
+                  app.kubernetes.io/name: code-embedder-api
+                ports:
+                  - name: http
+                    port: 8090
+                    targetPort: http
+                    protocol: TCP
+
             - apiVersion: rbac.authorization.k8s.io/v1
               kind: Role
               metadata:
@@ -180,6 +254,8 @@ apps:
                       artifacts:
                         - name: repo
                           path: /workspace/repo
+                          s3:
+                            key: "code-embedder/{{workflow.name}}/repo.tgz"
 
                   - name: embed
                     inputs:
@@ -215,6 +291,10 @@ apps:
                           value: "true"
                         - name: CREATE_TEXT_INDEX
                           value: "true"
+                        - name: CHUNK_MAX_LINES
+                          value: "120"
+                        - name: CHUNK_OVERLAP_LINES
+                          value: "10"
                         - name: EMBED_BATCH_SIZE
                           value: "1"
                       resources:
