@@ -198,6 +198,11 @@ apps:
                           value: "{{workflow.parameters.full-reindex}}"
                         - name: QDRANT_URL
                           value: "{{workflow.parameters.qdrant-url}}"
+                        - name: QDRANT_API_KEY
+                          valueFrom:
+                            secretKeyRef:
+                              name: managed-workflows-secrets
+                              key: QDRANT_API_KEY
                         - name: QDRANT_COLLECTION
                           value: "{{workflow.parameters.qdrant-collection}}"
                         - name: LLM_EMBED_URL
