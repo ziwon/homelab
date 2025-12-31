@@ -77,7 +77,32 @@ def parse_app_of_apps(
             None,
             chunk_max_lines,
             chunk_overlap_lines,
+            skip_keys={"values"},
         )
+
+        if chart_name == "kustomize":
+            kustomize_block: dict[str, Any] = {}
+            if isinstance(source, dict):
+                if "path" in source:
+                    kustomize_block["path"] = source.get("path")
+                if "kustomize" in source:
+                    kustomize_block["kustomize"] = source.get("kustomize")
+            if kustomize_block:
+                kustomize_yaml = _dump_yaml(kustomize_block)
+                chunk_id = _append_chunks(
+                    chunks,
+                    chunk_id,
+                    kustomize_yaml,
+                    app_name,
+                    app_namespace,
+                    chart_name,
+                    f"apps[name={app_name}].source.kustomize",
+                    None,
+                    None,
+                    chunk_max_lines,
+                    chunk_overlap_lines,
+                    block_key="kustomize",
+                )
 
         values = None
         helm = source.get("helm") if isinstance(source, dict) else None
@@ -115,6 +140,7 @@ def parse_app_of_apps(
                         name,
                         chunk_max_lines,
                         chunk_overlap_lines,
+                        block_key="values",
                     )
                     chunk_id = _append_block_chunks(
                         chunks,
@@ -143,6 +169,7 @@ def parse_app_of_apps(
             "values.yaml",
             chunk_max_lines,
             chunk_overlap_lines,
+            block_key="values",
         )
         chunk_id = _append_block_chunks(
             chunks,
@@ -207,12 +234,15 @@ def _append_block_chunks(
     embedded_name: str | None,
     chunk_max_lines: int,
     chunk_overlap_lines: int,
+    skip_keys: set[str] | None = None,
 ) -> int:
     blocks = extract_yaml_block_scalars(content)
     if not blocks:
         return chunk_id
 
     for block in blocks:
+        if skip_keys and block.key in skip_keys:
+            continue
         block_path = f"{yaml_path}.block[key={block.key}]"
         for chunk in chunk_text(block.text, chunk_max_lines, chunk_overlap_lines):
             chunks.append(
@@ -238,9 +268,12 @@ def _resolve_chart_name(source: dict[str, Any]) -> str:
     chart = source.get("chart") if isinstance(source, dict) else None
     if chart:
         return str(chart)
-    if isinstance(source, dict) and "kustomize" in source:
-        return "kustomize"
-    return "unknown"
+    if isinstance(source, dict):
+        if "kustomize" in source:
+            return "kustomize"
+        if "path" in source:
+            return "kustomize"
+    return ""
 
 
 def _safe_load_yaml(text: str) -> Any:

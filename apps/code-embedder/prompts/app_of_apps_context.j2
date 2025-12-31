@@ -1,34 +1,85 @@
-아래는 ArgoCD App-of-Apps 패턴으로 정의된 인프라 설정 파일의 일부입니다.
-하나의 App 항목 안에 'raw' 차트를 통해 여러 K8s 리소스가 내장(Embedded)되어 있을 수 있습니다.
+{#
+  [Role]
+  This template structures the retrieved code chunks specifically for the ArgoCD App-of-Apps pattern.
+  It distinguishes between Standard Helm, K8s Raw Manifests (Bedag), and Kustomize patterns.
+#}
 
-<relevant_config_files>
-{% for chunk in chunks %}
-<file_context id="{{ loop.index }}">
-<metadata>
-<path>{{ chunk.file_path }}</path>
-<resource_identity>
-AppName: {{ chunk.app_name }} (Namespace: {{ chunk.app_namespace }})
-Chart: {{ chunk.chart_name | default('kustomize') }}
-{% if chunk.embedded_kind %}
-EmbeddedResource: {{ chunk.embedded_kind }} / {{ chunk.embedded_name }}
-{% endif %}
-ConfigPath: {{ chunk.yaml_path }}
-{% if chunk.block_key %}
-BlockKey: {{ chunk.block_key }}
-{% endif %}
-</resource_identity>
-<relevance_score>{{ chunk.score | round(4) }}</relevance_score>
-</metadata>
-<content>
+<codebase_context>
+    <description>
+    The following are snippets from the existing App-of-Apps configuration.
+    This project strictly follows three application patterns:
+    1. **Helm**: Standard charts (Grafana, Superset, etc.)
+    2. **K8s Raw Manifest**: Using 'bedag/raw' chart for CRDs, InfisicalSecrets, and HTTPRoutes.
+    3. **Kustomize**: For external Operators/CRDs without Helm charts.
+    </description>
+
+    {% for chunk in chunks %}
+    <file_context id="{{ loop.index }}">
+        <metadata>
+            <path>{{ chunk.file_path }}</path>
+
+            <pattern_identity>
+                {% if chunk.chart_name == 'raw' %}
+                PatternType: Type 2 - K8s Raw Manifest (Bedag Chart)
+                {% elif chunk.chart_name == 'kustomize' or not chunk.chart_name %}
+                PatternType: Type 3 - Kustomize (External CRD/Operator)
+                {% else %}
+                PatternType: Type 1 - Standard Helm Chart
+                {% endif %}
+
+                AppName: {{ chunk.app_name }}
+                Namespace: {{ chunk.app_namespace }}
+
+                {% if chunk.block_key == 'values' %}
+                    {% if chunk.chart_name == 'raw' %}
+                Context: Embedded Kubernetes Resource (Inside 'values' block)
+                TargetKind: {{ chunk.embedded_kind | default('Unknown') }}
+                TargetName: {{ chunk.embedded_name | default('Unknown') }}
+                    {% else %}
+                Context: Helm Values Override
+                    {% endif %}
+                {% elif chunk.block_key == 'kustomize' %}
+                Context: Kustomize Path Definition
+                {% endif %}
+
+                ConfigPath: {{ chunk.yaml_path }}
+            </pattern_identity>
+
+            <relevance_score>{{ chunk.score | round(4) }}</relevance_score>
+        </metadata>
+        <content>
 {{ chunk.code_content }}
-</content>
-</file_context>
-{% endfor %}
-</relevant_config_files>
+        </content>
+    </file_context>
+    {% endfor %}
+</codebase_context>
+
+<user_issue>
+    <description>User request for new application or configuration change.</description>
+    <content>
+{{ issue_description }}
+    </content>
+</user_issue>
 
 <instruction>
-위 설정을 분석하여 이슈를 해결하세요.
-1. 'AppName'을 확인하여 어떤 애플리케이션의 문제인지 파악하세요.
-2. 만약 'EmbeddedResource'(예: InfisicalSecret)가 있다면, Helm Values 내부의 문자열 설정임을 인지하고 문법 오류(들여쓰기 등)를 점검하세요.
-3. 'raw' 차트의 resources 리스트 순서나 의존성(dependencies)을 고려하세요.
+Based on the <codebase_context> and <user_issue>, generate or modify the ArgoCD Application YAML.
+
+### CRITICAL RULES (Must Follow):
+1. **Source Type Selection**:
+   - Use **Type 1 (Helm)** for standard apps.
+   - Use **Type 2 (Raw)** with `bedag/raw` (ver 2.0.2) for `InfisicalSecret`, `HTTPRoute`, or CRDs.
+   - Use **Type 3 (Kustomize)** for external operators/CRDs (create `kustomization.yaml` path if needed).
+
+2. **Combined Pattern**:
+   - If an app needs both Helm and Secrets, create TWO apps: `myapp-raw` (Type 2) and `myapp` (Type 1).
+   - Set `myapp` dependency on `myapp-raw`.
+
+3. **Values Configuration**:
+   - **NEVER** use placeholders like `{app-name}`. Fill with actual values from the issue or context.
+   - For Helm apps, analyze `values.yaml` provided in the issue to set `resources`, `persistence`, etc.
+   - For Raw apps, ensure strict indentation for the embedded `resources` list inside `values: |`.
+
+4. **Output Format**:
+   - Provide the full YAML content.
+   - Specify the file path (e.g., `platform/stacks/05-workloads/overlays/home/myapp.yaml`).
 </instruction>

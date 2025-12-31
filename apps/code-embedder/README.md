@@ -93,6 +93,7 @@ Template context:
 - `issue_description`: original issue text injected into the prompt
 - Optional fields: `class_name`, `function_name` (empty unless you populate them)
 - App-of-Apps fields: `app_name`, `app_namespace`, `chart_name`, `yaml_path`, `embedded_kind`, `embedded_name`, `block_key`
+- App-of-Apps `block_key`: `values` for Helm/raw values chunks, `kustomize` for kustomize source chunks
 
 ## Argo Workflows (Index Trigger)
 
