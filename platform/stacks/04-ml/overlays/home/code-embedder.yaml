@@ -127,7 +127,7 @@ apps:
                     - name: git-head-ref
                       value: ""
                     - name: image
-                      value: harbor.home.lab/restack/apps/code-embedder:main-4cc2010
+                      value: harbor.home.lab/restack/apps/code-embedder:main-96d6cdb
                     - name: qdrant-url
                       value: http://qdrant.qdrant.svc:6333
                     - name: qdrant-collection
