@@ -47,6 +47,8 @@ class QdrantClient:
         response.raise_for_status()
 
     def delete_by_paths(self, name: str, repo: str, paths: Iterable[str]) -> None:
+        if self.get_collection(name) is None:
+            return
         for path in paths:
             payload = {
                 "filter": {
@@ -62,6 +64,8 @@ class QdrantClient:
                 params={"wait": "true"},
                 json=payload,
             )
+            if response.status_code == 404:
+                return
             response.raise_for_status()
 
     def search_dense(
