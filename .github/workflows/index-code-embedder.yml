@@ -3,6 +3,9 @@ name: Index Code Embedder
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'apps/**'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       full_reindex:
