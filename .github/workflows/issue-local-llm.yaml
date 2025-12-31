@@ -35,6 +35,9 @@ jobs:
       issues: write
       pull-requests: write
 
+    env:
+      CODE_EMBEDDER_URL: http://code-embedder-api.code-embedder.svc:8090
+
     steps:
       - name: Determine LLM target
         id: llm
@@ -161,6 +164,98 @@ jobs:
           - Escape quotes in content with \"
           - Use \n for newlines in content field
           PROMPT_EOF2
+
+      - name: Fetch code RAG context
+        if: steps.llm.outputs.skip != 'true'
+        run: |
+          python - << 'PY'
+          import json
+          import os
+          import sys
+          import urllib.request
+
+          title = os.environ.get("ISSUE_TITLE") or ""
+          body = os.environ.get("ISSUE_BODY") or ""
+          comment = os.environ.get("COMMENT_BODY") or ""
+          event_name = os.environ.get("EVENT_NAME") or ""
+
+          parts = [part for part in (title, body) if part]
+          issue_text = "\n\n".join(parts).strip()
+          if event_name == "issue_comment" and comment:
+            issue_text = (issue_text + "\n\nComment:\n" + comment).strip()
+
+          if not issue_text:
+            sys.exit(0)
+
+          query = comment or issue_text
+          payload = {
+            "query": query,
+            "issue_description": issue_text,
+            "limit": 8,
+            "use_dense": True,
+            "use_bm25": True,
+            "return_prompt": False,
+          }
+
+          url = os.environ["CODE_EMBEDDER_URL"].rstrip("/") + "/search"
+          request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+          )
+
+          try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+              data = json.load(response)
+          except Exception as exc:
+            print(f"RAG search failed: {exc}", file=sys.stderr)
+            sys.exit(0)
+
+          hits = data.get("hits") or []
+          blocks = []
+          for hit in hits:
+            payload = hit.get("payload") or {}
+            text = payload.get("text") or ""
+            if not text:
+              continue
+            header = f"[{payload.get('path', '')}]"
+            meta = []
+            yaml_path = payload.get("yaml_path")
+            chart_name = payload.get("chart_name")
+            block_key = payload.get("block_key")
+            embedded_kind = payload.get("embedded_kind")
+            embedded_name = payload.get("embedded_name")
+            if yaml_path:
+              meta.append(f"yaml_path={yaml_path}")
+            if chart_name:
+              meta.append(f"chart={chart_name}")
+            if block_key:
+              meta.append(f"block_key={block_key}")
+            if embedded_kind or embedded_name:
+              embedded = "/".join([value for value in [embedded_kind, embedded_name] if value])
+              meta.append(f"embedded={embedded}")
+            meta_line = f" {' '.join(meta)}" if meta else ""
+            blocks.append(f"{header}{meta_line}\n{text}")
+
+          if not blocks:
+            sys.exit(0)
+
+          with open("/tmp/rag_context.txt", "w", encoding="utf-8") as handle:
+            handle.write("\n\n---\n\n".join(blocks))
+          PY
+
+          if [ -s /tmp/rag_context.txt ]; then
+            cat >> /tmp/prompt.txt << 'PROMPT_EOF3'
+
+          RAG CONTEXT:
+          PROMPT_EOF3
+            cat /tmp/rag_context.txt >> /tmp/prompt.txt
+          fi
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          EVENT_NAME: ${{ github.event_name }}
 
       - name: Test LLM connectivity
         if: steps.llm.outputs.skip != 'true'
