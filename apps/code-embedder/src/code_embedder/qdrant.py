@@ -44,6 +44,9 @@ class QdrantClient:
             params={"wait": "true"},
             json={"points": points},
         )
+        if not response.ok:
+            import logging
+            logging.error("Qdrant upsert error: %s", response.text)
         response.raise_for_status()
 
     def delete_by_paths(self, name: str, repo: str, paths: Iterable[str]) -> None:
