@@ -210,3 +210,21 @@ apps:
                         limits:
                           cpu: "2"
                           memory: 4Gi
+
+                  - name: exit-handler
+                    steps:
+                      - - name: slack-notify
+                          templateRef:
+                            name: global-slack-notification
+                            template: send-notification
+                            clusterScope: true
+                          arguments:
+                            parameters:
+                              - name: status
+                                value: "{{workflow.status}}"
+                              - name: name
+                                value: "{{workflow.name}}"
+                              - name: namespace
+                                value: "{{workflow.namespace}}"
+                              - name: link
+                                value: "https://wf.home.lab/workflows/{{workflow.namespace}}/{{workflow.name}}"
