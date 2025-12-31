@@ -100,7 +100,7 @@ apps:
                     containers:
                       - name: api
                         image: harbor.home.lab/restack/apps/code-embedder:latest
-                        command: ["code-embedder-api"]
+                        command: [ "code-embedder-api" ]
                         env:
                           - name: QDRANT_URL
                             value: http://qdrant.qdrant.svc:6333
@@ -207,7 +207,7 @@ apps:
                     - name: git-head-ref
                       value: ""
                     - name: image
-                      value: harbor.home.lab/restack/apps/code-embedder:main-96d6cdb
+                      value: harbor.home.lab/restack/apps/code-embedder:main-8c592a7
                     - name: qdrant-url
                       value: http://qdrant.qdrant.svc:6333
                     - name: qdrant-collection
