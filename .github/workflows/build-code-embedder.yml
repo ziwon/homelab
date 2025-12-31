@@ -79,3 +79,18 @@ jobs:
           while IFS= read -r tag; do
             echo "- \`${tag}\`" >> $GITHUB_STEP_SUMMARY
           done <<< "${{ steps.meta.outputs.tags }}"
+
+      - name: Update k8s manifest
+        if: github.ref == 'refs/heads/main'
+        uses: restack/actions/actions/k8s-manifest-updater@v1
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          installation_id: ${{ secrets.APP_INSTALLATION_ID }}
+          manifest_repo: 'ziwon/homelab'
+          manifest_path: 'platform/stacks/04-ml/overlays/home/code-embedder.yaml'
+          image: ${{ env.REGISTRY }}/${{ env.REPO }}/code-embedder:${{ steps.meta.outputs.version }}
+          yaml_path: 'apps[name=code-embedder-raw].source.helm.values'
+          nested_yaml_path: 'resources[kind=WorkflowTemplate].spec.arguments.parameters[name=image].value'
+          branch: main
+          create_pr: false
