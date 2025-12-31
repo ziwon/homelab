@@ -8,14 +8,14 @@ Kubernetes-native platform for logging, metrics, tracing, and APM.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              Data Flow                                           │
+│                              Data Flow                                          │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│  Logs:    Pods → Vector → VRL Filter → Redpanda → Quickwit → Grafana           │
-│  Metrics: OTel SDK → Alloy → VictoriaMetrics → Grafana                          │
-│  Traces:  OTel SDK → Alloy → Tempo → Grafana                                    │
+│                                                                                 │
+│  Logs:    Pods → Vector → VRL Filter → Redpanda → Quickwit → Grafana       │
+│  Metrics: OTel SDK → Alloy → VictoriaMetrics → Grafana                       │
+│  Traces:  OTel SDK → Alloy → Tempo → Grafana                                 │
 │  APM:     Pyroscope (service map, trace-log correlation)                        │
-│                                                                                  │
+│                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -52,12 +52,12 @@ Kubernetes-native platform for logging, metrics, tracing, and APM.
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │   Indexer    │     │   Searcher   │     │  Metastore   │
 │              │     │              │     │              │
-│ Kafka消費    │     │ HTTP :7280   │     │ MinIO 메타   │
+│  Redpanda    │     │  HTTP :7280  │     │     MinIO    │
 └──────┬───────┘     └──────┬───────┘     └──────┬───────┘
        │                    │                    │
        └────────────────────┼────────────────────┘
                             │
-                    ┌───────▼───────┐
+                    ┌───────▼──────┐
                     │     MinIO     │
                     │ quickwit-data │
                     └───────────────┘
@@ -84,7 +84,7 @@ Quickwit batches data before indexing (optimized for throughput, not real-time).
 
 | Source | Engine | Destination |
 |--------|--------|-------------|
-| Logs | Vector filters | Slack |
+| Logs | Vector filters | Slack (Realtime) |
 | Metrics | vmalert (PromQL) | Alertmanager → Slack |
 
 ## Grafana Datasources

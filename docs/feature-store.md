@@ -14,7 +14,7 @@ Feast-based ML feature platform for real-time and historical feature serving.
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                         │
 │   ┌──────────────┐         ┌─────────────────┐         ┌──────────────────────┐         │
-│   │   MT5-Bridge │────────▶│    Redpanda     │────────▶│    Feature-Engine    │         │
+│   │   MT5-Bridge │───────▶│    Redpanda     │───────▶│    Feature-Engine    │         │
 │   │   (ZeroMQ)   │         │    (Kafka)      │         │    (Python/asyncio)  │         │
 │   └──────────────┘         ├─────────────────┤         └──────────┬───────────┘         │
 │                            │ deepfx.market.  │                    │                     │
@@ -26,12 +26,12 @@ Feast-based ML feature platform for real-time and historical feature serving.
 └───────────────────────────────────────────────────────────────────┼─────────────────────┘
                                                                     │
                                                                     ▼
-                                                         ┌──────────────────┐
-                                                         │   Feast Push API │
-                                                         │  store.push()    │
-                                                         └────────┬─────────┘
-                                                                  │
-                                               ┌──────────────────┴──────────────────┐
+                                                          ┌──────────────────┐
+                                                          │   Feast Push API │
+                                                          │  store.push()    │
+                                                          └────────┬─────────┘
+                                                                   │
+                                                ┌──────────────────┴──────────────────┐
                                                ▼                                     ▼
 ┌──────────────────────────────────────────────────────────┐ ┌───────────────────────────────┐
 │  ONLINE STORE (Real-time)                                │ │  OFFLINE STORE (Historical)   │
@@ -104,7 +104,7 @@ Candlestick data across multiple timeframes.
 │   (Real-time)       │     │    (Backtest)       │     │      (Historical)   │
 └──────────┬──────────┘     └──────────┬──────────┘     └──────────┬──────────┘
            │                           │                           │
-           ▼                           ▼                           ▼
+           ▼                          ▼                          ▼
   get_online_features        get_historical_features    get_historical_features
        (Redis)                    (ClickHouse)               (ClickHouse)
 ```
