@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -270,9 +271,10 @@ def _build_points(
         strict=True,
     ):
         chunk_hash = _hash_chunk(chunk.text)
-        point_id = hashlib.sha1(
+        hash_hex = hashlib.sha1(
             f"{config.repo_name}:{rel_path}:{chunk.chunk_id}:{chunk_hash}".encode("utf-8")
         ).hexdigest()
+        point_id = str(uuid.UUID(hash_hex[:32]))
         payload = {
             "repo": config.repo_name,
             "path": rel_path,
