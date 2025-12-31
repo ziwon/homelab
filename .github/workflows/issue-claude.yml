@@ -1,4 +1,4 @@
-name: Claude Issue Resolver
+name: Claude Issue Handler
 
 on:
   issues:

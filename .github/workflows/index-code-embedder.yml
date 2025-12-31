@@ -54,7 +54,7 @@ jobs:
             "resourceKind": "WorkflowTemplate",
             "resourceName": "${WORKFLOW_TEMPLATE}",
             "submitOptions": {
-              "name": "code-embedder-${GITHUB_RUN_ID}",
+              "name": "code-embedder-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}",
               "parameters": [
                 "git-repo=${GIT_REPO}",
                 "git-base-ref=${BEFORE}",
