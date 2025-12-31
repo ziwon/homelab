@@ -110,18 +110,18 @@ apps:
                             value: http://restack-ai-embedding
                           - name: REPO_NAME
                             value: homelab
-                        - name: STORE_TEXT
-                          value: "true"
-                        - name: CREATE_TEXT_INDEX
-                          value: "true"
-                        - name: CHUNK_MAX_LINES
-                          value: "120"
-                        - name: CHUNK_OVERLAP_LINES
-                          value: "10"
-                        - name: CHUNK_MAX_CHARS
-                          value: "12000"
-                        - name: PROMPT_TEMPLATE_PATH
-                          value: /app/prompts/app_of_apps_context.j2
+                          - name: STORE_TEXT
+                            value: "true"
+                          - name: CREATE_TEXT_INDEX
+                            value: "true"
+                          - name: CHUNK_MAX_LINES
+                            value: "120"
+                          - name: CHUNK_OVERLAP_LINES
+                            value: "10"
+                          - name: CHUNK_MAX_CHARS
+                            value: "12000"
+                          - name: PROMPT_TEMPLATE_PATH
+                            value: /app/prompts/app_of_apps_context.j2
                         ports:
                           - name: http
                             containerPort: 8090
