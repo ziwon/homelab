@@ -90,7 +90,7 @@ jobs:
           manifest_repo: 'ziwon/homelab'
           manifest_path: 'platform/stacks/04-ml/overlays/home/code-embedder.yaml'
           image: ${{ env.REGISTRY }}/${{ env.REPO }}/code-embedder:${{ steps.meta.outputs.version }}
-          yaml_path: 'apps[name=code-embedder-raw].source.helm.values'
+          yaml_path: 'apps[name=code-embedder-workflows].source.helm.values'
           nested_yaml_path: 'resources[kind=WorkflowTemplate].spec.arguments.parameters[name=image].value'
           branch: main
           create_pr: false
