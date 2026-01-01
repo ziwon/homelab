@@ -203,7 +203,7 @@ jobs:
           payload = {
             "query": query,
             "issue_description": issue_text,
-            "limit": 3,
+            "limit": 2,
             "use_dense": True,
             "use_bm25": True,
             "return_prompt": False,
@@ -252,7 +252,7 @@ jobs:
           if not blocks:
             sys.exit(0)
 
-          max_context_chars = 15000
+          max_context_chars = 10000
           separator = "\n\n---\n\n"
           context = ""
           for block in blocks:
