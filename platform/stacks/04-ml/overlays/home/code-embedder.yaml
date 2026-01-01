@@ -140,7 +140,7 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: api
-                        image: harbor.home.lab/restack/apps/code-embedder:latest
+                        image: harbor.home.lab/restack/apps/code-embedder:main-67b02c1
                         imagePullPolicy: Always
                         command: [ "code-embedder-api" ]
                         env:
