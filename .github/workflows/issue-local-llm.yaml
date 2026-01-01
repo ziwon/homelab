@@ -203,7 +203,7 @@ jobs:
           payload = {
             "query": query,
             "issue_description": issue_text,
-            "limit": 8,
+            "limit": 3,
             "use_dense": True,
             "use_bm25": True,
             "return_prompt": False,
@@ -252,8 +252,32 @@ jobs:
           if not blocks:
             sys.exit(0)
 
+          max_context_chars = 15000
+          separator = "\n\n---\n\n"
+          context = ""
+          for block in blocks:
+            if not block:
+              continue
+            if not context:
+              candidate = block
+            else:
+              candidate = context + separator + block
+            if len(candidate) <= max_context_chars:
+              context = candidate
+              continue
+            if not context:
+              context = block[:max_context_chars]
+            else:
+              remaining = max_context_chars - len(context) - len(separator)
+              if remaining > 0:
+                context = context + separator + block[:remaining]
+            break
+
+          if not context:
+            sys.exit(0)
+
           with open("/tmp/rag_context.txt", "w", encoding="utf-8") as handle:
-            handle.write("\n\n---\n\n".join(blocks))
+            handle.write(context)
           PY
 
           if [ -s /tmp/rag_context.txt ]; then
@@ -285,7 +309,7 @@ jobs:
           model: ${{ steps.llm.outputs.model }}
           temperature: '0.1'
           max_tokens: '4096'
-          timeout_ms: '600000'
+          timeout_ms: '1200000'
           prompt_file: /tmp/prompt.txt
           issue_number: ${{ github.event.issue.number }}
           issue_title: ${{ github.event.issue.title }}
