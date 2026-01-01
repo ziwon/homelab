@@ -1,15 +1,26 @@
 from __future__ import annotations
 
+import logging
 from typing import Sequence
 
 import requests
 
 from code_embedder.config import Config
 
+logger = logging.getLogger(__name__)
+
 
 def embed_texts(config: Config, texts: Sequence[str]) -> list[list[float]]:
     if not texts:
         return []
+
+    logger.debug(
+        "embedding request: url=%s items=%s model=%s timeout=%s",
+        config.embed_api_url,
+        len(texts),
+        config.embed_model or "-",
+        config.embed_timeout,
+    )
 
     payload: dict[str, object] = {"input": list(texts)}
     if config.embed_model:
@@ -19,12 +30,22 @@ def embed_texts(config: Config, texts: Sequence[str]) -> list[list[float]]:
     if config.embed_api_key:
         headers["Authorization"] = f"Bearer {config.embed_api_key}"
 
-    response = requests.post(
-        config.embed_api_url,
-        json=payload,
-        headers=headers,
-        timeout=config.embed_timeout,
-    )
+    try:
+        response = requests.post(
+            config.embed_api_url,
+            json=payload,
+            headers=headers,
+            timeout=config.embed_timeout,
+        )
+    except requests.RequestException:
+        logger.exception("embedding request error: url=%s", config.embed_api_url)
+        raise
+
+    if not response.ok:
+        body = response.text
+        if len(body) > 1000:
+            body = f"{body[:1000]}...(truncated)"
+        logger.error("embedding response error: status=%s body=%s", response.status_code, body)
     response.raise_for_status()
 
     data = response.json()

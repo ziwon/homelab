@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ from code_embedder.prompt import render_prompt
 from code_embedder.qdrant import QdrantClient
 from code_embedder.search import hybrid_search
 
+logger = logging.getLogger(__name__)
 app = FastAPI(title="code-embedder")
 
 
@@ -77,8 +79,28 @@ def search(request: SearchRequest) -> SearchResponse:
     if not request.use_dense and not request.use_bm25:
         raise HTTPException(status_code=400, detail="At least one of use_dense or use_bm25 must be true")
 
+    logger.debug(
+        "search request: query_len=%s limit=%s use_dense=%s use_bm25=%s rrf_k=%s return_prompt=%s "
+        "issue_description_len=%s",
+        len(request.query),
+        request.limit,
+        request.use_dense,
+        request.use_bm25,
+        request.rrf_k,
+        request.return_prompt,
+        len(request.issue_description or ""),
+    )
+
     config = Config.load()
     client = QdrantClient.from_config(config)
+    logger.debug(
+        "search config: qdrant_url=%s collection=%s repo=%s store_text=%s embed_api_url=%s",
+        config.qdrant_url,
+        config.qdrant_collection,
+        config.repo_name,
+        config.store_text,
+        config.embed_api_url,
+    )
 
     try:
         hits = hybrid_search(
@@ -92,6 +114,7 @@ def search(request: SearchRequest) -> SearchResponse:
             repo=config.repo_name,
         )
     except Exception as exc:  # noqa: BLE001
+        logger.exception("search failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     prompt = None
@@ -135,5 +158,9 @@ def run() -> None:
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8090"))
     log_level = os.getenv("API_LOG_LEVEL", "info")
+    logging.basicConfig(
+        level=log_level.upper(),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
 
     uvicorn.run(app, host=host, port=port, log_level=log_level)

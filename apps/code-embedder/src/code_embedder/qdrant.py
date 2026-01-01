@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Iterable
 
 import requests
@@ -127,7 +128,19 @@ class QdrantClient:
         extra_headers = kwargs.pop("headers", None)
         if isinstance(extra_headers, dict):
             headers.update(extra_headers)
-        return requests.request(method, url, headers=headers, timeout=self.timeout, **kwargs)
+        response = requests.request(method, url, headers=headers, timeout=self.timeout, **kwargs)
+        if not response.ok and not (method == "GET" and path.startswith("/collections/") and response.status_code == 404):
+            body = response.text
+            if len(body) > 1000:
+                body = f"{body[:1000]}...(truncated)"
+            logging.error(
+                "qdrant request error: method=%s url=%s status=%s body=%s",
+                method,
+                url,
+                response.status_code,
+                body,
+            )
+        return response
 
 
 def ensure_collection(

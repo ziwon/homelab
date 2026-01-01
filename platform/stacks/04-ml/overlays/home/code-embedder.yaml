@@ -151,6 +151,8 @@ apps:
                             value: http://restack-ai-embedding
                           - name: REPO_NAME
                             value: homelab
+                          - name: API_LOG_LEVEL
+                            value: debug
                           - name: STORE_TEXT
                             value: "true"
                           - name: CREATE_TEXT_INDEX
