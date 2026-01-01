@@ -100,6 +100,7 @@ class Config:
     embed_text_prefix: str
     context_template: str
     query_text_prefix: str
+    query_max_chars: int | None
     prompt_template: str
     prompt_max_chunks: int
     qdrant_batch_size: int
@@ -150,6 +151,10 @@ class Config:
             "path: {path}\nlang: {lang}\nstructure: {structure}\nblock_key: {block_key}\n\n",
         )
         query_text_prefix = os.getenv("QUERY_TEXT_PREFIX", "query: ")
+        query_max_chars_value = os.getenv("QUERY_MAX_CHARS")
+        query_max_chars = int(query_max_chars_value) if query_max_chars_value else None
+        if query_max_chars is not None and query_max_chars <= 0:
+            query_max_chars = None
         prompt_template = _load_prompt_template(
             os.getenv(
                 "PROMPT_TEMPLATE",
@@ -232,6 +237,7 @@ class Config:
             embed_text_prefix=embed_text_prefix,
             context_template=context_template,
             query_text_prefix=query_text_prefix,
+            query_max_chars=query_max_chars,
             prompt_template=prompt_template,
             prompt_max_chunks=prompt_max_chunks,
             qdrant_batch_size=qdrant_batch_size,

@@ -187,7 +187,19 @@ jobs:
           if not issue_text:
             sys.exit(0)
 
-          query = comment or issue_text
+          query_parts = [title]
+          if comment:
+            query_parts.append(comment)
+          query = "\n\n".join([part for part in query_parts if part]).strip()
+          if not query:
+            query = issue_text
+          max_chars_value = os.environ.get("QUERY_MAX_CHARS") or "4000"
+          try:
+            max_chars = int(max_chars_value)
+          except ValueError:
+            max_chars = 4000
+          if max_chars > 0 and len(query) > max_chars:
+            query = query[:max_chars]
           payload = {
             "query": query,
             "issue_description": issue_text,

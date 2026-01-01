@@ -61,6 +61,7 @@ export PROMPT_TEMPLATE_PATH=apps/code-embedder/prompts/app_of_apps_context.j2
 - STRUCTURE_MAX_ITEMS: Max structure entries per chunk (default: 16)
 - STRUCTURE_MAX_CHARS: Max structure hint characters (default: 800)
 - QUERY_TEXT_PREFIX: Prefix for search queries (default: query: )
+- QUERY_MAX_CHARS: Max characters for embedding search queries (optional)
 - PROMPT_TEMPLATE: Jinja template for prompt output
 - PROMPT_TEMPLATE_PATH: Path to a Jinja template file (overrides PROMPT_TEMPLATE)
 - PROMPT_MAX_CHUNKS: Max chunks rendered in prompt (default: 12)

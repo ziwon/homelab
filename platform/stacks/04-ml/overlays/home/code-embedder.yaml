@@ -158,6 +158,8 @@ apps:
                             value: homelab
                           - name: API_LOG_LEVEL
                             value: debug
+                          - name: QUERY_MAX_CHARS
+                            value: "4000"
                           - name: STORE_TEXT
                             value: "true"
                           - name: CREATE_TEXT_INDEX

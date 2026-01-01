@@ -53,6 +53,13 @@ def _search_dense(
     repo: str | None,
 ) -> list[SearchHit]:
     query_text = f"{config.query_text_prefix}{query}" if config.query_text_prefix else query
+    if config.query_max_chars and len(query_text) > config.query_max_chars:
+        logging.warning(
+            "Truncating query for embedding: len=%s max=%s",
+            len(query_text),
+            config.query_max_chars,
+        )
+        query_text = query_text[: config.query_max_chars]
     vector = embed_texts(config, [query_text])[0]
     results = client.search_dense(config.qdrant_collection, vector, limit, repo=repo)
     return _to_hits(results)
