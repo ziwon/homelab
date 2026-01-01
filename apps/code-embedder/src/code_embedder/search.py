@@ -73,9 +73,15 @@ def _search_text(
     repo: str | None,
 ) -> list[SearchHit]:
     try:
-        results = client.search_text(config.qdrant_collection, query, limit, repo=repo)
+        results = client.search_text(
+            config.qdrant_collection,
+            query,
+            limit,
+            repo=repo,
+            text_field=config.text_field,
+        )
     except Exception as exc:  # noqa: BLE001
-        logging.warning("BM25 search failed: %s", exc)
+        logging.warning("Text search failed: %s", exc)
         return []
     return _to_hits(results)
 

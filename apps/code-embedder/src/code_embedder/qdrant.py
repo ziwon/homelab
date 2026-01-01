@@ -102,23 +102,33 @@ class QdrantClient:
         query: str,
         limit: int,
         repo: str | None = None,
+        text_field: str = "text",
     ) -> list[dict]:
+        # Use scroll with text filter for BM25-like text search
+        # Qdrant doesn't have native BM25, but we can use text index filtering
+        must_conditions: list[dict] = [
+            {"key": text_field, "match": {"text": query}},
+        ]
+        if repo:
+            must_conditions.append({"key": "repo", "match": {"value": repo}})
+
         payload: dict[str, object] = {
-            "query": query,
+            "filter": {"must": must_conditions},
             "limit": limit,
             "with_payload": True,
         }
-        if repo:
-            payload["filter"] = {
-                "must": [{"key": "repo", "match": {"value": repo}}],
-            }
         response = self._request(
             "POST",
-            f"/collections/{name}/points/search",
+            f"/collections/{name}/points/scroll",
             json=payload,
         )
         response.raise_for_status()
-        return response.json().get("result", [])
+        result = response.json().get("result", {})
+        points = result.get("points", [])
+        # Add a default score for text search results
+        for point in points:
+            point["score"] = 1.0
+        return points
 
     def _request(self, method: str, path: str, **kwargs: object) -> requests.Response:
         url = f"{self.base_url}{path}"
