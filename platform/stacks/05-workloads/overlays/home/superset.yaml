@@ -1,0 +1,90 @@
+apps:
+  - name: superset
+    namespace: workloads
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: https://apache.github.io/superset
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: superset
+        values: |
+          replicaCount: 1
+
+          # External database configuration
+          postgresql:
+            enabled: false
+          redis:
+            enabled: false
+
+          # Database connection settings
+          extraEnvVars:
+            - name: DATABASE_HOST
+              value: cluster-pg-db-pgbouncer.postgres.svc
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: REDIS_HOST
+              value: redis.redis.svc
+            - name: REDIS_PORT
+              value: "6379"
+
+          extraEnvVarsSecret: superset-managed-secrets
+
+          # Service configuration
+          service:
+            type: ClusterIP
+            port: 8080
+
+          # Resource configuration
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+
+          # Probes
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          # Persistence
+          persistence:
+            enabled: true
+            size: 10Gi
+            storageClassName: local-path
+
+          # Admin user initialization
+          initAdmin:
+            enabled: true
+            username: admin
+            firstName: Admin
+            lastName: User
+            email: admin@example.com
+            password: admin
+
+          # Additional configuration
+          config:
+            SECRET_KEY: "replace-with-secure-key"
+            SQLALCHEMY_DATABASE_URI: "postgresql://superset:password@cluster-pg-db-pgbouncer.postgres.svc:5432/superset"
+            REDIS_URL: "redis://redis.redis.svc:6379/0"
