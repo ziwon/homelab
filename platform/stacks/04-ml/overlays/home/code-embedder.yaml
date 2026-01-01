@@ -141,6 +141,7 @@ apps:
                     containers:
                       - name: api
                         image: harbor.home.lab/restack/apps/code-embedder:latest
+                        imagePullPolicy: Always
                         command: [ "code-embedder-api" ]
                         env:
                           - name: QDRANT_URL
