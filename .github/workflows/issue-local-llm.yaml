@@ -5,13 +5,16 @@ on:
     types: [labeled, opened]
   issue_comment:
     types: [created]
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   resolve-issue:
     # Trigger conditions:
     # 1. Issue labeled with local LLM labels (gpt-oss, qwen3, restack-ai)
     # 2. Issue/comment mentions local LLM (@gpt-oss, @qwen3, @restack-ai)
-    # 3. Skip bot comments to prevent infinite loop
+    # 3. PR review comment mentions local LLM
+    # 4. Skip bot comments to prevent infinite loop
     if: |
       (github.event_name == 'issues' && github.event.action == 'labeled' &&
        (contains(github.event.issue.labels.*.name, 'gpt-oss') ||
@@ -22,6 +25,12 @@ jobs:
         contains(github.event.issue.body, '@qwen3') ||
         contains(github.event.issue.body, '@restack-ai'))) ||
       (github.event_name == 'issue_comment' &&
+       !contains(github.event.comment.user.login, '[bot]') &&
+       !startsWith(github.event.comment.user.login, 'app/') &&
+       (contains(github.event.comment.body, '@gpt-oss') ||
+        contains(github.event.comment.body, '@qwen3') ||
+        contains(github.event.comment.body, '@restack-ai'))) ||
+      (github.event_name == 'pull_request_review_comment' &&
        !contains(github.event.comment.user.login, '[bot]') &&
        !startsWith(github.event.comment.user.login, 'app/') &&
        (contains(github.event.comment.body, '@gpt-oss') ||
@@ -84,14 +93,19 @@ jobs:
           echo "model=$LLM_MODEL" >> $GITHUB_OUTPUT
           echo "endpoint=$LLM_ENDPOINT" >> $GITHUB_OUTPUT
         env:
-          ISSUE_LABELS: ${{ toJson(github.event.issue.labels.*.name) }}
+          ISSUE_LABELS: ${{ toJson(github.event.issue.labels.*.name || github.event.pull_request.labels.*.name) }}
           COMMENT_BODY: ${{ github.event.comment.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_DIFF_URL: ${{ github.event.pull_request.diff_url }}
+          REVIEW_COMMENT_PATH: ${{ github.event.comment.path }}
+          REVIEW_COMMENT_LINE: ${{ github.event.comment.line }}
 
       - name: Checkout repository
         if: steps.llm.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       - name: Read skill templates
         if: steps.llm.outputs.skip != 'true'
@@ -178,11 +192,21 @@ jobs:
           body = os.environ.get("ISSUE_BODY") or ""
           comment = os.environ.get("COMMENT_BODY") or ""
           event_name = os.environ.get("EVENT_NAME") or ""
+          review_path = os.environ.get("REVIEW_COMMENT_PATH") or ""
+          review_line = os.environ.get("REVIEW_COMMENT_LINE") or ""
+          pr_title = os.environ.get("PR_TITLE") or ""
+          pr_body = os.environ.get("PR_BODY") or ""
 
-          parts = [part for part in (title, body) if part]
+          parts = [part for part in (title or pr_title, body or pr_body) if part]
           issue_text = "\n\n".join(parts).strip()
           if event_name == "issue_comment" and comment:
             issue_text = (issue_text + "\n\nComment:\n" + comment).strip()
+          if event_name == "pull_request_review_comment" and comment:
+            review_context = f"Review comment on {review_path}"
+            if review_line:
+              review_context += f" (line {review_line})"
+            review_context += f":\n{comment}"
+            issue_text = (issue_text + "\n\n" + review_context).strip()
 
           if not issue_text:
             sys.exit(0)
@@ -290,8 +314,12 @@ jobs:
         env:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           EVENT_NAME: ${{ github.event_name }}
+          REVIEW_COMMENT_PATH: ${{ github.event.comment.path }}
+          REVIEW_COMMENT_LINE: ${{ github.event.comment.line }}
 
       - name: Test LLM connectivity
         if: steps.llm.outputs.skip != 'true'
@@ -305,22 +333,31 @@ jobs:
         id: restack
         uses: restack/actions/actions/restack-code@v1
         with:
+          # LLM configuration
           llm_url: ${{ steps.llm.outputs.endpoint }}/v1/chat/completions
           model: ${{ steps.llm.outputs.model }}
           temperature: '0.1'
           max_tokens: '4096'
           timeout_ms: '1200000'
           prompt_file: /tmp/prompt.txt
-          issue_number: ${{ github.event.issue.number }}
-          issue_title: ${{ github.event.issue.title }}
-          issue_body: ${{ github.event.issue.body }}
+          # Issue/PR context
+          issue_number: ${{ github.event.issue.number || github.event.pull_request.number }}
+          issue_title: ${{ github.event.issue.title || github.event.pull_request.title }}
+          issue_body: ${{ github.event.issue.body || github.event.pull_request.body }}
           comment_body: ${{ github.event.comment.body }}
+          # Event context (action handles PR review comment logic automatically)
+          event_name: ${{ github.event_name }}
+          review_comment_path: ${{ github.event.comment.path }}
+          review_comment_line: ${{ github.event.comment.line }}
+          pr_head_ref: ${{ github.event.pull_request.head.ref }}
+          pr_base_ref: ${{ github.event.pull_request.base.ref }}
+          # Commit/PR options
           commit: 'true'
           commit_message: 'chore: automated fix by ${{ steps.llm.outputs.name }}'
           create_pr: 'true'
           pr_title: 'fix: Issue #${{ github.event.issue.number }}'
           pr_body: 'Automated fix for issue #${{ github.event.issue.number }}'
-          branch: ${{ steps.llm.outputs.name }}/issue-${{ github.event.issue.number }}
+          branch: ${{ format('{0}/issue-{1}', steps.llm.outputs.name, github.event.issue.number) }}
           base_branch: main
           bot_name: ${{ steps.llm.outputs.name }}
           post_comment: 'true'
