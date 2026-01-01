@@ -1,0 +1,162 @@
+apps:
+  - name: superset-raw
+    namespace: labs
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-superset-secrets
+                namespace: labs
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-superset-secrets
+                    secretNamespace: labs
+                    creationPolicy: Owner
+
+  - name: superset
+    namespace: labs
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: http://apache.github.io/superset
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: my-superset
+        values: |
+          # Disable built-in PostgreSQL and Redis since we're using external
+          postgresql:
+            enabled: false
+          redis:
+            enabled: false
+          
+          # External database configuration
+          supersetNode:
+            connections:
+              db_host: cluster-pg-db-pgbouncer.postgres.svc
+              db_port: "5432"
+              db_user: superset
+              db_pass: ""
+              db_name: superset
+              
+              # Redis configuration
+              redis_host: "redis.redis.svc"
+              redis_port: "6379"
+              redis_user: ""
+              redis_password: ""
+              redis_cache_db: "1"
+              redis_celery_db: "0"
+              
+          # Use external secret for database password
+          extraEnvVarsSecret: managed-superset-secrets
+          
+          # Configure service
+          service:
+            type: ClusterIP
+            port: 8088
+            
+          # Configure resources
+          supersetNode:
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: 2000m
+                memory: 4Gi
+          
+          supersetWorker:
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+          
+          # Configure init job
+          init:
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          
+          # Configure persistence
+          persistence:
+            enabled: true
+            size: 10Gi
+            storageClassName: local-path
+            
+          # Configure probes
+          supersetNode:
+            startupProbe:
+              httpGet:
+                path: /health
+                port: http
+              initialDelaySeconds: 15
+              timeoutSeconds: 1
+              failureThreshold: 60
+              periodSeconds: 5
+              successThreshold: 1
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: http
+              initialDelaySeconds: 15
+              timeoutSeconds: 1
+              failureThreshold: 3
+              periodSeconds: 15
+              successThreshold: 1
+            readinessProbe:
+              httpGet:
+                path: /health
+                port: http
+              initialDelaySeconds: 15
+              timeoutSeconds: 1
+              failureThreshold: 3
+              periodSeconds: 15
+              successThreshold: 1
+          
+          # Security context
+          podSecurityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+          
+          # Configure admin user
+          init:
+            createAdmin: true
+            adminUser:
+              username: admin
+              firstname: Superset
+              lastname: Admin
+              email: admin@superset.com
+              password: admin
+          
+          # Disable ingress by default
+          ingress:
+            enabled: false
