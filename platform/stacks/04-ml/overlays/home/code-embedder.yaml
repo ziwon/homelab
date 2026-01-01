@@ -145,6 +145,11 @@ apps:
                         env:
                           - name: QDRANT_URL
                             value: http://qdrant.qdrant.svc:6333
+                          - name: QDRANT_API_KEY
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-workflows-secrets
+                                key: QDRANT_API_KEY
                           - name: QDRANT_COLLECTION
                             value: codebase-bge-m3
                           - name: LLM_EMBED_URL
