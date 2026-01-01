@@ -1,37 +1,4 @@
 apps:
-  - name: superset-raw
-    namespace: labs
-    project: dev
-    syncWave: "5"
-    source:
-      repoURL: https://bedag.github.io/helm-charts
-      chart: raw
-      targetRevision: "2.0.2"
-      helm:
-        releaseName: superset-raw
-        values: |
-          resources:
-            - apiVersion: secrets.infisical.com/v1alpha1
-              kind: InfisicalSecret
-              metadata:
-                name: managed-superset-secrets
-                namespace: labs
-              spec:
-                hostAPI: https://app.infisical.com/api
-                authentication:
-                  universalAuth:
-                    secretsScope:
-                      projectSlug: home-lab
-                      envSlug: "hme"
-                      secretsPath: /superset
-                    credentialsRef:
-                      secretName: infisical-secrets
-                      secretNamespace: infisical
-                managedKubeSecretReferences:
-                  - secretName: managed-superset-secrets
-                    secretNamespace: labs
-                    creationPolicy: Owner
-
   - name: superset
     namespace: labs
     project: dev
@@ -43,120 +10,99 @@ apps:
       chart: superset
       targetRevision: "0.15.0"
       helm:
-        releaseName: my-superset
+        releaseName: superset
         values: |
-          # Disable built-in PostgreSQL and Redis since we're using external
+          replicaCount: 1
+
+          # External PostgreSQL configuration
           postgresql:
             enabled: false
+          
+          # Built-in Redis configuration
           redis:
-            enabled: false
+            enabled: true
           
-          # External database configuration
-          supersetNode:
-            connections:
-              db_host: cluster-pg-db-pgbouncer.postgres.svc
-              db_port: "5432"
-              db_user: superset
-              db_pass: ""
-              db_name: superset
-              
-              # Redis configuration
-              redis_host: "redis.redis.svc"
-              redis_port: "6379"
-              redis_user: ""
-              redis_password: ""
-              redis_cache_db: "1"
-              redis_celery_db: "0"
-              
-          # Use external secret for database password
-          extraEnvVarsSecret: managed-superset-secrets
+          # Database connection details
+          extraEnvVars:
+            - name: DATABASE_HOST
+              value: cluster-pg-db-pgbouncer.postgres.svc
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: REDIS_HOST
+              value: redis.redis.svc
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-managed-secrets
+                  key: redis-password
+
+          extraEnvVarsSecret: superset-managed-secrets
           
-          # Configure service
+          # Service configuration
           service:
             type: ClusterIP
-            port: 8088
-            
-          # Configure resources
-          supersetNode:
-            resources:
-              requests:
-                cpu: 500m
-                memory: 1Gi
-              limits:
-                cpu: 2000m
-                memory: 4Gi
+            port: 8080
           
-          supersetWorker:
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 1000m
-                memory: 1Gi
-          
-          # Configure init job
-          init:
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
-          
-          # Configure persistence
+          # Persistence
           persistence:
             enabled: true
             size: 10Gi
             storageClassName: local-path
-            
-          # Configure probes
-          supersetNode:
-            startupProbe:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 15
-              timeoutSeconds: 1
-              failureThreshold: 60
-              periodSeconds: 5
-              successThreshold: 1
-            livenessProbe:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 15
-              timeoutSeconds: 1
-              failureThreshold: 3
-              periodSeconds: 15
-              successThreshold: 1
-            readinessProbe:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 15
-              timeoutSeconds: 1
-              failureThreshold: 3
-              periodSeconds: 15
-              successThreshold: 1
+          
+          # Resource limits and requests
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
           
           # Security context
-          podSecurityContext:
+          securityContext:
             runAsNonRoot: true
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
           
-          # Configure admin user
-          init:
-            createAdmin: true
-            adminUser:
-              username: admin
-              firstname: Superset
-              lastname: Admin
-              email: admin@superset.com
-              password: admin
+          # Probes
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
           
           # Disable ingress by default
           ingress:
             enabled: false
+          
+          # Additional configuration
+          config:
+            superset_config:
+              SECRET_KEY: "$(SECRET_KEY)"
+              SQLALCHEMY_DATABASE_URI: "postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)"
+              REDIS_URL: "redis://$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+
+          # Additional volumes and volume mounts
+          additionalVolumes:
+            - name: superset-config
+              configMap:
+                name: superset-config
+          
+          additionalVolumeMounts:
+            - name: superset-config
+              mountPath: /app/superset/config
+
+          # Node selector and tolerations
+          nodeSelector: {}
+          tolerations: []
+          affinity: {}
