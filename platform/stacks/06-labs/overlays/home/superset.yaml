@@ -1,43 +1,8 @@
 apps:
-  - name: superset-raw
-    namespace: superset
-    project: dev
-    syncWave: "5"
-    source:
-      repoURL: https://bedag.github.io/helm-charts
-      chart: raw
-      targetRevision: "2.0.2"
-      helm:
-        releaseName: superset-raw
-        values: |
-          resources:
-            - apiVersion: secrets.infisical.com/v1alpha1
-              kind: InfisicalSecret
-              metadata:
-                name: managed-superset-secrets
-                namespace: superset
-              spec:
-                hostAPI: https://app.infisical.com/api
-                authentication:
-                  universalAuth:
-                    secretsScope:
-                      projectSlug: home-lab
-                      envSlug: "hme"
-                      secretsPath: /superset
-                    credentialsRef:
-                      secretName: infisical-secrets
-                      secretNamespace: infisical
-                managedKubeSecretReferences:
-                  - secretName: managed-superset-secrets
-                    secretNamespace: superset
-                    creationPolicy: Owner
-
   - name: superset
     namespace: superset
     project: dev
     syncWave: "10"
-    dependencies:
-      - superset-raw
     source:
       repoURL: http://apache.github.io/superset
       chart: superset
@@ -45,21 +10,27 @@ apps:
       helm:
         releaseName: my-superset
         values: |
-          # Basic configuration
-          replicaCount: 1
+          # Database configuration
+          postgresql:
+            enabled: false
           
-          # Image configuration
-          image:
-            repository: apachesuperset.docker.scarf.sh/apache/superset
-            tag: "0.15.0"
-            pullPolicy: IfNotPresent
+          # Redis configuration
+          supersetNode:
+            connections:
+              redis_host: redis-0.redis-headless.redis.svc
+              redis_port: "6379"
+              db_host: cluster-pg-db-ha.postgres.svc
+              db_port: "5432"
+              db_user: superset
+              db_pass: superset
+              db_name: superset
           
           # Service configuration
           service:
             type: ClusterIP
             port: 8088
           
-          # Resource limits
+          # Resource configuration
           resources:
             requests:
               cpu: 500m
@@ -68,142 +39,8 @@ apps:
               cpu: 2000m
               memory: 4Gi
           
-          # Database configuration (external)
-          postgresql:
-            enabled: false
-          
-          # Redis configuration (external)
-          redis:
-            enabled: false
-          
-          # Superset node configuration
-          supersetNode:
-            replicas:
-              enabled: true
-              replicaCount: 1
-            
-            # Connection settings for external DB and Redis
-            connections:
-              db_host: cluster-pg-db-pgbouncer.postgres.svc
-              db_port: "5432"
-              db_user: superset
-              db_pass: ""
-              db_name: superset
-              redis_host: cluster-redis-redis-ha-redis-sentinel.redis.svc
-              redis_port: "26379"
-              redis_cache_db: "1"
-              redis_celery_db: "0"
-              
-            # Environment variables
-            env:
-              # External secret reference
-              - name: SUPERSET_SECRET_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: managed-superset-secrets
-                    key: SUPERSET_SECRET_KEY
-              - name: DB_USER
-                valueFrom:
-                  secretKeyRef:
-                    name: managed-superset-secrets
-                    key: DB_USER
-              - name: DB_PASS
-                valueFrom:
-                  secretKeyRef:
-                    name: managed-superset-secrets
-                    key: DB_PASS
-              - name: REDIS_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: managed-superset-secrets
-                    key: REDIS_PASSWORD
-              
-            # Security context
-            podSecurityContext:
-              runAsNonRoot: true
-              readOnlyRootFilesystem: true
-              allowPrivilegeEscalation: false
-            
-            # Container security context
-            containerSecurityContext:
-              runAsNonRoot: true
-              readOnlyRootFilesystem: true
-              allowPrivilegeEscalation: false
-            
-            # Probes
-            startupProbe:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 15
-              timeoutSeconds: 1
-              failureThreshold: 60
-              periodSeconds: 5
-              successThreshold: 1
-            
-            livenessProbe:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 15
-              timeoutSeconds: 1
-              failureThreshold: 3
-              periodSeconds: 15
-              successThreshold: 1
-            
-            readinessProbe:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 15
-              timeoutSeconds: 1
-              failureThreshold: 3
-              periodSeconds: 15
-              successThreshold: 1
-            
-          # Superset worker configuration
-          supersetWorker:
-            replicas:
-              enabled: true
-              replicaCount: 1
-            
-            # Resource limits
-            resources:
-              requests:
-                cpu: 200m
-                memory: 512Mi
-              limits:
-                cpu: 1000m
-                memory: 2Gi
-            
-            # Security context
-            podSecurityContext:
-              runAsNonRoot: true
-              readOnlyRootFilesystem: true
-              allowPrivilegeEscalation: false
-            
-            # Container security context
-            containerSecurityContext:
-              runAsNonRoot: true
-              readOnlyRootFilesystem: true
-              allowPrivilegeEscalation: false
-            
-            # Probes
-            livenessProbe:
-              exec:
-                command:
-                  - sh
-                  - -c
-                  - celery -A superset.tasks.celery_app:app inspect ping -d celery@$HOSTNAME
-              initialDelaySeconds: 120
-              timeoutSeconds: 60
-              failureThreshold: 3
-              periodSeconds: 60
-              successThreshold: 1
-            
           # Init configuration
           init:
-            enabled: true
             createAdmin: true
             adminUser:
               username: admin
@@ -212,120 +49,59 @@ apps:
               email: admin@superset.com
               password: admin
             
-            # Resource limits
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
-            
-            # Environment variables
-            extraEnvVars:
-              - name: DATABASE_HOST
-                value: cluster-pg-db-pgbouncer.postgres.svc
-              - name: DATABASE_PORT
-                value: "5432"
-              - name: DATABASE_USER
-                valueFrom:
-                  secretKeyRef:
-                    name: managed-superset-secrets
-                    key: DB_USER
-              - name: DATABASE_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: managed-superset-secrets
-                    key: DB_PASS
-              - name: REDIS_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: managed-superset-secrets
-                    key: REDIS_PASSWORD
-            
-            # Init script
-            initscript: |
-              #!/bin/sh
-              set -eu
-              echo "Upgrading DB schema..."
-              superset db upgrade
-              echo "Initializing roles..."
-              superset init
-              echo "Creating admin user..."
-              superset fab create-admin \
-                              --username {{ .Values.init.adminUser.username }} \
-                              --firstname {{ .Values.init.adminUser.firstname }} \
-                              --lastname {{ .Values.init.adminUser.lastname }} \
-                              --email {{ .Values.init.adminUser.email }} \
-                              --password {{ .Values.init.adminUser.password }} \
-                              || true
-              
-            # Init containers
-            initContainers:
-              - name: wait-for-postgres
-                image: "apache/superset:dockerize"
-                imagePullPolicy: IfNotPresent
-                command:
-                  - /bin/sh
-                  - -c
-                  - dockerize -wait "tcp://$DB_HOST:$DB_PORT" -timeout 120s
-                envFrom:
-                  - secretRef:
-                      name: managed-superset-secrets
-          
-          # Extra configurations
-          extraEnvVars:
-            - name: SUPERSET_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: managed-superset-secrets
-                  key: SUPERSET_SECRET_KEY
-            - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: managed-superset-secrets
-                  key: DB_USER
-            - name: DB_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: managed-superset-secrets
-                  key: DB_PASS
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: managed-superset-secrets
-                  key: REDIS_PASSWORD
-            
           # Persistence
           persistence:
             enabled: true
             size: 10Gi
             storageClassName: local-path
-            
-          # Security settings
-          secretEnv:
-            create: true
           
-          # Service account
-          serviceAccount:
-            create: false
-            name: ""
+          # Security context
+          podSecurityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
           
-          # Labels
-          extraLabels: {}
+          # Extra environment variables
+          extraEnvVars:
+            - name: DATABASE_HOST
+              value: cluster-pg-db-ha.postgres.svc
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: REDIS_HOST
+              value: redis-0.redis-headless.redis.svc
+            - name: REDIS_PORT
+              value: "6379"
           
-          # Annotations
-          service:
-            annotations: {}
+          # Secret reference
+          envFromSecret: managed-superset-secrets
           
-          # Node selector
-          nodeSelector: {}
+          # Probes
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
           
-          # Tolerations
-          tolerations: []
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 3
+            periodSeconds: 15
+            successThreshold: 1
           
-          # Affinity
-          affinity: {}
-          
-          # Topology spread constraints
-          topologySpreadConstraints: []
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 3
+            periodSeconds: 15
+            successThreshold: 1
