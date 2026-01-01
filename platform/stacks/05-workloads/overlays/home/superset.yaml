@@ -1,0 +1,146 @@
+apps:
+  - name: superset-raw
+    namespace: superset
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: superset-managed-secrets
+                namespace: superset
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: superset-managed-secrets
+                    secretNamespace: superset
+                    creationPolicy: Owner
+
+  - name: superset
+    namespace: superset
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: https://apache.github.io/superset
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: superset
+        values: |
+          replicaCount: 1
+
+          # External PostgreSQL configuration
+          postgresql:
+            enabled: false
+          
+          # Built-in Redis configuration
+          redis:
+            enabled: true
+          
+          # Database connection details
+          extraEnvVars:
+            - name: DATABASE_HOST
+              value: cluster-pg-db-pgbouncer.postgres.svc
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: REDIS_HOST
+              value: redis.redis.svc
+            - name: REDIS_PORT
+              value: "6379"
+          
+          # Secret reference
+          extraEnvVarsSecret: superset-managed-secrets
+          
+          # Resource configuration
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+          
+          # Probes
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          
+          # Disable ingress by default
+          ingress:
+            enabled: false
+          
+          # Service configuration
+          service:
+            type: ClusterIP
+            port: 8080
+          
+          # Persistence
+          persistence:
+            enabled: true
+            size: 10Gi
+            storageClassName: local-path
+          
+          # Additional configuration
+          config:
+            # Enable CSRF protection
+            CSRF_ENABLED: true
+            # Enable session security
+            SECRET_KEY: "replace-with-secure-key"
+            # Set session timeout
+            SESSION_TIMEOUT: 3600
+          
+          # Additional environment variables for Superset
+          extraEnvVars:
+            - name: SUPERSET__DATABASE__SQLALCHEMY_DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: superset-managed-secrets
+                  key: DATABASE_URL
+            - name: SUPERSET__REDIS__REDIS_HOST
+              value: redis.redis.svc
+            - name: SUPERSET__REDIS__REDIS_PORT
+              value: "6379"
+            - name: SUPERSET__REDIS__REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-managed-secrets
+                  key: REDIS_PASSWORD
+            - name: SUPERSET__CORE__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-managed-secrets
+                  key: SECRET_KEY
