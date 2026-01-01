@@ -243,7 +243,7 @@ apps:
                     - name: git-head-ref
                       value: ""
                     - name: image
-                      value: harbor.home.lab/restack/apps/code-embedder:main-8c592a7
+                      value: harbor.home.lab/restack/apps/code-embedder:main-1858538
                     - name: qdrant-url
                       value: http://qdrant.qdrant.svc:6333
                     - name: qdrant-collection
