@@ -85,6 +85,53 @@ values: |
    - Configure all relevant sections based on the chart's capabilities
    - The examples below are ONLY structural references, not complete configurations
 
+## CRITICAL: Single File Per Application
+
+**All resources for the same application MUST be in a single YAML file.**
+
+The App-of-Apps pattern is designed to manage multiple related resources (Helm chart, InfisicalSecret, HTTPRoute, etc.) within the same context. Resources that share:
+- Same namespace
+- Same concern/purpose
+- Same microservice
+
+**MUST** all be defined in ONE file: `{app-name}.yaml`
+
+**DO NOT** create separate files like:
+```
+# BAD - Multiple files for same app
+superset-raw.yaml      # InfisicalSecret
+superset.yaml          # Helm chart
+superset-routes.yaml   # HTTPRoute
+```
+
+**DO** put everything in a single file:
+```
+# GOOD - Single file with all related resources
+superset.yaml          # Contains: InfisicalSecret + Helm chart + HTTPRoute (if needed)
+```
+
+Example structure in the single file:
+```yaml
+apps:
+  # Raw resources (InfisicalSecret, etc.) - deploy first
+  - name: superset-raw
+    namespace: superset
+    syncWave: "5"
+    source:
+      # ... InfisicalSecret definition
+
+  # Main Helm chart - deploy after raw resources
+  - name: superset
+    namespace: superset
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      # ... Helm chart definition
+```
+
+---
+
 ## Stack Categories
 
 | Stack | Path | Purpose |
@@ -99,6 +146,7 @@ values: |
 
 ## File Location
 
+**One file per application:**
 ```
 platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
 ```
