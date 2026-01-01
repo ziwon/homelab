@@ -89,7 +89,7 @@ values: |
 
 **All resources for the same application MUST be in a single YAML file.**
 
-The App-of-Apps pattern is designed to manage multiple related resources (Helm chart, InfisicalSecret, HTTPRoute, etc.) within the same context. Resources that share:
+The App-of-Apps pattern is designed to manage multiple related resources (Helm chart, InfisicalSecret, HTTPRoute, Kustomize, etc.) within the same context. Resources that share:
 - Same namespace
 - Same concern/purpose
 - Same microservice
