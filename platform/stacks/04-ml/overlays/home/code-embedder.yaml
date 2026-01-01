@@ -2,7 +2,7 @@ apps:
   - name: code-embedder-raw
     namespace: code-embedder
     project: dev
-    syncWave: "10"
+    syncWave: "5"
     source:
       repoURL: https://bedag.github.io/helm-charts
       chart: raw
@@ -27,6 +27,33 @@ apps:
                 annotations:
                   kubernetes.io/service-account.name: code-embedder-runner
               type: kubernetes.io/service-account-token
+
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: Role
+              metadata:
+                name: code-embedder-runner
+                namespace: code-embedder
+              rules:
+                - apiGroups: [ "argoproj.io" ]
+                  resources: [ "workflows", "workflowtemplates" ]
+                  verbs: [ "get", "list", "watch", "create" ]
+                - apiGroups: [ "argoproj.io" ]
+                  resources: [ "workflowtaskresults" ]
+                  verbs: [ "create", "patch" ]
+
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: RoleBinding
+              metadata:
+                name: code-embedder-runner
+                namespace: code-embedder
+              subjects:
+                - kind: ServiceAccount
+                  name: code-embedder-runner
+                  namespace: code-embedder
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: Role
+                name: code-embedder-runner
 
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
@@ -80,6 +107,18 @@ apps:
                   conditions:
                     ready: true
 
+  - name: code-embedder-api
+    namespace: code-embedder
+    project: dev
+    syncWave: "10"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: code-embedder-api
+        values: |
+          resources:
             - apiVersion: apps/v1
               kind: Deployment
               metadata:
@@ -97,6 +136,8 @@ apps:
                     labels:
                       app.kubernetes.io/name: code-embedder-api
                   spec:
+                    imagePullSecrets:
+                      - name: harbor-secret
                     containers:
                       - name: api
                         image: harbor.home.lab/restack/apps/code-embedder:latest
@@ -156,33 +197,18 @@ apps:
                     targetPort: http
                     protocol: TCP
 
-            - apiVersion: rbac.authorization.k8s.io/v1
-              kind: Role
-              metadata:
-                name: code-embedder-runner
-                namespace: code-embedder
-              rules:
-                - apiGroups: [ "argoproj.io" ]
-                  resources: [ "workflows", "workflowtemplates" ]
-                  verbs: [ "get", "list", "watch", "create" ]
-                - apiGroups: [ "argoproj.io" ]
-                  resources: [ "workflowtaskresults" ]
-                  verbs: [ "create", "patch" ]
-
-            - apiVersion: rbac.authorization.k8s.io/v1
-              kind: RoleBinding
-              metadata:
-                name: code-embedder-runner
-                namespace: code-embedder
-              subjects:
-                - kind: ServiceAccount
-                  name: code-embedder-runner
-                  namespace: code-embedder
-              roleRef:
-                apiGroup: rbac.authorization.k8s.io
-                kind: Role
-                name: code-embedder-runner
-
+  - name: code-embedder-workflows
+    namespace: code-embedder
+    project: dev
+    syncWave: "15"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: code-embedder-workflows
+        values: |
+          resources:
             - apiVersion: argoproj.io/v1alpha1
               kind: WorkflowTemplate
               metadata:
