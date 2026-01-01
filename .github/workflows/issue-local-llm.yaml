@@ -1,4 +1,4 @@
-name: Local LLM Issue Handler
+name: Handle Issues by Local LLMs
 
 on:
   issues:

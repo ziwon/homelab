@@ -1,4 +1,4 @@
-name: Claude Issue Handler
+name: Handle Issues by Claude
 
 on:
   issues:
