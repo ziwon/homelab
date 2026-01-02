@@ -606,7 +606,7 @@ apps:
               repository: harbor.home.lab/restack/deepfx/strategy-guardian
               tag: main-00d0599
             mode: "shadow"
-            logLevel: "INFO"
+            logLevel: "DEBUG"
             guardianInstanceId: "strategy-guardian"
             existingSecret: "managed-deepfx-strategy-guardian-secrets"
 
