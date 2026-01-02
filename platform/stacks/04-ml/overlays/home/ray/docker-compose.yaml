@@ -149,6 +149,7 @@ services:
     volumes:
       - /data/LLM/models/lmstudio-community:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
+      - /cache/llama-cpp/glm-4.6v:/cache
     command:
       - --model
       - /models/GLM-4.6V-Flash-GGUF/GLM-4.6V-Flash-Q4_K_M.gguf
@@ -170,6 +171,8 @@ services:
       - auto
       - --alias
       - glm-4.6v
+      - --slot-save-path
+      - /cache
     cpuset: "0-7"
     ports:
       - "8001:8001"
@@ -206,6 +209,7 @@ services:
     volumes:
       - /data/LLM/models/ggml-org/:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
+      - /cache/llama-cpp/bge-m3:/cache
     command:
       - --model
       - /models/bge-m3-Q8_0-GGUF/bge-m3-q8_0.gguf
@@ -220,6 +224,8 @@ services:
       - "0.0.0.0"
       - --port
       - "8080"
+      - --slot-save-path
+      - /cache
     ports:
       - "8080:8080"
     deploy:
@@ -256,6 +262,7 @@ services:
     volumes:
       - /data/LLM/models/lmstudio-community:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
+      - /cache/llama-cpp/deepseek-r1:/cache
     command:
       - --model
       - /models/DeepSeek-R1-0528-Qwen3-8B-GGUF/DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf
@@ -279,6 +286,8 @@ services:
       - "0.6"
       - --top-p
       - "0.95"
+      - --slot-save-path
+      - /cache
     deploy:
       resources:
         reservations:
@@ -308,6 +317,7 @@ services:
     volumes:
       - /data/LLM/models/yhkkk0427:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
+      - /cache/llama-cpp/llama3-trading:/cache
     command:
       - --model
       - /models/llama3-ko-8b-trading-expert-Q4_K_M-GGUF/llama3-ko-8b-trading-expert-q4_k_m.gguf
@@ -326,6 +336,8 @@ services:
       - auto
       - --alias
       - llama3-trading
+      - --slot-save-path
+      - /cache
     cpuset: "0-7"
     ports:
       - "8002:8002"
@@ -364,6 +376,7 @@ services:
     volumes:
       - /data/LLM/models/lmstudio-community:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
+      - /cache/llama-cpp/qwen3-coder:/cache
     command:
       - --model
       - /models/Qwen3-Coder-30B-A3B-Instruct-GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
@@ -372,20 +385,26 @@ services:
       - --port
       - "8003"
       - --n-gpu-layers
-      - "30"
+      #- "30"
+      - "33"
       - --ctx-size
-      - "24513"
+      #- "32768"
+      - "24576"
       - --parallel
       - "1"
       - --cache-type-k
-      - "q8_0"
+      #- "q8_0"
+      - "q4_0"
       - --cache-type-v
-      - "q8_0"
+      #- "q8_0"
+      - "q4_0"
       - --cont-batching
       - --flash-attn
       - auto
       - --alias
       - qwen3-coder:30b
+      - --slot-save-path
+      - /cache
     cpuset: "0-7"
     ports:
       - "8003:8003"
@@ -424,6 +443,7 @@ services:
     volumes:
       - /data/LLM/models/lmstudio-community:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
+      - /cache/llama-cpp/gpt-oss-20b:/cache
     command:
       - --model
       - /models/gpt-oss-20b-GGUF/gpt-oss-20b-MXFP4.gguf
@@ -446,6 +466,8 @@ services:
       - auto
       - --alias
       - gpt-oss-20b
+      - --slot-save-path
+      - /cache
     cpuset: "0-7"
     ports:
       - "8004:8004"
