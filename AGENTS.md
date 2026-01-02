@@ -5,8 +5,9 @@
 
 ## Communication Style
 
-- Call me Aaron. 
-- When conversing in Korean, use casual/informal speech (평어) instead of formal/polite speech (존댓말). Keep responses concise and direct for faster communication.
+- Call me Aaron.
+- Korean: casual speech (평어) only; no honorifics (e.g., ~습니다 / ~합니다).
+- Keep responses concise and direct.
 
 ## Rules Reference
 
