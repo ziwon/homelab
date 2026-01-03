@@ -1,0 +1,154 @@
+# Justfile for DeepFX AI LLM Stack
+#
+# Basic usage:
+#   just up              # Base LLM stack (vLLM + Ray + WebUI)
+#   just up-vision       # Multimodal VLM (GLM-4.6V-Flash, gguf profile)
+#   just up-trading      # Trading-specialized LLM
+#   just up-code         # Coding-specialized LLM
+#   just up-all          # All LLM services at once
+#
+#   just down            # Stop base stack
+#   just down-vision     # Stop multimodal only
+#   just down-trading    # Stop trading only
+#   just down-code       # Stop coding only
+#   just down-all        # Stop everything
+#
+#   just ps              # Show overall status
+#   just logs vllm       # Show logs for specific service
+#
+#   just mode-base       # "Daily mode": vLLM only
+#   just mode-research   # vLLM + multimodal
+#   just mode-trading    # vLLM + trading
+#   just mode-dev        # vLLM + coding model
+
+# Docker compose command to use (can be changed to podman-compose etc. if needed)
+COMPOSE := "docker compose"
+
+# Default: show help
+default:
+  @echo "Usage:"
+  @echo "  just up              # base stack (nvidia-mps, ray-node, vllm, open-webui)"
+  @echo "  just up-vision       # + llama-cpp (multimodal, profile: gguf)"
+  @echo "  just up-trading      # + llama-cpp-trading (profile: trading)"
+  @echo "  just up-code         # + llama-cpp-code (profile: code)"
+  @echo "  just up-all          # all LLM services"
+  @echo
+  @echo "  just down            # stop base stack"
+  @echo "  just down-vision     # stop multimodal"
+  @echo "  just down-trading    # stop trading"
+  @echo "  just down-code       # stop coding"
+  @echo "  just down-all        # stop everything"
+  @echo
+  @echo "  just ps              # show status"
+  @echo "  just logs vllm       # show logs"
+  @echo
+  @echo "Modes:"
+  @echo "  just mode-base       # base only"
+  @echo "  just mode-research   # base + vision"
+  @echo "  just mode-trading    # base + trading"
+  @echo "  just mode-dev        # base + code"
+
+# ---------------------------------------------------------------------------
+# Base stack (no profiles: nvidia-mps, ray-node, vllm, open-webui)
+# ---------------------------------------------------------------------------
+
+up:
+  {{COMPOSE}} up -d
+
+down:
+  {{COMPOSE}} down
+
+restart:
+  {{COMPOSE}} down
+  {{COMPOSE}} up -d
+
+# ---------------------------------------------------------------------------
+# Multimodal (gguf profile: llama-cpp)
+# ---------------------------------------------------------------------------
+
+up-vision:
+  {{COMPOSE}} --profile gguf up -d llama-cpp
+
+down-vision:
+  {{COMPOSE}} --profile gguf stop llama-cpp
+
+restart-vision:
+  {{COMPOSE}} --profile gguf stop llama-cpp || true
+  {{COMPOSE}} --profile gguf up -d llama-cpp
+
+# ---------------------------------------------------------------------------
+# Trading LLM (trading profile: llama-cpp-trading)
+# ---------------------------------------------------------------------------
+
+up-trading:
+  {{COMPOSE}} --profile trading up -d llama-cpp-trading
+
+down-trading:
+  {{COMPOSE}} --profile trading stop llama-cpp-trading
+
+restart-trading:
+  {{COMPOSE}} --profile trading stop llama-cpp-trading || true
+  {{COMPOSE}} --profile trading up -d llama-cpp-trading
+
+# ---------------------------------------------------------------------------
+# Coding LLM (code profile: llama-cpp-code)
+# ---------------------------------------------------------------------------
+
+up-code:
+  {{COMPOSE}} --profile code up -d llama-cpp-code
+
+down-code:
+  {{COMPOSE}} --profile code stop llama-cpp-code
+
+restart-code:
+  {{COMPOSE}} --profile code stop llama-cpp-code || true
+  {{COMPOSE}} --profile code up -d llama-cpp-code
+
+# ---------------------------------------------------------------------------
+# All profiles at once
+# ---------------------------------------------------------------------------
+
+up-all:
+  # base + gguf + trading + code
+  {{COMPOSE}} --profile gguf --profile trading --profile code up -d
+
+down-all:
+  {{COMPOSE}} --profile gguf --profile trading --profile code stop || true
+  {{COMPOSE}} down
+
+# ---------------------------------------------------------------------------
+# Modes (semantic presets)
+# ---------------------------------------------------------------------------
+
+# Daily mode: news/article analysis + WebUI only
+mode-base:
+  # Start base only and stop the rest
+  {{COMPOSE}} --profile gguf --profile trading --profile code stop || true
+  {{COMPOSE}} up -d
+
+# Research mode: includes multimodal (chart screenshots, image analysis, etc.)
+mode-research:
+  {{COMPOSE}} up -d
+  {{COMPOSE}} --profile gguf up -d llama-cpp
+
+# Trading mode: activate trading-specific LLM
+mode-trading:
+  {{COMPOSE}} up -d
+  {{COMPOSE}} --profile trading up -d llama-cpp-trading
+
+# Dev mode: activate coding model (for use with VSCode, WebUI, etc.)
+mode-dev:
+  {{COMPOSE}} up -d
+  {{COMPOSE}} --profile code up -d llama-cpp-code
+
+# ---------------------------------------------------------------------------
+# Utility
+# ---------------------------------------------------------------------------
+
+# Show overall status
+ps:
+  {{COMPOSE}} --profile gguf --profile trading --profile code ps
+
+# Show logs for a specific service (e.g., just logs vllm)
+logs service:
+  {{COMPOSE}} logs -f {{service}}

@@ -1,0 +1,176 @@
+apps:
+  - name: superset-raw
+    namespace: superset
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-superset-secrets
+                namespace: superset
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-superset-secrets
+                    secretNamespace: superset
+                    creationPolicy: Owner
+
+  - name: superset
+    namespace: superset
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: http://apache.github.io/superset/
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: superset
+        values: |
+          replicaCount: 1
+
+          # Disable bundled databases
+          postgresql:
+            enabled: false
+          redis:
+            enabled: false
+
+          # External database configuration
+          supersetNode:
+            connections:
+              db_host: "superset-postgres.postgres.svc"
+              db_port: "5432"
+              db_user: "superset"
+              db_pass: "superset"
+              db_name: "superset"
+              redis_host: "superset-redis-headless.superset.svc"
+              redis_port: "6379"
+              redis_user: ""
+              redis_password: "superset"
+              redis_cache_db: "1"
+              redis_celery_db: "0"
+              redis_ssl:
+                enabled: false
+
+          # Init configuration
+          init:
+            enabled: true
+            createAdmin: true
+            adminUser:
+              username: admin
+              firstname: Superset
+              lastname: Admin
+              email: admin@superset.com
+              password: admin
+            loadExamples: false
+
+          # Service configuration
+          service:
+            type: ClusterIP
+            port: 8088
+
+          # Resources
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+
+          # Persistence
+          persistence:
+            enabled: true
+            size: 10Gi
+            storageClassName: local-path
+
+          # External secrets
+          secretEnv:
+            create: false
+
+          # Environment variables from secrets
+          extraEnvVars:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: secret-key
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: db-password
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: redis-password
+
+          # Security context
+          podSecurityContext:
+            runAsUser: 0
+          containerSecurityContext:
+            runAsUser: 0
+          runAsUser: 0
+
+          # Health probes
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 3
+            periodSeconds: 15
+            successThreshold: 1
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 3
+            periodSeconds: 15
+            successThreshold: 1
+
+          # Ingress (disabled)
+          ingress:
+            enabled: false
+
+          # Service account
+          serviceAccount:
+            create: false
+
+          # Bootstrap script
+          bootstrapScript: |
+            #!/bin/bash
+            if [ ! -f ~/bootstrap ]; then echo "Running Superset with uid 0" > ~/bootstrap; fi

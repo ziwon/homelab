@@ -449,8 +449,8 @@ jobs:
           llm_url: ${{ steps.llm.outputs.endpoint }}/v1/chat/completions
           model: ${{ steps.llm.outputs.model }}
           temperature: '0.1'
-          max_tokens: '8192'
-          timeout_ms: '1200000'
+          max_tokens: '4096'
+          timeout_ms: '600000'
           prompt_file: /tmp/prompt.txt
           # Issue/PR context
           issue_number: ${{ github.event.issue.number || github.event.pull_request.number }}
