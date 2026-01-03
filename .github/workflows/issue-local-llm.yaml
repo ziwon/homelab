@@ -350,6 +350,7 @@ jobs:
             sys.exit(0)
 
           hits = data.get("hits") or []
+          print(f"RAG search returned {len(hits)} hits")
           blocks = []
           for hit in hits:
             payload = hit.get("payload") or {}
@@ -376,8 +377,10 @@ jobs:
             blocks.append(f"{header}{meta_line}\n{text}")
 
           if not blocks:
+            print("No valid blocks extracted from RAG hits (missing text field?)")
             sys.exit(0)
 
+          print(f"Extracted {len(blocks)} blocks from RAG hits")
           max_context_chars = 10000
           separator = "\n\n---\n\n"
           context = ""
