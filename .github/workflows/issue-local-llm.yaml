@@ -271,6 +271,8 @@ jobs:
           - Start with "diff --git"
           - Use repo-relative paths
           - No markdown code blocks (no ```)
+          - If modifying an existing file (even if empty), DO NOT use "new file mode" or /dev/null
+          - Treat paths mentioned in the issue or RAG context as existing unless explicitly asked to create new files
 
           B) JSON actions (only if diff is not possible), exact format:
           {"analysis":"Brief analysis","actions":[{"type":"create","path":"platform/stacks/.../file.yaml","content":"YAML content"}],"commit_message":"feat: message","pr_title":"feat: title","pr_body":"description"}
