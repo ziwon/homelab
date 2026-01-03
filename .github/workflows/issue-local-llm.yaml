@@ -269,16 +269,34 @@ jobs:
           {"analysis":"Brief analysis","actions":[{"type":"create","path":"platform/stacks/.../file.yaml","content":"YAML content"}],"commit_message":"feat: message","pr_title":"feat: title","pr_body":"description"}
 
           CRITICAL RULES FOR OUTPUT:
-          - Start output with { (opening brace)
-          - End output with } (closing brace)
+          - Your response MUST be ONLY valid JSON, nothing else
+          - Start with { and end with }
           - NO markdown code blocks (no ```)
-          - NO explanatory text before or after JSON
-          - NO trailing commas
-          - NO backslash characters in YAML content (they break JSON parsing)
-          - Escape double quotes in content with \"
-          - Use \n for newlines in content field
+          - NO explanatory text before or after the JSON
+          - NO trailing commas in arrays or objects
+
+          JSON ESCAPE RULES (VERY IMPORTANT):
+          In the "content" field, you can ONLY use these escape sequences:
+            * \\n for newlines (line breaks in YAML)
+            * \\\" for double quotes
+            * \\\\ for a literal backslash character
+
+          FORBIDDEN ESCAPES (will break JSON parsing):
+            * \\ followed by space (\\  ) - NEVER DO THIS
+            * \\ at end of line before \\n - NEVER DO THIS
+            * \\t, \\r, \\b, \\f - DO NOT USE THESE
+            * \\ before any other character - INVALID
+
+          CORRECT EXAMPLE:
+          {\"content\":\"apiVersion: v1\\nkind: Service\\nmetadata:\\n  name: \\\"my-service\\\"\\n\"}
+
+          WRONG EXAMPLES (DO NOT DO THIS):
+          {\"content\":\"name: \\\"value\\\"\\  \\n\"}  ← backslash-space is INVALID
+          {\"content\":\"line1\\\\nline2\"}  ← double backslash before n is WRONG
+
           - Keep YAML content concise - do NOT repeat configuration blocks
           - Maximum 200 lines of YAML content per file
+          - Before responding, mentally validate your JSON is syntactically correct
           PROMPT_EOF2
 
       - name: Fetch code RAG context
