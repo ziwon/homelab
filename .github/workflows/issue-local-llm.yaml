@@ -249,16 +249,10 @@ jobs:
           ## TASK
           Create ArgoCD application YAML based on the issue description.
 
-          ## SOURCE OF TRUTH (CRITICAL)
+          ## SOURCE OF TRUTH
           - Git repository files are the ONLY source of truth
-          - RAG context below is for FORMAT REFERENCE ONLY
-          - DO NOT merge RAG content with git files
-          - If creating a new file: write fresh content based on skill templates
-          - If modifying existing file: REPLACE entirely, don't append
-
-          ## OUTPUT FORMAT (choose ONE)
-          A) Unified diff: Start with "diff --git", no markdown blocks
-          B) JSON: {"analysis":"...","actions":[{"type":"create","path":"...","content":"..."}],"commit_message":"...","pr_title":"...","pr_body":"..."}
+          - RAG context is for FORMAT REFERENCE ONLY - do not copy directly
+          - Create fresh content based on skill templates
 
           ## CRITICAL RULES
           1. Extract URLs/versions from issue (e.g., 'helm repo add NAME URL' -> repoURL: URL)
@@ -269,31 +263,20 @@ jobs:
           - Each key MUST appear EXACTLY ONCE in its parent map
           - NEVER repeat blocks like supersetNode, supersetWorker, etc.
           - Keep values MINIMAL - only include necessary overrides
-          - DO NOT copy entire chart defaults
-          - Total output should be under 1200 lines
 
-          ## MINIMAL VALUES EXAMPLE
-          For Helm apps, only include what's needed:
-          ```yaml
-          values: |
-            replicaCount: 1
-            postgresql:
-              enabled: false
-            redis:
-              enabled: false
-            persistence:
-              enabled: true
-              size: 10Gi
-            resources:
-              requests:
-                cpu: 500m
-                memory: 1Gi
-          ```
+          ## OUTPUT FORMAT (JSON ONLY)
+          Output ONLY valid JSON in this exact format (no text before or after):
 
-          ## OUTPUT RULES
-          - NO markdown code blocks in final output
-          - NO explanatory text before/after
-          - JSON: escape quotes (\") and use \\n for newlines
+          {"analysis":"Brief analysis","actions":[{"type":"create","path":"platform/stacks/.../file.yaml","content":"YAML content"}],"commit_message":"feat: message","pr_title":"feat: title","pr_body":"description"}
+
+          ## OUTPUT RULES (CRITICAL)
+          - Start output with { (opening brace)
+          - End output with } (closing brace)
+          - NO markdown code blocks (no ```)
+          - NO explanatory text before or after JSON
+          - NO trailing commas
+          - Escape quotes in content with \"
+          - Use \n for newlines in content field
           PROMPT_EOF2
 
       - name: Fetch code RAG context
