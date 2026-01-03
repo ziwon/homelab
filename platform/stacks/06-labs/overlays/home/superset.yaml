@@ -1,1 +1,55 @@
+apps:
+  # Step 1: Deploy InfisicalSecret first (lower syncWave)
+  - name: superset-raw
+    namespace: superset
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: superset-managed-secrets
+                namespace: superset
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: superset-managed-secrets
+                    secretNamespace: superset
+                    creationPolicy: Owner
 
+  # Step 2: Deploy Helm chart with dependency
+  - name: superset
+    namespace: superset
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: http://apache.github.io/superset/
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: superset
+        values: |
+          replicaCount: 1
+          postgresql:
+            enabled: false
+          redis:
+            enabled: false
+          persistence:
