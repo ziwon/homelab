@@ -1,0 +1,118 @@
+apps:
+  # InfisicalSecret for Superset managed secrets
+  - name: superset-raw
+    namespace: superset
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-superset-secrets
+                namespace: superset
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-superset-secrets
+                    secretNamespace: superset
+                    creationPolicy: Owner
+
+  # Superset Helm chart with external PostgreSQL and built-in Redis
+  - name: superset
+    namespace: superset
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: http://apache.github.io/superset/
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: my-superset
+        values: |
+          # Image configuration
+          image:
+            repository: apachesuperset.docker.scarf.sh/apache/superset
+            tag: "0.15.0"
+
+          # Database configuration (external PostgreSQL)
+          postgresql:
+            enabled: false
+
+          # Redis configuration (built-in)
+          redis:
+            enabled: true
+            architecture: standalone
+            auth:
+              enabled: false
+              password: superset
+
+          # Superset node configuration
+          supersetNode:
+            replicas:
+              enabled: true
+              replicaCount: 1
+            connections:
+              redis_host: "{{ .Release.Name }}-redis-headless"
+              redis_port: "6379"
+              redis_user: ""
+              redis_cache_db: "1"
+              redis_celery_db: "0"
+              db_host: "{{ .Release.Name }}-postgresql"
+              db_port: "5432"
+              db_user: superset
+              db_pass: superset
+              db_name: superset
+
+          # Superset worker configuration
+          supersetWorker:
+            replicas:
+              enabled: true
+              replicaCount: 1
+
+          # Init configuration
+          init:
+            enabled: true
+            createAdmin: true
+            adminUser:
+              username: admin
+              firstname: Superset
+              lastname: Admin
+              email: admin@superset.com
+              password: admin
+            loadExamples: false
+
+          # Service configuration
+          service:
+            type: ClusterIP
+            port: 8088
+
+          # Resources
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+
+          # Security context
+          podSecurityContext: {}
+          containerSecurityContext: {}
