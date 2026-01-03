@@ -46,6 +46,7 @@ jobs:
 
     env:
       CODE_EMBEDDER_URL: http://code-embedder-api.code-embedder.svc:8090
+      DEBUG_LLM_RESPONSE: "true"
 
     steps:
       - name: Determine LLM target
@@ -264,39 +265,25 @@ jobs:
           Instructions:
           1. Analyze the issue and extract all information (URLs, versions, configs)
           2. Create the necessary YAML files following skill templates
-          3. Output ONLY valid JSON in this exact format (no text before or after):
+          3. Output ONLY ONE of the following (no text before or after):
 
+          A) Unified diff (preferred):
+          - Start with "diff --git"
+          - Use repo-relative paths
+          - No markdown code blocks (no ```)
+
+          B) JSON actions (only if diff is not possible), exact format:
           {"analysis":"Brief analysis","actions":[{"type":"create","path":"platform/stacks/.../file.yaml","content":"YAML content"}],"commit_message":"feat: message","pr_title":"feat: title","pr_body":"description"}
 
           CRITICAL RULES FOR OUTPUT:
-          - Your response MUST be ONLY valid JSON, nothing else
-          - Start with { and end with }
           - NO markdown code blocks (no ```)
-          - NO explanatory text before or after the JSON
+          - NO explanatory text before or after output
           - NO trailing commas in arrays or objects
-
-          JSON ESCAPE RULES (VERY IMPORTANT):
-          In the "content" field, you can ONLY use these escape sequences:
-            * \\n for newlines (line breaks in YAML)
-            * \\\" for double quotes
-            * \\\\ for a literal backslash character
-
-          FORBIDDEN ESCAPES (will break JSON parsing):
-            * \\ followed by space (\\  ) - NEVER DO THIS
-            * \\ at end of line before \\n - NEVER DO THIS
-            * \\t, \\r, \\b, \\f - DO NOT USE THESE
-            * \\ before any other character - INVALID
-
-          CORRECT EXAMPLE:
-          {\"content\":\"apiVersion: v1\\nkind: Service\\nmetadata:\\n  name: \\\"my-service\\\"\\n\"}
-
-          WRONG EXAMPLES (DO NOT DO THIS):
-          {\"content\":\"name: \\\"value\\\"\\  \\n\"}  ← backslash-space is INVALID
-          {\"content\":\"line1\\\\nline2\"}  ← double backslash before n is WRONG
-
+          - If JSON: start with { and end with }
+          - If JSON: escape backslashes (\\) and double quotes (\") inside content
+          - If JSON: use \\n for newlines in content field
           - Keep YAML content concise - do NOT repeat configuration blocks
           - Maximum 200 lines of YAML content per file
-          - Before responding, mentally validate your JSON is syntactically correct
           PROMPT_EOF2
 
       - name: Fetch code RAG context
@@ -460,7 +447,7 @@ jobs:
           llm_url: ${{ steps.llm.outputs.endpoint }}/v1/chat/completions
           model: ${{ steps.llm.outputs.model }}
           temperature: '0.1'
-          max_tokens: '4096'
+          max_tokens: '8192'
           timeout_ms: '1200000'
           prompt_file: /tmp/prompt.txt
           # Issue/PR context
@@ -488,6 +475,33 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
           installation_id: ${{ secrets.APP_INSTALLATION_ID }}
+
+      - name: Debug LLM response
+        if: steps.llm.outputs.skip != 'true' && env.DEBUG_LLM_RESPONSE == 'true'
+        run: |
+          set -euo pipefail
+          response="${{ steps.restack.outputs.llm_response }}"
+          if [ -z "$response" ]; then
+            echo "LLM response is empty" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          printf '%s' "$response" > /tmp/llm_response.txt
+          echo "LLM response bytes: $(wc -c < /tmp/llm_response.txt)" >> "$GITHUB_STEP_SUMMARY"
+          head -c 1000 /tmp/llm_response.txt > /tmp/llm_response_head.txt
+          tail -c 1000 /tmp/llm_response.txt > /tmp/llm_response_tail.txt
+          echo "LLM response head (1k):"
+          cat /tmp/llm_response_head.txt
+          echo ""
+          echo "LLM response tail (1k):"
+          cat /tmp/llm_response_tail.txt
+          echo ""
+
+      - name: Upload LLM response artifact
+        if: steps.llm.outputs.skip != 'true' && env.DEBUG_LLM_RESPONSE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-response
+          path: /tmp/llm_response.txt
 
       - name: Output result
         if: steps.llm.outputs.skip != 'true'
