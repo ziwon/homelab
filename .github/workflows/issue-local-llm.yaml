@@ -246,72 +246,46 @@ jobs:
 
           cat >> /tmp/prompt.txt << 'PROMPT_EOF2'
 
-          CRITICAL RULES:
-          1. ALWAYS extract actual values from the issue description (URLs, versions, config)
-          2. Skills show YAML FORMAT only - never copy placeholder values like 'cpu: 100m'
-          3. When issue says 'helm repo add NAME URL', use that URL as repoURL
-          4. For ArgoCD apps, use 'apps:' list format (NOT raw ApplicationSet)
-          5. File location: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+          ## TASK
+          Create ArgoCD application YAML based on the issue description.
 
-          Helm URL conversion examples:
-          - 'helm repo add superset http://apache.github.io/superset/' -> repoURL: 'http://apache.github.io/superset'
-          - 'helm repo add grafana https://grafana.github.io/helm-charts' -> repoURL: 'https://grafana.github.io/helm-charts'
+          ## OUTPUT FORMAT (choose ONE)
+          A) Unified diff: Start with "diff --git", no markdown blocks
+          B) JSON: {"analysis":"...","actions":[{"type":"create","path":"...","content":"..."}],"commit_message":"...","pr_title":"...","pr_body":"..."}
 
-          For resources/values: Use reasonable defaults for the specific application type.
-          - Web apps: cpu 200m-1000m, memory 256Mi-1Gi
-          - Databases: cpu 500m-2000m, memory 512Mi-4Gi
-          - ML/Analytics: cpu 1000m-4000m, memory 1Gi-8Gi
+          ## CRITICAL RULES
+          1. Extract URLs/versions from issue (e.g., 'helm repo add NAME URL' -> repoURL: URL)
+          2. File path: platform/stacks/{NN}-{category}/overlays/home/{app-name}.yaml
+          3. Use 'apps:' list format for ArgoCD applications
 
-          Instructions:
-          1. Analyze the issue and extract all information (URLs, versions, configs)
-          2. Create the necessary YAML files following skill templates
-          3. Output ONLY ONE of the following (no text before or after):
+          ## YAML RULES (MANDATORY)
+          - Each key MUST appear EXACTLY ONCE in its parent map
+          - NEVER repeat blocks like supersetNode, supersetWorker, etc.
+          - Keep values MINIMAL - only include necessary overrides
+          - DO NOT copy entire chart defaults
 
-          A) Unified diff (preferred):
-          - Start with "diff --git"
-          - Use repo-relative paths
-          - No markdown code blocks (no ```)
-          - If modifying an existing file (even if empty), DO NOT use "new file mode" or /dev/null
-          - Treat paths mentioned in the issue or RAG context as existing unless explicitly asked to create new files
-
-          B) JSON actions (only if diff is not possible), exact format:
-          {"analysis":"Brief analysis","actions":[{"type":"create","path":"platform/stacks/.../file.yaml","content":"YAML content"}],"commit_message":"feat: message","pr_title":"feat: title","pr_body":"description"}
-
-          CRITICAL RULES FOR OUTPUT:
-          - NO markdown code blocks (no ```)
-          - NO explanatory text before or after output
-          - NO trailing commas in arrays or objects
-          - If JSON: start with { and end with }
-          - If JSON: escape backslashes (\\) and double quotes (\") inside content
-          - If JSON: use \\n for newlines in content field
-          - For Helm values: ONLY include overrides needed for this request (never paste full chart defaults)
-          - YAML DEDUPLICATION IS MANDATORY: Each YAML key must appear EXACTLY ONCE in its parent map
-          - NEVER repeat configuration blocks (e.g., supersetNode, supersetWorker, etc.)
-          - If you need to configure a key, write it ONCE with all its properties
-          - No hard line limit, but keep outputs minimal and focused on required overrides
-
-          EXAMPLE OF INVALID YAML (DO NOT DO THIS):
-          ```
-          supersetNode:
-            replicas: 1
-          supersetNode:
-            autoscaling: false
-          supersetNode:
-            podDisruptionBudget: false
+          ## MINIMAL VALUES EXAMPLE
+          For Helm apps, only include what's needed:
+          ```yaml
+          values: |
+            replicaCount: 1
+            postgresql:
+              enabled: false
+            redis:
+              enabled: false
+            persistence:
+              enabled: true
+              size: 10Gi
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
           ```
 
-          EXAMPLE OF VALID YAML (DO THIS):
-          ```
-          supersetNode:
-            replicas: 1
-            autoscaling: false
-            podDisruptionBudget: false
-          ```
-
-          Before outputting, verify:
-          1. No duplicate keys at any level
-          2. All configuration for a component is grouped under ONE key
-          3. YAML is valid and parseable
+          ## OUTPUT RULES
+          - NO markdown code blocks in final output
+          - NO explanatory text before/after
+          - JSON: escape quotes (\") and use \\n for newlines
           PROMPT_EOF2
 
       - name: Fetch code RAG context
@@ -475,8 +449,8 @@ jobs:
           llm_url: ${{ steps.llm.outputs.endpoint }}/v1/chat/completions
           model: ${{ steps.llm.outputs.model }}
           temperature: '0.1'
-          max_tokens: '4096'
-          timeout_ms: '1200000'
+          max_tokens: '16384'
+          timeout_ms: '600000'
           prompt_file: /tmp/prompt.txt
           # Issue/PR context
           issue_number: ${{ github.event.issue.number || github.event.pull_request.number }}
