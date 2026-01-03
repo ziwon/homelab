@@ -249,6 +249,13 @@ jobs:
           ## TASK
           Create ArgoCD application YAML based on the issue description.
 
+          ## SOURCE OF TRUTH (CRITICAL)
+          - Git repository files are the ONLY source of truth
+          - RAG context below is for FORMAT REFERENCE ONLY
+          - DO NOT merge RAG content with git files
+          - If creating a new file: write fresh content based on skill templates
+          - If modifying existing file: REPLACE entirely, don't append
+
           ## OUTPUT FORMAT (choose ONE)
           A) Unified diff: Start with "diff --git", no markdown blocks
           B) JSON: {"analysis":"...","actions":[{"type":"create","path":"...","content":"..."}],"commit_message":"...","pr_title":"...","pr_body":"..."}
@@ -263,6 +270,7 @@ jobs:
           - NEVER repeat blocks like supersetNode, supersetWorker, etc.
           - Keep values MINIMAL - only include necessary overrides
           - DO NOT copy entire chart defaults
+          - Total output should be under 1200 lines
 
           ## MINIMAL VALUES EXAMPLE
           For Helm apps, only include what's needed:
@@ -419,7 +427,10 @@ jobs:
           if [ -s /tmp/rag_context.txt ]; then
             cat >> /tmp/prompt.txt << 'PROMPT_EOF3'
 
-          RAG CONTEXT:
+          ## RAG CONTEXT (REFERENCE ONLY - DO NOT COPY DIRECTLY)
+          The following is similar code from the repository for FORMAT reference.
+          DO NOT merge this with your output. Create fresh content based on the issue request.
+          ---
           PROMPT_EOF3
             cat /tmp/rag_context.txt >> /tmp/prompt.txt
           fi
