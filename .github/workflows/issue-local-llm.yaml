@@ -459,10 +459,10 @@ jobs:
           pr_base_ref: ${{ github.event.pull_request.base.ref }}
           # Commit/PR options
           commit: 'true'
-          commit_message: 'chore: automated fix by ${{ steps.llm.outputs.name }}'
+          commit_message: ''
           create_pr: 'true'
-          pr_title: 'fix: Issue #${{ github.event.issue.number }}'
-          pr_body: 'Automated fix for issue #${{ github.event.issue.number }}'
+          pr_title: ''
+          pr_body: ''
           branch: ${{ format('{0}/issue-{1}', steps.llm.outputs.name, github.event.issue.number) }}
           base_branch: main
           bot_name: ${{ steps.llm.outputs.name }}
