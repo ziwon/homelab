@@ -285,9 +285,33 @@ jobs:
           - If JSON: escape backslashes (\\) and double quotes (\") inside content
           - If JSON: use \\n for newlines in content field
           - For Helm values: ONLY include overrides needed for this request (never paste full chart defaults)
-          - Never repeat the same YAML key in the same map (dedupe; last-key-wins is NOT acceptable)
+          - YAML DEDUPLICATION IS MANDATORY: Each YAML key must appear EXACTLY ONCE in its parent map
+          - NEVER repeat configuration blocks (e.g., supersetNode, supersetWorker, etc.)
+          - If you need to configure a key, write it ONCE with all its properties
           - No hard line limit, but keep outputs minimal and focused on required overrides
-          - Keep YAML content concise - do NOT repeat configuration blocks
+
+          EXAMPLE OF INVALID YAML (DO NOT DO THIS):
+          ```
+          supersetNode:
+            replicas: 1
+          supersetNode:
+            autoscaling: false
+          supersetNode:
+            podDisruptionBudget: false
+          ```
+
+          EXAMPLE OF VALID YAML (DO THIS):
+          ```
+          supersetNode:
+            replicas: 1
+            autoscaling: false
+            podDisruptionBudget: false
+          ```
+
+          Before outputting, verify:
+          1. No duplicate keys at any level
+          2. All configuration for a component is grouped under ONE key
+          3. YAML is valid and parseable
           PROMPT_EOF2
 
       - name: Fetch code RAG context
