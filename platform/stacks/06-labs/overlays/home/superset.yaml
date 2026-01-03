@@ -1,0 +1,796 @@
+apps:
+  # Step 1: Deploy InfisicalSecret first (lower syncWave)
+  - name: superset-raw
+    namespace: superset
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: superset-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: superset-managed-secrets
+                namespace: superset
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /superset
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: superset-managed-secrets
+                    secretNamespace: superset
+                    creationPolicy: Owner
+
+  # Step 2: Deploy Helm chart with dependency
+  - name: superset
+    namespace: superset
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - superset-raw
+    source:
+      repoURL: http://apache.github.io/superset/
+      chart: superset
+      targetRevision: "0.15.0"
+      helm:
+        releaseName: superset
+        values: |
+          replicaCount: 1
+          postgresql:
+            enabled: false
+          redis:
+            enabled: false
+          persistence:
+            enabled: true
+            size: 10Gi
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          # Reference the managed secret
+          extraEnvVarsSecret: superset-managed-secrets
+          # External DB Configuration
+          supersetNode:
+            connections:
+              db_host: "postgres"
+              db_port: "5432"
+              db_user: superset
+              db_pass: superset
+              db_name: superset
+              redis_host: "redis"
+              redis_port: "6379"
+              redis_user: ""
+              redis_cache_db: "1"
+              redis_celery_db: "0"
+          # Disable init container for external DB
+          init:
+            enabled: false
+          # Configure service
+          service:
+            type: ClusterIP
+            port: 8088
+          # Configure ingress (optional)
+          ingress:
+            enabled: false
+          # Configure Redis and PostgreSQL dependencies
+          redis:
+            enabled: false
+          postgresql:
+            enabled: false
+          # Configure extra environment variables for external DB
+          extraEnvVars:
+            - name: DB_HOST
+              value: "postgres"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: superset
+            - name: DB_PASS
+              value: superset
+            - name: DB_NAME
+              value: superset
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_USER
+              value: ""
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+          # Configure Redis connection for external Redis
+          extraEnvVarsSecret: superset-managed-secrets
+          # Configure Redis and PostgreSQL connection strings
+          extraEnvVars:
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+                       - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: REDIS_CACHE_DB
+              value: "1"
+            - name: REDIS_CELERY_DB
+              value: "0"
+            - name: REDIS_SSL_ENABLED
+              value: "false"
+            - name: REDIS_SSL_CERT_REQS
+              value: "CERT_NONE"
+            - name: DB_URL
+              value: "postgresql://superset:superset@postgres:5432/superset"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name
