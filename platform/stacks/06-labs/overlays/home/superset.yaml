@@ -14,7 +14,7 @@ apps:
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
               metadata:
-                name: superset-managed-secrets
+                name: managed-superset-secrets
                 namespace: superset
               spec:
                 hostAPI: https://app.infisical.com/api
@@ -28,7 +28,7 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
                 managedKubeSecretReferences:
-                  - secretName: superset-managed-secrets
+                  - secretName: managed-superset-secrets
                     secretNamespace: superset
                     creationPolicy: Owner
 
@@ -43,7 +43,7 @@ apps:
       chart: superset
       targetRevision: "0.15.0"
       helm:
-        releaseName: my-superset
+        releaseName: superset
         values: |
           replicaCount: 1
 
@@ -53,22 +53,29 @@ apps:
 
           # Redis configuration
           redis:
-            enabled: true
+            enabled: false
 
-          # External database connection
+          # External database setup
           supersetNode:
             connections:
-              db_host: "{{ .Release.Name }}-postgresql"
+              db_host: "postgres.postgres.svc"
               db_port: "5432"
               db_user: superset
               db_pass: superset
               db_name: superset
-              redis_host: "{{ .Release.Name }}-redis-headless"
+              redis_host: "redis.redis.svc"
               redis_port: "6379"
               redis_user: ""
+              redis_password: superset
               redis_cache_db: "1"
               redis_celery_db: "0"
-              redis_password: superset
+              redis_ssl:
+                enabled: false
+                ssl_cert_reqs: CERT_NONE
+
+          # External secrets
+          secretEnv:
+            create: false
 
           # Service configuration
           service:
@@ -84,7 +91,22 @@ apps:
               cpu: 2000m
               memory: 4Gi
 
-          # Init configuration
+          # Init container
+          init:
+            enabled: true
+            initContainers:
+              - name: wait-for-postgres-redis
+                image: apache/superset:dockerize
+                imagePullPolicy: IfNotPresent
+                envFrom:
+                  - secretRef:
+                      name: "superset-env"
+                command:
+                  - /bin/sh
+                  - -c
+                  - dockerize -wait "tcp://$DB_HOST:$DB_PORT" -wait "tcp://$REDIS_HOST:$REDIS_PORT" -timeout 120s
+
+          # Init script
           init:
             createAdmin: true
             adminUser:
@@ -93,64 +115,6 @@ apps:
               lastname: Admin
               email: admin@superset.com
               password: admin
-            loadExamples: false
-
-          # Security settings
-          secretEnv:
-            create: true
-
-          # Environment variables
-          extraEnvVars:
-            - name: SUPERSET_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: SUPERSET_SECRET_KEY
-            - name: DATABASE_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: DATABASE_HOST
-            - name: DATABASE_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: DATABASE_PORT
-            - name: DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: DATABASE_USER
-            - name: DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: DATABASE_PASSWORD
-            - name: DATABASE_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: DATABASE_NAME
-            - name: REDIS_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: REDIS_HOST
-            - name: REDIS_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: REDIS_PORT
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: REDIS_PASSWORD
-            - name: REDIS_DB
-              valueFrom:
-                secretKeyRef:
-                  name: superset-managed-secrets
-                  key: REDIS_DB
 
           # Persistence
           persistence:
@@ -159,451 +123,462 @@ apps:
             storageClassName: local-path
 
           # Security context
-          podSecurityContext:
-            runAsUser: 0
+          podSecurityContext: {}
+          containerSecurityContext: {}
 
-          # Container security context
-          containerSecurityContext:
-            runAsUser: 0
+          # Probes
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 60
+            periodSeconds: 5
+            successThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 3
+            periodSeconds: 15
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 3
+            periodSeconds: 15
+            successThreshold: 1
 
-          # Additional configurations
-          extraConfigMountPath: "/app/configs"
+          # Additional environment variables
+          extraEnvVars:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: secret-key
+            - name: DATABASE_HOST
+              value: "postgres.postgres.svc"
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_USER
+              value: superset
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: database-password
+            - name: DATABASE_NAME
+              value: superset
+            - name: REDIS_HOST
+              value: "redis.redis.svc"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: managed-superset-secrets
+                  key: redis-password
+            - name: REDIS_DB
+              value: "1"
+
+          # Additional configuration
+          configFromSecret: "superset-config"
+          envFromSecret: "superset-env"
 
           # Additional volumes
           extraVolumes:
-            - name: superset-config
+            - name: config
               configMap:
                 name: superset-config
+            - name: secrets
+              secret:
+                secretName: managed-superset-secrets
 
-          # Additional volume mounts
           extraVolumeMounts:
-            - name: superset-config
-              mountPath: /app/configs
+            - name: config
+              mountPath: /app/pythonpath
+            - name: secrets
+              mountPath: /app/secrets
 
-          # Additional containers
-          extraContainers: []
+          # Additional labels
+          extraLabels:
+            app.kubernetes.io/name: superset
+            app.kubernetes.io/instance: superset
+            app.kubernetes.io/version: "0.15.0"
 
-          # Additional init containers
-          initContainers:
-            - name: wait-for-postgres-redis
-              image: "{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}"
-              imagePullPolicy: "{{ .Values.initImage.pullPolicy }}"
-              envFrom:
-                - secretRef:
-                    name: "{{ tpl .Values.envFromSecret . }}"
-              command:
-                - /bin/sh
-                - -c
-                - dockerize -wait "tcp://$DB_HOST:$DB_PORT" -wait "tcp://$REDIS_HOST:$REDIS_PORT" -timeout 120s
+          # Additional annotations
+          annotations:
+            app.kubernetes.io/name: superset
+            app.kubernetes.io/instance: superset
+            app.kubernetes.io/version: "0.15.0"
 
-          # Additional environment variables
-          extraEnvVarsSecret: superset-managed-secrets
+          # Node selector
+          nodeSelector: {}
 
-          # Additional secret environment variables
-          extraSecretEnv:
-            SUPERSET_SECRET_KEY: ""
+          # Tolerations
+          tolerations: []
 
-          # Additional config overrides
-          configOverrides:
-            secret: |
-              # Generate your own secret key for encryption. Use `openssl rand -base64 42` to generate a good key
-              SECRET_KEY = 'CHANGE_ME_TO_A_COMPLEX_RANDOM_SECRET'
+          # Affinity
+          affinity: {}
 
-          # Additional config mount path
-          configMountPath: "/app/pythonpath"
+          # Topology spread constraints
+          topologySpreadConstraints: []
 
-          # Additional config files
+          # Priority class name
+          priorityClassName: ~
+
+          # Service account
+          serviceAccountName: ~
+
+          # Image pull secrets
+          imagePullSecrets: []
+
+          # Init image
+          initImage:
+            repository: apache/superset
+            tag: dockerize
+            pullPolicy: IfNotPresent
+
+          # Bootstrap script
+          bootstrapScript: |
+            #!/bin/bash
+            if [ ! -f ~/bootstrap ]; then echo "Running Superset with uid {{ .Values.runAsUser }}" > ~/bootstrap; fi
+
+          # Config overrides
+          configOverrides: {}
+
+          # Config overrides files
           configOverridesFiles: {}
 
-          # Additional files to be mounted as ConfigMap
-          extraConfigs: {}
+          # Config mount path
+          configMountPath: "/app/pythonpath"
 
-          # Additional files to be mounted as Secrets
-          extraSecrets: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional files to be mounted as ConfigMap
+          # Extra config mount path
           extraConfigMountPath: "/app/configs"
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra configs
+          extraConfigs: {}
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra secrets
+          extraSecrets: {}
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra containers
+          extraContainers: []
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra init containers
+          extraInitContainers: []
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra deployment annotations
+          deploymentAnnotations: {}
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra pod annotations
+          podAnnotations: {}
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra pod labels
+          podLabels: {}
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra deployment labels
+          deploymentLabels: {}
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service annotations
+          serviceAnnotations: {}
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra ingress annotations
+          ingressAnnotations: {}
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra ingress hosts
+          ingressHosts: []
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra ingress tls
+          ingressTLS: []
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra ingress extra hosts
+          ingressExtraHostsRaw: []
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra ingress path type
+          ingressPathType: ImplementationSpecific
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra ingress path
+          ingressPath: /
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra ingress class name
+          ingressClassName: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra ingress enabled
+          ingressEnabled: false
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service type
+          serviceType: ClusterIP
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service port
+          servicePort: 8088
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service load balancer IP
+          serviceLoadBalancerIP: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service node port
+          serviceNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service annotations
+          serviceAnnotations: {}
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service load balancer source ranges
+          serviceLoadBalancerSourceRanges: []
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service external name
+          serviceExternalName: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service external traffic policy
+          serviceExternalTrafficPolicy: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service internal traffic policy
+          serviceInternalTrafficPolicy: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service session affinity
+          serviceSessionAffinity: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service session affinity config
+          serviceSessionAffinityConfig: {}
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-                   extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-                   extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-                   extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-                   extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-                   extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-                   extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-                   extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-                   extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-                   extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-                   extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-                   extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
+          # Extra service health check node port
+          serviceHealthCheckNodePort: ~
 
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw: []
-
-          # Additional environment variables to pass as secrets
-          extraSecretEnv: {}
-
-          # Additional environment variables in RAW format
-          extraEnvRaw:
+          # Extra service health check node port
+          serviceHealthCheckNodePort
