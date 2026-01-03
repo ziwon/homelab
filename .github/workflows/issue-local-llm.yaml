@@ -286,9 +286,8 @@ jobs:
           - If JSON: use \\n for newlines in content field
           - For Helm values: ONLY include overrides needed for this request (never paste full chart defaults)
           - Never repeat the same YAML key in the same map (dedupe; last-key-wins is NOT acceptable)
-          - If you exceed 200 lines, reduce to minimal overrides and remove duplicates
+          - No hard line limit, but keep outputs minimal and focused on required overrides
           - Keep YAML content concise - do NOT repeat configuration blocks
-          - Maximum 200 lines of YAML content per file
           PROMPT_EOF2
 
       - name: Fetch code RAG context
