@@ -477,15 +477,16 @@ jobs:
           installation_id: ${{ secrets.APP_INSTALLATION_ID }}
 
       - name: Debug LLM response
-        if: steps.llm.outputs.skip != 'true' && env.DEBUG_LLM_RESPONSE == 'true'
+        if: always() && steps.llm.outputs.skip != 'true' && env.DEBUG_LLM_RESPONSE == 'true'
+        env:
+          LLM_RESPONSE: ${{ steps.restack.outputs.llm_response }}
         run: |
           set -euo pipefail
-          response="${{ steps.restack.outputs.llm_response }}"
-          if [ -z "$response" ]; then
+          if [ -z "${LLM_RESPONSE:-}" ]; then
             echo "LLM response is empty" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          printf '%s' "$response" > /tmp/llm_response.txt
+          printf '%s' "$LLM_RESPONSE" > /tmp/llm_response.txt
           echo "LLM response bytes: $(wc -c < /tmp/llm_response.txt)" >> "$GITHUB_STEP_SUMMARY"
           head -c 1000 /tmp/llm_response.txt > /tmp/llm_response_head.txt
           tail -c 1000 /tmp/llm_response.txt > /tmp/llm_response_tail.txt
@@ -497,7 +498,7 @@ jobs:
           echo ""
 
       - name: Upload LLM response artifact
-        if: steps.llm.outputs.skip != 'true' && env.DEBUG_LLM_RESPONSE == 'true'
+        if: always() && steps.llm.outputs.skip != 'true' && env.DEBUG_LLM_RESPONSE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: llm-response
