@@ -107,25 +107,119 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
-      - name: Read skill templates
+      - name: Select and load relevant skills
         if: steps.llm.outputs.skip != 'true'
         id: skills
         run: |
-          # Read all skill templates from .claude/skills/
-          ALL_SKILLS=""
-          for skill_dir in .claude/skills/*/; do
-            if [ -f "${skill_dir}SKILL.md" ]; then
-              skill_name=$(basename "$skill_dir")
-              skill_content=$(cat "${skill_dir}SKILL.md")
-              ALL_SKILLS="${ALL_SKILLS}
+          # Analyze issue content and load only relevant skills
+          python3 << 'PY'
+          import os
+          import re
+          import json
 
-          === SKILL: ${skill_name} ===
-          ${skill_content}
-          "
-            fi
-          done
-          # Write to file for prompt generation
-          echo "$ALL_SKILLS" > /tmp/all_skills.txt
+          # Issue context from environment
+          issue_title = os.environ.get("ISSUE_TITLE", "").lower()
+          issue_body = os.environ.get("ISSUE_BODY", "").lower()
+          comment_body = os.environ.get("COMMENT_BODY", "").lower()
+          combined_text = f"{issue_title} {issue_body} {comment_body}"
+
+          # Skill keyword mapping
+          skill_keywords = {
+              "argocd-generator": [
+                  "argocd", "application", "deploy", "helm", "chart",
+                  "배포", "앱", "어플리케이션", "설치", "추가"
+              ],
+              "troubleshoot": [
+                  "error", "fail", "crash", "debug", "troubleshoot",
+                  "에러", "실패", "안됨", "안돼", "문제", "pending",
+                  "crashloopbackoff", "imagepullbackoff", "oomkilled"
+              ],
+              "kubernetes-review": [
+                  "review", "check", "validate", "manifest", "yaml",
+                  "리뷰", "검토", "확인"
+              ],
+              "manifest-validator": [
+                  "validate", "kubeconform", "kube-score", "policy",
+                  "검증", "유효성"
+              ],
+              "infisical-manager": [
+                  "infisical", "secret", "env", "environment",
+                  "시크릿", "환경변수"
+              ],
+              "codex-review": [
+                  "codex", "code review", "refactor",
+                  "코드 리뷰", "리팩토링"
+              ],
+              "gemini-research": [
+                  "research", "search", "find", "document",
+                  "리서치", "검색", "문서"
+              ],
+              "local-sensitive": [
+                  "sensitive", "credential", "private", "local",
+                  "민감", "보안"
+              ],
+          }
+
+          # Score each skill based on keyword matches
+          skill_scores = {}
+          for skill_id, keywords in skill_keywords.items():
+              score = sum(1 for kw in keywords if kw in combined_text)
+              if score > 0:
+                  skill_scores[skill_id] = score
+
+          # Select top skills (max 2) or default to argocd-generator
+          if skill_scores:
+              selected = sorted(skill_scores.keys(), key=lambda x: -skill_scores[x])[:2]
+          else:
+              # Default: most common use case
+              selected = ["argocd-generator"]
+
+          print(f"Selected skills based on keywords: {selected}")
+
+          # Load full content for selected skills only
+          skills_dir = ".claude/skills"
+          loaded_skills = []
+
+          for skill_id in selected:
+              skill_file = os.path.join(skills_dir, skill_id, "SKILL.md")
+              if os.path.isfile(skill_file):
+                  with open(skill_file, "r", encoding="utf-8") as f:
+                      content = f.read()
+                  loaded_skills.append(f"\n=== SKILL: {skill_id} ===\n{content}")
+
+          # Also load metadata for all skills (brief reference)
+          all_meta = []
+          for skill_name in sorted(os.listdir(skills_dir)):
+              skill_file = os.path.join(skills_dir, skill_name, "SKILL.md")
+              if not os.path.isfile(skill_file):
+                  continue
+              with open(skill_file, "r", encoding="utf-8") as f:
+                  content = f.read()
+              match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+              if match:
+                  frontmatter = match.group(1)
+                  desc = ""
+                  for line in frontmatter.split("\n"):
+                      if line.startswith("description:"):
+                          desc = line.split(":", 1)[1].strip()
+                          break
+                  all_meta.append(f"  - {skill_name}: {desc}")
+
+          # Write output
+          with open("/tmp/skill_summary.txt", "w") as f:
+              f.write("Available skills:\n")
+              f.write("\n".join(all_meta))
+
+          with open("/tmp/selected_skills.txt", "w") as f:
+              f.write("\n".join(loaded_skills))
+
+          with open("/tmp/selected_skill_ids.txt", "w") as f:
+              f.write(",".join(selected))
+          PY
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
+          ISSUE_BODY: ${{ github.event.issue.body || github.event.pull_request.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
 
       - name: Prepare prompt file
         if: steps.llm.outputs.skip != 'true'
@@ -139,10 +233,15 @@ jobs:
           - Follow the guidelines in CLAUDE.md and .claude/rules/
           - All infrastructure is managed via ArgoCD ApplicationSets
 
-          SKILLS (reference for YAML format ONLY - do NOT copy example values):
           PROMPT_EOF
 
-          cat /tmp/all_skills.txt >> /tmp/prompt.txt
+          # Add skill summary (metadata for reference)
+          cat /tmp/skill_summary.txt >> /tmp/prompt.txt
+
+          # Add selected skill templates (full content)
+          echo "" >> /tmp/prompt.txt
+          echo "LOADED SKILL TEMPLATES (use these for YAML format reference):" >> /tmp/prompt.txt
+          cat /tmp/selected_skills.txt >> /tmp/prompt.txt
 
           cat >> /tmp/prompt.txt << 'PROMPT_EOF2'
 
