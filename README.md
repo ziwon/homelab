@@ -120,7 +120,21 @@ GitHub Actions runners (ARC) with Claude integration:
 - Code review for security and performance
 - Manifest validation
 
-Multi-LLM routing:
+### Dynamic Skill Loading
+
+Skills are loaded on-demand based on issue content keywords:
+
+| Skill | Trigger Keywords |
+|-------|-----------------|
+| `argocd-generator` | deploy, helm, chart, 배포 |
+| `troubleshoot` | error, crash, pending, 에러 |
+| `kubernetes-review` | review, validate, yaml, 리뷰 |
+| `infisical-manager` | secret, env, 시크릿 |
+
+Only relevant skills (max 2) are loaded per request, reducing prompt size and token usage.
+
+### Multi-LLM Routing
+
 - Local (Qwen): Privacy-sensitive tasks
 - Cloud (Claude, Gemini): Complex reasoning
 

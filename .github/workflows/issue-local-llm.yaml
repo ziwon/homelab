@@ -274,8 +274,11 @@ jobs:
           - NO markdown code blocks (no ```)
           - NO explanatory text before or after JSON
           - NO trailing commas
-          - Escape quotes in content with \"
+          - NO backslash characters in YAML content (they break JSON parsing)
+          - Escape double quotes in content with \"
           - Use \n for newlines in content field
+          - Keep YAML content concise - do NOT repeat configuration blocks
+          - Maximum 200 lines of YAML content per file
           PROMPT_EOF2
 
       - name: Fetch code RAG context

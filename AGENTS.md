@@ -157,6 +157,53 @@ apps:
 - `cloud`: Cloud environment (future)
 - `disabled`: Deactivated apps
 
+## AI Agent Skills
+
+Skills are modular templates in `.claude/skills/` that agents use for specific tasks.
+
+### Dynamic Skill Loading
+
+Instead of loading all skills into prompts, the system analyzes issue content and loads only relevant skills:
+
+```
+Issue Content → Keyword Analysis → Select Top 2 Skills → Load Full Templates
+```
+
+**Keyword Mapping:**
+
+| Skill | Keywords (EN) | Keywords (KO) |
+|-------|--------------|---------------|
+| `argocd-generator` | argocd, deploy, helm, chart, application | 배포, 앱, 설치, 추가 |
+| `troubleshoot` | error, fail, crash, debug, pending | 에러, 실패, 안돼, 문제 |
+| `kubernetes-review` | review, check, validate, manifest | 리뷰, 검토, 확인 |
+| `manifest-validator` | validate, kubeconform, kube-score | 검증, 유효성 |
+| `infisical-manager` | infisical, secret, env, environment | 시크릿, 환경변수 |
+| `codex-review` | codex, code review, refactor | 코드 리뷰, 리팩토링 |
+| `gemini-research` | research, search, document | 리서치, 검색, 문서 |
+| `local-sensitive` | sensitive, credential, private | 민감, 보안 |
+
+**Default:** If no keywords match, `argocd-generator` is loaded (most common use case).
+
+### Skill File Structure
+
+```
+.claude/skills/
+├── argocd-generator/
+│   └── SKILL.md          # Frontmatter (metadata) + Full template
+├── troubleshoot/
+│   └── SKILL.md
+└── ...
+```
+
+**Frontmatter format:**
+```yaml
+---
+name: skill-name
+description: Brief description for skill selection
+allowed-tools: Bash, Read, Grep  # Optional
+---
+```
+
 ## Troubleshooting
 
 ### ArgoCD Sync Failure
