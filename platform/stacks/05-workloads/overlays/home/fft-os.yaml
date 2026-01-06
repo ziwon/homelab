@@ -358,7 +358,7 @@ apps:
               bucket: "fft-os"
 
             infisical:
-              enabled: false  # Using raw resources above
+              enabled: false # Using raw resources above
 
           # -----------------------------------------------------------
           # FFT Ingest - Binance Data Collection
@@ -499,7 +499,7 @@ apps:
             replicaCount: 1
 
             image:
-              tag: "main-latest"
+              tag: "main-b3e5260"
 
             imagePullSecrets:
               - name: harbor-secret
