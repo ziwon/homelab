@@ -41,7 +41,7 @@ apps:
                     secretsScope:
                       projectSlug: fft-os
                       envSlug: "home"
-                      secretsPath: /fft-os/binance
+                      secretsPath: /binance
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
@@ -65,7 +65,7 @@ apps:
                     secretsScope:
                       projectSlug: fft-os
                       envSlug: "home"
-                      secretsPath: /fft-os/minio
+                      secretsPath: /minio
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
@@ -89,7 +89,7 @@ apps:
                     secretsScope:
                       projectSlug: fft-os
                       envSlug: "home"
-                      secretsPath: /fft-os/risk
+                      secretsPath: /risk
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
@@ -114,7 +114,7 @@ apps:
                     secretsScope:
                       projectSlug: fft-os
                       envSlug: "home"
-                      secretsPath: /fft-os/strategies
+                      secretsPath: /strategies
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
@@ -139,7 +139,7 @@ apps:
                     secretsScope:
                       projectSlug: fft-os
                       envSlug: "home"
-                      secretsPath: /fft-os/harbor
+                      secretsPath: /harbor
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
