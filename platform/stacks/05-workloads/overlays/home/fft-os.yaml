@@ -499,7 +499,7 @@ apps:
             replicaCount: 1
 
             image:
-              tag: "main-b3e5260"
+              tag: "main-cb1a3e9"
 
             imagePullSecrets:
               - name: harbor-secret
