@@ -1,0 +1,625 @@
+apps:
+  # -----------------------------------------------------------
+  # Component A: Prerequisites (InfisicalSecrets, HTTPRoutes)
+  # SyncWave: 0
+  # -----------------------------------------------------------
+  - name: fft-raw
+    namespace: fft-os
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: fft-raw
+        values: |
+          resources:
+            # -----------------------------------------------------------
+            # FFT-OS Namespace
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: fft-os
+                labels:
+                  name: fft-os
+                  app.kubernetes.io/name: fft-os
+
+            # -----------------------------------------------------------
+            # FFT-OS Base Secrets (Binance API credentials)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-fft-binance-secrets
+                namespace: fft-os
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: fft-os
+                      envSlug: "home"
+                      secretsPath: /fft-os/binance
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: binance-credentials
+                    secretNamespace: fft-os
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # FFT-OS MinIO Secrets (for Recorder)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-fft-minio-secrets
+                namespace: fft-os
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: fft-os
+                      envSlug: "home"
+                      secretsPath: /fft-os/minio
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: minio-credentials
+                    secretNamespace: fft-os
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # FFT-OS Risk Profile ConfigMap (from Infisical)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-fft-risk-config
+                namespace: fft-os
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: fft-os
+                      envSlug: "home"
+                      secretsPath: /fft-os/risk
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: risk-config
+                    secretNamespace: fft-os
+                    secretType: configmap
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # FFT-OS Strategy ConfigMap (from Infisical)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-fft-strategy-config
+                namespace: fft-os
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: fft-os
+                      envSlug: "home"
+                      secretsPath: /fft-os/strategies
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: strategy-config
+                    secretNamespace: fft-os
+                    secretType: configmap
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # Harbor Pull Secret
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-fft-harbor-secret
+                namespace: fft-os
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: fft-os
+                      envSlug: "home"
+                      secretsPath: /fft-os/harbor
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: harbor-secret
+                    secretNamespace: fft-os
+                    secretType: kubernetes.io/dockerconfigjson
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # HTTPRoute: Grafana Dashboard (optional)
+            # -----------------------------------------------------------
+            # - apiVersion: gateway.networking.k8s.io/v1
+            #   kind: HTTPRoute
+            #   metadata:
+            #     name: fft-dashboard
+            #     namespace: fft-os
+            #   spec:
+            #     parentRefs:
+            #       - name: cilium
+            #         namespace: infra
+            #         sectionName: https-private
+            #     hostnames:
+            #       - fft.home.lab
+            #     rules:
+            #       - matches:
+            #           - path:
+            #               type: PathPrefix
+            #               value: /
+            #         backendRefs:
+            #           - name: fft-dashboard
+            #             port: 3000
+
+            # -----------------------------------------------------------
+            # ResourceQuota
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: ResourceQuota
+              metadata:
+                name: fft-os-quota
+                namespace: fft-os
+              spec:
+                hard:
+                  requests.cpu: "8"
+                  requests.memory: "16Gi"
+                  limits.cpu: "16"
+                  limits.memory: "32Gi"
+
+            # -----------------------------------------------------------
+            # LimitRange
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: LimitRange
+              metadata:
+                name: fft-os-limits
+                namespace: fft-os
+              spec:
+                limits:
+                  - default:
+                      memory: "512Mi"
+                      cpu: "500m"
+                    defaultRequest:
+                      memory: "256Mi"
+                      cpu: "100m"
+                    type: Container
+
+  # -----------------------------------------------------------
+  # Component B: Redpanda Topic Creation Job
+  # SyncWave: 1
+  # -----------------------------------------------------------
+  - name: fft-topics-init
+    namespace: fft-os
+    project: dev
+    syncWave: "1"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: fft-topics-init
+        values: |
+          resources:
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: fft-topics-init
+                namespace: fft-os
+                annotations:
+                  argocd.argoproj.io/hook: Sync
+                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+              spec:
+                ttlSecondsAfterFinished: 3600
+                backoffLimit: 3
+                template:
+                  spec:
+                    restartPolicy: OnFailure
+                    containers:
+                      - name: rpk
+                        image: redpandadata/redpanda:latest
+                        command:
+                          - /bin/bash
+                          - -c
+                          - |
+                            set -e
+                            echo "=== FFT-OS Redpanda Topic Creation ==="
+
+                            RPK="rpk --brokers redpanda.redpanda.svc:9093"
+
+                            # Raw Events (partitioned by symbol)
+                            $RPK topic create fft.events.trades \
+                              --partitions 12 --replicas 2 \
+                              -c retention.ms=604800000 || true
+
+                            $RPK topic create fft.events.orderbook \
+                              --partitions 12 --replicas 2 \
+                              -c retention.ms=604800000 || true
+
+                            # Derived Events
+                            $RPK topic create fft.events.oi \
+                              --partitions 6 --replicas 2 \
+                              -c retention.ms=604800000 || true
+
+                            $RPK topic create fft.events.funding \
+                              --partitions 6 --replicas 2 \
+                              -c retention.ms=2592000000 || true
+
+                            # Features
+                            $RPK topic create fft.features \
+                              --partitions 12 --replicas 2 \
+                              -c retention.ms=86400000 || true
+
+                            # Risk
+                            $RPK topic create fft.risk.decisions \
+                              --partitions 6 --replicas 2 \
+                              -c retention.ms=604800000 || true
+
+                            # Trading Events
+                            $RPK topic create fft.intents \
+                              --partitions 6 --replicas 2 \
+                              -c retention.ms=2592000000 || true
+
+                            $RPK topic create fft.orders \
+                              --partitions 6 --replicas 2 \
+                              -c retention.ms=2592000000 || true
+
+                            $RPK topic create fft.fills \
+                              --partitions 6 --replicas 2 \
+                              -c retention.ms=2592000000 || true
+
+                            # System
+                            $RPK topic create fft.health \
+                              --partitions 3 --replicas 2 \
+                              -c retention.ms=86400000 || true
+
+                            # DLQ
+                            $RPK topic create fft.dlq.events \
+                              --partitions 3 --replicas 2 \
+                              -c retention.ms=604800000 || true
+
+                            echo ""
+                            echo "=== Created topics ==="
+                            $RPK topic list | grep "^fft\." || echo "No topics found"
+
+                            echo ""
+                            echo "=== Topic creation complete ==="
+                        resources:
+                          requests:
+                            cpu: 100m
+                            memory: 128Mi
+                          limits:
+                            cpu: 500m
+                            memory: 256Mi
+
+  # -----------------------------------------------------------
+  # Component C: FFT-OS Umbrella Chart
+  # SyncWave: 5
+  # -----------------------------------------------------------
+  - name: fft
+    namespace: fft-os
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - fft-raw
+      - fft-topics-init
+    source:
+      repoURL: oci://harbor.home.lab/restack/fft-os/fft
+      chart: .
+      targetRevision: 0.1.0
+      helm:
+        releaseName: fft
+        values: |
+          global:
+            namespace: fft-os
+            imageRegistry: harbor.home.lab/restack/fft-os
+            imagePullPolicy: Always
+            imageTag: "0.1.0"
+
+            redpanda:
+              brokers: "redpanda.redpanda.svc:9093"
+              saslEnabled: false
+
+            redis:
+              url: "redis://redis.redis.svc:6379"
+
+            postgres:
+              host: "cluster-pg-db-ha.postgres.svc"
+              port: 5432
+              database: "fft_os"
+
+            clickhouse:
+              host: "clickhouse.clickhouse.svc"
+              port: 8123
+
+            minio:
+              endpoint: "minio-green.minio-green.svc:9000"
+              bucket: "fft-os"
+
+            infisical:
+              enabled: false  # Using raw resources above
+
+          # -----------------------------------------------------------
+          # FFT Ingest - Binance Data Collection
+          # -----------------------------------------------------------
+          fft-ingest:
+            enabled: true
+            replicaCount: 1
+
+            image:
+              tag: "main-latest"
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            config:
+              symbols: "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT"
+              marketType: "FUTURES_USDT"
+              testnet: true
+              oiPollIntervalSeconds: 60
+              fundingPollIntervalSeconds: 300
+              logLevel: "INFO"
+
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+
+          # -----------------------------------------------------------
+          # FFT Feature Engine - MVP 10 Features
+          # -----------------------------------------------------------
+          fft-feature-engine:
+            enabled: true
+            replicaCount: 1
+
+            image:
+              tag: "main-latest"
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            config:
+              timeframes: "1s,5s,1m"
+              logLevel: "INFO"
+
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+
+          # -----------------------------------------------------------
+          # FFT Risk Kernel - Rule-based Risk Management
+          # -----------------------------------------------------------
+          fft-risk-kernel:
+            enabled: true
+            replicaCount: 1
+
+            image:
+              tag: "main-latest"
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            config:
+              riskProfilePath: "/config/risk-profile.yaml"
+              logLevel: "INFO"
+
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "250m"
+
+          # -----------------------------------------------------------
+          # FFT Strategy Runner - Plugin-based Strategies
+          # -----------------------------------------------------------
+          fft-strategy-runner:
+            enabled: true
+            replicaCount: 1
+
+            image:
+              tag: "main-latest"
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            config:
+              strategies: "absorption_breakout_v1"
+              logLevel: "INFO"
+
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+
+          # -----------------------------------------------------------
+          # FFT Execution - Order Management System (Paper Mode)
+          # -----------------------------------------------------------
+          fft-execution:
+            enabled: true
+            replicaCount: 1
+
+            image:
+              tag: "main-latest"
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            config:
+              paperMode: true
+              testnet: true
+              accountEquity: 10000
+              logLevel: "INFO"
+
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "250m"
+
+          # -----------------------------------------------------------
+          # FFT Recorder - Event Archival to MinIO
+          # -----------------------------------------------------------
+          fft-recorder:
+            enabled: true
+            replicaCount: 1
+
+            image:
+              tag: "main-latest"
+
+            imagePullSecrets:
+              - name: harbor-secret
+
+            config:
+              bufferMaxRows: 10000
+              bufferMaxAgeSeconds: 60
+              logLevel: "INFO"
+
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "250m"
+
+  # -----------------------------------------------------------
+  # Component D: Database Schema Init Jobs
+  # SyncWave: 10 (after Helm chart)
+  # -----------------------------------------------------------
+  - name: fft-db-init
+    namespace: fft-os
+    project: dev
+    syncWave: "10"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: fft-db-init
+        values: |
+          resources:
+            # -----------------------------------------------------------
+            # PostgreSQL Schema Init Job
+            # -----------------------------------------------------------
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: fft-postgres-init
+                namespace: fft-os
+                annotations:
+                  argocd.argoproj.io/hook: Sync
+                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+              spec:
+                ttlSecondsAfterFinished: 3600
+                backoffLimit: 3
+                template:
+                  spec:
+                    restartPolicy: OnFailure
+                    containers:
+                      - name: psql
+                        image: postgres:16-alpine
+                        command:
+                          - /bin/sh
+                          - -c
+                          - |
+                            set -e
+                            echo "=== FFT-OS PostgreSQL Schema Init ==="
+
+                            # Create database if not exists
+                            psql -h $PGHOST -U postgres -tc \
+                              "SELECT 1 FROM pg_database WHERE datname = 'fft_os'" | \
+                              grep -q 1 || \
+                              psql -h $PGHOST -U postgres -c "CREATE DATABASE fft_os"
+
+                            echo "Database fft_os ready"
+                            echo "=== Schema init complete ==="
+                        env:
+                          - name: PGHOST
+                            value: "cluster-pg-db-ha.postgres.svc"
+                          - name: PGPASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: cluster-pg-db-pguser-superuser
+                                key: password
+                                optional: true
+                        resources:
+                          requests:
+                            cpu: 100m
+                            memory: 128Mi
+                          limits:
+                            cpu: 500m
+                            memory: 256Mi
+
+            # -----------------------------------------------------------
+            # ClickHouse Schema Init Job
+            # -----------------------------------------------------------
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: fft-clickhouse-init
+                namespace: fft-os
+                annotations:
+                  argocd.argoproj.io/hook: Sync
+                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+              spec:
+                ttlSecondsAfterFinished: 3600
+                backoffLimit: 3
+                template:
+                  spec:
+                    restartPolicy: OnFailure
+                    containers:
+                      - name: clickhouse
+                        image: clickhouse/clickhouse-client:latest
+                        command:
+                          - /bin/sh
+                          - -c
+                          - |
+                            set -e
+                            echo "=== FFT-OS ClickHouse Schema Init ==="
+
+                            clickhouse-client --host clickhouse.clickhouse.svc \
+                              --query "CREATE DATABASE IF NOT EXISTS fft_os"
+
+                            echo "=== ClickHouse init complete ==="
+                        resources:
+                          requests:
+                            cpu: 100m
+                            memory: 128Mi
+                          limits:
+                            cpu: 500m
+                            memory: 256Mi
