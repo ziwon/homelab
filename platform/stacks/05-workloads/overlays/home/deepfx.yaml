@@ -515,7 +515,7 @@ apps:
 
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
-              tag: "main-438cbea"
+              tag: "main-86723fc"
               pullPolicy: IfNotPresent
 
             imagePullSecrets:
