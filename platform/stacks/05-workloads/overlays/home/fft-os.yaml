@@ -26,6 +26,31 @@ apps:
                   name: fft-os
                   app.kubernetes.io/name: fft-os
 
+
+            # -----------------------------------------------------------
+            # FFT-OS Shared Secrets
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-fft-shared-secrets
+                namespace: fft-os
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: fft-os
+                      envSlug: "home"
+                      secretsPath: /
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: fft-shared-secrets
+                    secretNamespace: fft-os
+                    creationPolicy: Owner
+
             # -----------------------------------------------------------
             # FFT-OS Base Secrets (Binance API credentials)
             # -----------------------------------------------------------
@@ -339,7 +364,22 @@ apps:
 
             redpanda:
               brokers: "redpanda.redpanda.svc:9093"
-              saslEnabled: false
+              securityProtocol: "SASL_SSL"
+              auth:
+                username: "fft"
+                passwordSecretName: "managed-shared-secrets"
+                passwordSecretKey: "redpanda-fft-password"
+                saslMechanism: "SCRAM-SHA-512"
+              tls:
+                caSecretName: "redpanda-ca"
+                caSecretKey: "ca.crt"
+                caFileName: "ca.crt"
+                caMountPath: "/etc/ssl/certs/redpanda"
+                caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
+                skipHostnameVerify: true
+                sessionTimeoutMs: 60000
+                heartbeatIntervalMs: 20000
+                maxPollIntervalMs: 600000
 
             redis:
               url: "redis://redis.redis.svc:6379"
