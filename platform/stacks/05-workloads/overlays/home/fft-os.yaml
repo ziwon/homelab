@@ -271,57 +271,66 @@ apps:
                             set -e
                             echo "=== FFT-OS Redpanda Topic Creation ==="
 
-                            RPK="rpk --brokers redpanda.redpanda.svc:9093"
+                            # Configuration
+                            BROKERS="${BROKERS:-redpanda.redpanda.svc:9093}"
+                            CA_CERT="${CA_CERT:-/etc/ssl/certs/redpanda/ca.crt}"
+
+                            # RPK options with SASL authentication (-X flag format)
+                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SASL_USER -X pass=$SASL_PASSWORD -X sasl.mechanism=SCRAM-SHA-256"
+                            RPK="rpk --brokers $BROKERS $RPK_OPTS"
+
+                            echo "Brokers: $BROKERS"
+                            echo "SASL User: $SASL_USER"
 
                             # Raw Events (partitioned by symbol)
                             $RPK topic create fft.events.trades \
-                              --partitions 12 --replicas 2 \
+                              --partitions 12 --replicas 1 \
                               -c retention.ms=604800000 || true
 
                             $RPK topic create fft.events.orderbook \
-                              --partitions 12 --replicas 2 \
+                              --partitions 12 --replicas 1 \
                               -c retention.ms=604800000 || true
 
                             # Derived Events
                             $RPK topic create fft.events.oi \
-                              --partitions 6 --replicas 2 \
+                              --partitions 6 --replicas 1 \
                               -c retention.ms=604800000 || true
 
                             $RPK topic create fft.events.funding \
-                              --partitions 6 --replicas 2 \
+                              --partitions 6 --replicas 1 \
                               -c retention.ms=2592000000 || true
 
                             # Features
                             $RPK topic create fft.features \
-                              --partitions 12 --replicas 2 \
+                              --partitions 12 --replicas 1 \
                               -c retention.ms=86400000 || true
 
                             # Risk
                             $RPK topic create fft.risk.decisions \
-                              --partitions 6 --replicas 2 \
+                              --partitions 6 --replicas 1 \
                               -c retention.ms=604800000 || true
 
                             # Trading Events
                             $RPK topic create fft.intents \
-                              --partitions 6 --replicas 2 \
+                              --partitions 6 --replicas 1 \
                               -c retention.ms=2592000000 || true
 
                             $RPK topic create fft.orders \
-                              --partitions 6 --replicas 2 \
+                              --partitions 6 --replicas 1 \
                               -c retention.ms=2592000000 || true
 
                             $RPK topic create fft.fills \
-                              --partitions 6 --replicas 2 \
+                              --partitions 6 --replicas 1 \
                               -c retention.ms=2592000000 || true
 
                             # System
                             $RPK topic create fft.health \
-                              --partitions 3 --replicas 2 \
+                              --partitions 3 --replicas 1 \
                               -c retention.ms=86400000 || true
 
                             # DLQ
                             $RPK topic create fft.dlq.events \
-                              --partitions 3 --replicas 2 \
+                              --partitions 3 --replicas 1 \
                               -c retention.ms=604800000 || true
 
                             echo ""
@@ -330,6 +339,25 @@ apps:
 
                             echo ""
                             echo "=== Topic creation complete ==="
+                        env:
+                          - name: SASL_USER
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-shared-secrets
+                                key: redpanda-superuser-name
+                          - name: SASL_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-shared-secrets
+                                key: redpanda-superuser-password
+                          - name: BROKERS
+                            value: "redpanda.redpanda.svc:9093"
+                          - name: CA_CERT
+                            value: "/etc/ssl/certs/redpanda/ca.crt"
+                        volumeMounts:
+                          - name: redpanda-ca
+                            mountPath: /etc/ssl/certs/redpanda
+                            readOnly: true
                         resources:
                           requests:
                             cpu: 100m
@@ -337,6 +365,13 @@ apps:
                           limits:
                             cpu: 500m
                             memory: 256Mi
+                    volumes:
+                      - name: redpanda-ca
+                        secret:
+                          secretName: redpanda-ca
+                          items:
+                            - key: ca.crt
+                              path: ca.crt
 
   # -----------------------------------------------------------
   # Component B-2: Redpanda User & ACL Initialization Job
