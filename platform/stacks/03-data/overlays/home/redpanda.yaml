@@ -241,12 +241,19 @@ apps:
                           # DeepFX workload user
                           - name: DEEPFX_USER
                             value: "deepfx"
+
                           - name: DEEPFX_PASSWORD
                             valueFrom:
                               secretKeyRef:
                                 name: redpanda-managed-secrets
                                 key: deepfx-password
                                 optional: true
+
+                          - name: FFT_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: fft-password
 
                           - name: QUICKWIT_PASSWORD
                             valueFrom:
@@ -288,6 +295,7 @@ apps:
                             rpk security user create admin -p "$ADMIN_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User admin might already exist"
                             rpk security user create vector -p "$VECTOR_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User vector might already exist"
                             rpk security user create quickwit -p "$QUICKWIT_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User quickwit might already exist"
+                            rpk security user create fft -p "$FFT_PASSWORD" --mechanism $AUTHENTICATION_MECHANISM --api-urls "$ADMIN_API_URL" --admin-api-tls-truststore "$CA_CERT" $RPK_OPTS || echo "User fft might already exist"
 
                             echo "Creating ACLs..."
                             # Admin: Full Control
