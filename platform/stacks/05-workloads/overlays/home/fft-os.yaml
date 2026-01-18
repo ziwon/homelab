@@ -387,13 +387,12 @@ apps:
                             CA_CERT="${CA_CERT:-/etc/ssl/certs/redpanda/ca.crt}"
                             AUTH_MECHANISM="${AUTH_MECHANISM:-SCRAM-SHA-512}"
 
-                            # Common RPK options for TLS
-                            RPK_TLS_OPTS="--tls-enabled --tls-truststore $CA_CERT"
-
                             # SASL options for broker connections (uses superuser for ACL management)
                             # Superuser credentials are required to create ACLs
                             SASL_USER="${SASL_USER:-superuser}"
-                            RPK_SASL_OPTS="--user $SASL_USER --password $SASL_PASSWORD --sasl-mechanism $AUTH_MECHANISM"
+
+                            # Superuser credentials for ACL management
+                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SASL_USER -X pass=$SASL_PASSWORD -X sasl.mechanism=$AUTH_MECHANISM"
 
                             echo "FFT User to create: $FFT_USER"
                             echo "SASL User for ACL mgmt: $SASL_USER"
@@ -417,7 +416,7 @@ apps:
                               --mechanism "$AUTH_MECHANISM" \
                               --api-urls "$ADMIN_API_URL" \
                               --admin-api-tls-truststore "$CA_CERT" \
-                              $RPK_TLS_OPTS \
+                              $RPK_OPTS \
                             || echo "[fft] User might already exist"
 
                             # 2) Prefixed Topic ACLs (read/write/describe on all fft.* topics)
@@ -426,7 +425,7 @@ apps:
                             rpk security acl create --allow-principal "User:$FFT_USER" \
                               --operation read,write,describe \
                               --topic "fft." --resource-pattern-type PREFIXED \
-                              --brokers "$BROKERS" $RPK_TLS_OPTS $RPK_SASL_OPTS \
+                              --brokers "$BROKERS" $RPK_OPTS \
                             || echo "[fft] WARN: prefixed topic ACL failed"
 
                             # 3) Individual topic ACLs for explicit permissions
@@ -438,7 +437,7 @@ apps:
                               rpk security acl create --allow-principal "User:$FFT_USER" \
                                 --operation read,write,describe \
                                 --topic "$topic" \
-                                --brokers "$BROKERS" $RPK_TLS_OPTS $RPK_SASL_OPTS \
+                                --brokers "$BROKERS" $RPK_OPTS \
                               || echo "[fft] WARN: ACL for $topic failed"
                             done
 
@@ -450,7 +449,7 @@ apps:
                               rpk security acl create --allow-principal "User:$FFT_USER" \
                                 --operation read \
                                 --group "$group" \
-                                --brokers "$BROKERS" $RPK_TLS_OPTS $RPK_SASL_OPTS \
+                                --brokers "$BROKERS" $RPK_OPTS \
                               || echo "[fft] WARN: group ACL for $group failed"
                             done
 
@@ -460,7 +459,7 @@ apps:
                             rpk security acl create --allow-principal "User:$FFT_USER" \
                               --operation read \
                               --group "fft-" --resource-pattern-type PREFIXED \
-                              --brokers "$BROKERS" $RPK_TLS_OPTS $RPK_SASL_OPTS \
+                              --brokers "$BROKERS" $RPK_OPTS \
                             || echo "[fft] WARN: prefixed group ACL failed"
 
                             # 6) ClickHouse consumer groups (optional)
@@ -470,7 +469,7 @@ apps:
                               rpk security acl create --allow-principal "User:$FFT_USER" \
                                 --operation read \
                                 --group "$group" \
-                                --brokers "$BROKERS" $RPK_TLS_OPTS $RPK_SASL_OPTS \
+                                --brokers "$BROKERS" $RPK_OPTS \
                               || echo "[fft] WARN: CH group ACL for $group failed"
                             done
 
@@ -479,7 +478,7 @@ apps:
                             echo "=============================================="
                             echo "[fft] ACL Setup Complete - Current ACLs:"
                             echo "=============================================="
-                            rpk security acl list --brokers "$BROKERS" $RPK_TLS_OPTS $RPK_SASL_OPTS \
+                            rpk security acl list --brokers "$BROKERS" $RPK_OPTS \
                               | grep -E "User:${FFT_USER}|fft\." \
                               || echo "[fft] No ACLs found"
 
@@ -494,7 +493,10 @@ apps:
                                 name: managed-shared-secrets
                                 key: redpanda-fft-password
                           - name: SASL_USER
-                            value: "superuser"
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-shared-secrets
+                                key: redpanda-superuser-name
                           - name: SASL_PASSWORD
                             valueFrom:
                               secretKeyRef:
