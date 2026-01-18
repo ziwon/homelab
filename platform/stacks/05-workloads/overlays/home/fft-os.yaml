@@ -47,7 +47,7 @@ apps:
                       secretName: infisical-secrets
                       secretNamespace: infisical
                 managedKubeSecretReferences:
-                  - secretName: fft-shared-secrets
+                  - secretName: managed-shared-secrets
                     secretNamespace: fft-os
                     creationPolicy: Owner
 
