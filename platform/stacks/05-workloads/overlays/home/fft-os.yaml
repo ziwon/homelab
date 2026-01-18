@@ -339,6 +339,176 @@ apps:
                             memory: 256Mi
 
   # -----------------------------------------------------------
+  # Component B-2: Redpanda User & ACL Initialization Job
+  # SyncWave: 2 (after topics, before main services)
+  # -----------------------------------------------------------
+  - name: fft-acl-init
+    namespace: fft-os
+    project: dev
+    syncWave: "2"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: fft-acl-init
+        values: |
+          resources:
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: fft-acl-init
+                namespace: fft-os
+                annotations:
+                  argocd.argoproj.io/hook: Sync
+                  argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+              spec:
+                ttlSecondsAfterFinished: 3600
+                backoffLimit: 3
+                template:
+                  spec:
+                    restartPolicy: OnFailure
+                    containers:
+                      - name: rpk
+                        image: redpandadata/redpanda:latest
+                        command:
+                          - /bin/bash
+                          - -c
+                          - |
+                            set -e
+                            echo "=============================================="
+                            echo "FFT-OS Redpanda User & ACL Initialization"
+                            echo "=============================================="
+
+                            # Configuration
+                            FFT_USER="${FFT_USER:-fft}"
+                            BROKERS="${BROKERS:-redpanda.redpanda.svc:9093}"
+                            ADMIN_API_URL="${ADMIN_API_URL:-https://redpanda.redpanda.svc:9644}"
+                            CA_CERT="${CA_CERT:-/etc/ssl/certs/redpanda/ca.crt}"
+                            AUTH_MECHANISM="${AUTH_MECHANISM:-SCRAM-SHA-512}"
+
+                            RPK_OPTS="--tls-enabled --tls-truststore $CA_CERT"
+
+                            echo "User: $FFT_USER"
+                            echo "Brokers: $BROKERS"
+
+                            if [ -z "${FFT_PASSWORD:-}" ]; then
+                              echo "ERROR: FFT_PASSWORD not set; exiting"
+                              exit 1
+                            fi
+
+                            # 1) Create user
+                            echo ""
+                            echo "[fft] Creating user: ${FFT_USER}"
+                            rpk security user create "$FFT_USER" \
+                              -p "$FFT_PASSWORD" \
+                              --mechanism "$AUTH_MECHANISM" \
+                              --api-urls "$ADMIN_API_URL" \
+                              --admin-api-tls-truststore "$CA_CERT" \
+                              $RPK_OPTS \
+                            || echo "[fft] User might already exist"
+
+                            # 2) Prefixed Topic ACLs (read/write/describe on all fft.* topics)
+                            echo ""
+                            echo "[fft] Setting up prefixed topic ACL (fft.*)"
+                            rpk security acl create --allow-principal "User:$FFT_USER" \
+                              --operation read,write,describe \
+                              --topic "fft." --resource-pattern-type PREFIXED \
+                              --brokers "$BROKERS" $RPK_OPTS \
+                            || echo "[fft] WARN: prefixed topic ACL failed"
+
+                            # 3) Individual topic ACLs for explicit permissions
+                            echo ""
+                            echo "[fft] Setting up individual topic ACLs"
+                            for topic in fft.events.trades fft.events.orderbook fft.events.oi fft.events.funding \
+                                         fft.features fft.risk.decisions fft.intents fft.orders fft.fills \
+                                         fft.health fft.dlq.events; do
+                              rpk security acl create --allow-principal "User:$FFT_USER" \
+                                --operation read,write,describe \
+                                --topic "$topic" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[fft] WARN: ACL for $topic failed"
+                            done
+
+                            # 4) Consumer Group ACLs
+                            echo ""
+                            echo "[fft] Setting up consumer group ACLs"
+                            for group in fft-feature-engine fft-risk-kernel fft-strategy-runner \
+                                         fft-strategy-runner-risk fft-execution fft-recorder; do
+                              rpk security acl create --allow-principal "User:$FFT_USER" \
+                                --operation read \
+                                --group "$group" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[fft] WARN: group ACL for $group failed"
+                            done
+
+                            # 5) Prefixed consumer group ACL
+                            echo ""
+                            echo "[fft] Setting up prefixed consumer group ACL (fft-*)"
+                            rpk security acl create --allow-principal "User:$FFT_USER" \
+                              --operation read \
+                              --group "fft-" --resource-pattern-type PREFIXED \
+                              --brokers "$BROKERS" $RPK_OPTS \
+                            || echo "[fft] WARN: prefixed group ACL failed"
+
+                            # 6) ClickHouse consumer groups (optional)
+                            echo ""
+                            echo "[fft] Setting up ClickHouse consumer group ACLs"
+                            for group in ch.fft.events.trades ch.fft.features ch.fft.intents ch.fft.orders ch.fft.fills; do
+                              rpk security acl create --allow-principal "User:$FFT_USER" \
+                                --operation read \
+                                --group "$group" \
+                                --brokers "$BROKERS" $RPK_OPTS \
+                              || echo "[fft] WARN: CH group ACL for $group failed"
+                            done
+
+                            # 7) Verify
+                            echo ""
+                            echo "=============================================="
+                            echo "[fft] ACL Setup Complete - Current ACLs:"
+                            echo "=============================================="
+                            rpk security acl list --brokers "$BROKERS" $RPK_OPTS \
+                              | grep -E "User:${FFT_USER}|fft\." \
+                              || echo "[fft] No ACLs found"
+
+                            echo ""
+                            echo "FFT-OS Redpanda initialization complete!"
+                        env:
+                          - name: FFT_USER
+                            value: "fft"
+                          - name: FFT_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-shared-secrets
+                                key: redpanda-fft-password
+                          - name: BROKERS
+                            value: "redpanda.redpanda.svc:9093"
+                          - name: ADMIN_API_URL
+                            value: "https://redpanda.redpanda.svc:9644"
+                          - name: CA_CERT
+                            value: "/etc/ssl/certs/redpanda/ca.crt"
+                          - name: AUTH_MECHANISM
+                            value: "SCRAM-SHA-512"
+                        volumeMounts:
+                          - name: redpanda-ca
+                            mountPath: /etc/ssl/certs/redpanda
+                            readOnly: true
+                        resources:
+                          requests:
+                            cpu: 100m
+                            memory: 128Mi
+                          limits:
+                            cpu: 500m
+                            memory: 256Mi
+                    volumes:
+                      - name: redpanda-ca
+                        secret:
+                          secretName: redpanda-ca
+                          items:
+                            - key: ca.crt
+                              path: ca.crt
+
+  # -----------------------------------------------------------
   # Component C: FFT-OS Umbrella Chart
   # SyncWave: 5
   # -----------------------------------------------------------
@@ -349,6 +519,7 @@ apps:
     dependencies:
       - fft-raw
       - fft-topics-init
+      - fft-acl-init
     source:
       repoURL: oci://harbor.home.lab/restack/fft-os/fft
       chart: .
