@@ -392,7 +392,7 @@ apps:
                             SASL_USER="${SASL_USER:-superuser}"
 
                             # Superuser credentials for ACL management
-                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SASL_USER -X pass=$SASL_PASSWORD -X sasl.mechanism=$AUTH_MECHANISM"
+                            RPK_OPTS="-X tls.enabled=true -X tls.ca=$CA_CERT -X user=$SASL_USER -X pass=$SASL_PASSWORD -X sasl.mechanism=SCRAM-SHA-256"
 
                             echo "FFT User to create: $FFT_USER"
                             echo "SASL User for ACL mgmt: $SASL_USER"
@@ -419,7 +419,16 @@ apps:
                               $RPK_OPTS \
                             || echo "[fft] User might already exist"
 
-                            # 2) Prefixed Topic ACLs (read/write/describe on all fft.* topics)
+                            # 2) Cluster-level ACL for idempotent producer
+                            echo ""
+                            echo "[fft] Setting up cluster ACL (idempotent-write)"
+                            rpk security acl create --allow-principal "User:$FFT_USER" \
+                              --operation idempotent-write \
+                              --cluster \
+                              --brokers "$BROKERS" $RPK_OPTS \
+                            || echo "[fft] WARN: cluster ACL failed"
+
+                            # 3) Prefixed Topic ACLs (read/write/describe on all fft.* topics)
                             echo ""
                             echo "[fft] Setting up prefixed topic ACL (fft.*)"
                             rpk security acl create --allow-principal "User:$FFT_USER" \
@@ -428,7 +437,7 @@ apps:
                               --brokers "$BROKERS" $RPK_OPTS \
                             || echo "[fft] WARN: prefixed topic ACL failed"
 
-                            # 3) Individual topic ACLs for explicit permissions
+                            # 4) Individual topic ACLs for explicit permissions
                             echo ""
                             echo "[fft] Setting up individual topic ACLs"
                             for topic in fft.events.trades fft.events.orderbook fft.events.oi fft.events.funding \
@@ -441,7 +450,7 @@ apps:
                               || echo "[fft] WARN: ACL for $topic failed"
                             done
 
-                            # 4) Consumer Group ACLs
+                            # 5) Consumer Group ACLs
                             echo ""
                             echo "[fft] Setting up consumer group ACLs"
                             for group in fft-feature-engine fft-risk-kernel fft-strategy-runner \
@@ -453,7 +462,7 @@ apps:
                               || echo "[fft] WARN: group ACL for $group failed"
                             done
 
-                            # 5) Prefixed consumer group ACL
+                            # 6) Prefixed consumer group ACL
                             echo ""
                             echo "[fft] Setting up prefixed consumer group ACL (fft-*)"
                             rpk security acl create --allow-principal "User:$FFT_USER" \
