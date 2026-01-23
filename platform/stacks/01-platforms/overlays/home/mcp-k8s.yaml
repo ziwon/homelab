@@ -66,10 +66,10 @@ apps:
                   name: view
                   external: true
           image:
-            registry: ghcr.io
-            repository: containers/charts/kubernetes-mcp-server
-            version: "0.1.0"
-            pullPolicy: IfNotPresent
+            registry: quay.io
+            repository: containers/kubernetes_mcp_server
+            version: latest
+            pullPolicy: Always
           podSecurityContext:
             runAsUser: 65532
             runAsGroup: 65532
