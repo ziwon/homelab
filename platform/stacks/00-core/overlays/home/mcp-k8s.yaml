@@ -1,0 +1,99 @@
+apps:
+  # Step 1: Deploy InfisicalSecret first (lower syncWave)
+  - name: kubernetes-mcp-server-raw
+    namespace: kubernetes-mcp-server
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: kubernetes-mcp-server-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: kubernetes-mcp-server-managed-secrets
+                namespace: kubernetes-mcp-server
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /kubernetes-mcp-server
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: kubernetes-mcp-server-managed-secrets
+                    secretNamespace: kubernetes-mcp-server
+                    creationPolicy: Owner
+
+  # Step 2: Deploy Helm chart with dependency
+  - name: kubernetes-mcp-server
+    namespace: kubernetes-mcp-server
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - kubernetes-mcp-server-raw
+    source:
+      repoURL: https://containers.github.io/charts
+      chart: kubernetes-mcp-server
+      targetRevision: "0.1.0"
+      helm:
+        releaseName: kubernetes-mcp-server
+        values: |
+          ingress:
+            enabled: true
+            host: "k8s-mcp.home.lab"
+            className: "cilium"
+            annotations:
+              kubernetes.io/ingress.class: cilium
+              cert-manager.io/cluster-issuer: "letsencrypt-prod"
+              nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+              nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          service:
+            port: 8080
+            type: ClusterIP
+          serviceAccount:
+            create: true
+            name: ""
+          rbac:
+            create: true
+          image:
+            repository: quay.io/containers/kubernetes_mcp_server
+            tag: latest
+            pullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          podSecurityContext:
+            seccompProfile:
+              type: RuntimeDefault
