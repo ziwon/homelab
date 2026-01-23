@@ -68,5 +68,15 @@ apps:
           image:
             registry: ghcr.io
             repository: containers/charts/kubernetes-mcp-server
-            version: "0.1.0-dev.353772b"
+            version: "0.1.0"
             pullPolicy: IfNotPresent
+          podSecurityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
