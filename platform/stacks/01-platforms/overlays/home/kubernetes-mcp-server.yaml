@@ -1,0 +1,77 @@
+apps:
+  # Step 1: Deploy InfisicalSecret first (lower syncWave)
+  - name: kubernetes-mcp-server-raw
+    namespace: kubernetes-mcp-server
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: kubernetes-mcp-server-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: kubernetes-mcp-server-managed-secrets
+                namespace: kubernetes-mcp-server
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /kubernetes-mcp-server
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: kubernetes-mcp-server-managed-secrets
+                    secretNamespace: kubernetes-mcp-server
+                    creationPolicy: Owner
+
+  # Step 2: Deploy Helm chart with dependency
+  - name: kubernetes-mcp-server
+    namespace: kubernetes-mcp-server
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - kubernetes-mcp-server-raw
+    source:
+      repoURL: https://charts.example.io
+      chart: kubernetes-mcp-server
+      targetRevision: "1.0.0"
+      helm:
+        releaseName: kubernetes-mcp-server
+        values: |
+          replicaCount: 1
+          ingress:
+            enabled: true
+            hosts:
+              - kubernetes-mcp-server.example.com
+            tls:
+              - secretName: kubernetes-mcp-server-tls
+                hosts:
+                  - kubernetes-mcp-server.example.com
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 2000
