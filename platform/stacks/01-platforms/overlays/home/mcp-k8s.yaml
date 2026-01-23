@@ -1,0 +1,72 @@
+apps:
+  # HTTPRoute for Gateway API access
+  - name: kubernetes-mcp-server-raw
+    namespace: mcp
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: kubernetes-mcp-server-raw
+        values: |
+          resources:
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: kubernetes-mcp-server
+                namespace: mcp
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - k8s-mcp.home.lab
+                rules:
+                  - backendRefs:
+                      - name: kubernetes-mcp-server
+                        port: 8080
+
+  # Kubernetes MCP Server
+  - name: kubernetes-mcp-server
+    namespace: mcp
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - kubernetes-mcp-server-raw
+    source:
+      repoURL: oci://ghcr.io/containers/charts/kubernetes-mcp-server
+      chart: .
+      targetRevision: "0.1.0"
+      helm:
+        releaseName: kubernetes-mcp-server
+        values: |
+          ingress:
+            enabled: false
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          service:
+            port: 8080
+            type: ClusterIP
+          serviceAccount:
+            create: true
+          rbac:
+            create: true
+            extraClusterRoleBindings:
+              - name: use-view-role
+                roleRef:
+                  name: view
+                  external: true
+          image:
+            registry: ghcr.io
+            repository: containers/charts/kubernetes-mcp-server
+            version: "0.1.0-dev.353772b"
+            pullPolicy: IfNotPresent
