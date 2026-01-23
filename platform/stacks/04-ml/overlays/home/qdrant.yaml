@@ -40,7 +40,7 @@ apps:
                   - secretName: qdrant-managed-secrets
                     secretNamespace: qdrant
                     creationPolicy: Owner
-              
+
             # -----------------------------------------------------------
             # HTTPRoute for Qdrant
             # -----------------------------------------------------------
@@ -59,8 +59,8 @@ apps:
                 rules:
                   - backendRefs:
                       - name: qdrant
-                        port: 6333
-  
+                        port: 6334
+
   # -----------------------------------------------------------
   # Qdrant Installation
   # -----------------------------------------------------------
@@ -127,4 +127,4 @@ apps:
               enabled: true
               scrapeInterval: 30s
               targetPort: http
-              targetPath: "/metrics" 
+              targetPath: "/metrics"
