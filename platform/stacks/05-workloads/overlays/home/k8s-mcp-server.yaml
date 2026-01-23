@@ -1,0 +1,75 @@
+apps:
+  # InfisicalSecret for managing secrets
+  - name: k8s-mcp-server-raw
+    namespace: kubernetes-mcp-server
+    project: dev
+    syncWave: "5"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: k8s-mcp-server-raw
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: k8s-mcp-server-managed-secrets
+                namespace: kubernetes-mcp-server
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /k8s-mcp-server
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: k8s-mcp-server-managed-secrets
+                    secretNamespace: kubernetes-mcp-server
+                    creationPolicy: Owner
+
+  # Main Helm chart deployment
+  - name: k8s-mcp-server
+    namespace: kubernetes-mcp-server
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - k8s-mcp-server-raw
+    source:
+      repoURL: https://charts.example.io
+      chart: k8s-mcp-server
+      targetRevision: "1.0.0"
+      helm:
+        releaseName: k8s-mcp-server
+        values: |
+          replicaCount: 1
+          ingress:
+            enabled: true
+            hosts:
+              - k8s-mcp-server.example.com
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 2000
