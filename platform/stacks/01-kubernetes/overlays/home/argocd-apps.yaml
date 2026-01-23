@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-apps
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ziwon/homelab.git
+    targetRevision: HEAD
+    path: platform/stacks/01-kubernetes/overlays/home
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: home
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 30s
