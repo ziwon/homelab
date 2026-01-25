@@ -1,5 +1,5 @@
 apps:
-  # HTTPRoute for Gateway API access
+  # HTTPRoute for Gateway API access + RBAC for kubernetes-mcp-server
   - name: kubernetes-mcp-server-raw
     namespace: mcp
     project: dev
@@ -12,6 +12,7 @@ apps:
         releaseName: kubernetes-mcp-server-raw
         values: |
           resources:
+            # --- Gateway API ---
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
               metadata:
@@ -28,6 +29,79 @@ apps:
                   - backendRefs:
                       - name: kubernetes-mcp-server
                         port: 8080
+
+            # --- RBAC: ClusterRole ---
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: ClusterRole
+              metadata:
+                name: kubernetes-mcp-server-readonly
+              rules:
+                # Core
+                - apiGroups: [""]
+                  resources:
+                    - pods
+                    - pods/log
+                    - pods/status
+                    - services
+                    - endpoints
+                    - configmaps
+                    # - secrets
+                    - events
+                    - namespaces
+                    - nodes
+                    - persistentvolumeclaims
+                    - persistentvolumes
+                    - replicationcontrollers
+                  verbs: ["get", "list", "watch"]
+
+                # Apps
+                - apiGroups: ["apps"]
+                  resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+                  verbs: ["get", "list", "watch"]
+
+                # Batch
+                - apiGroups: ["batch"]
+                  resources: ["jobs", "cronjobs"]
+                  verbs: ["get", "list", "watch"]
+
+                # Networking
+                - apiGroups: ["networking.k8s.io"]
+                  resources: ["ingresses", "networkpolicies"]
+                  verbs: ["get", "list", "watch"]
+
+                # Metrics API (kubectl top)
+                - apiGroups: ["metrics.k8s.io"]
+                  resources: ["nodes", "pods"]
+                  verbs: ["get", "list"]
+
+                # Node subresources (optional; keep get-only)
+                - apiGroups: [""]
+                  resources: ["nodes/proxy", "nodes/stats"]
+                  verbs: ["get"]
+
+                # Autoscaling
+                - apiGroups: ["autoscaling"]
+                  resources: ["horizontalpodautoscalers"]
+                  verbs: ["get", "list", "watch"]
+
+                # Storage
+                - apiGroups: ["storage.k8s.io"]
+                  resources: ["storageclasses"]
+                  verbs: ["get", "list", "watch"]
+
+            # --- RBAC: ClusterRoleBinding ---
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: ClusterRoleBinding
+              metadata:
+                name: kubernetes-mcp-server-readonly
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: ClusterRole
+                name: kubernetes-mcp-server-readonly
+              subjects:
+                - kind: ServiceAccount
+                  name: kubernetes-mcp-server
+                  namespace: mcp
 
   # Kubernetes MCP Server
   - name: kubernetes-mcp-server
@@ -65,13 +139,6 @@ apps:
                 roleRef:
                   name: view
                   external: true
-            extraRules:
-              - apiGroups: [""]
-                resources: ["nodes"]
-                verbs: ["get", "list", "watch"]
-              - apiGroups: ["metrics.k8s.io"]
-                resources: ["nodes", "pods"]
-                verbs: ["get", "list"]
           image:
             registry: quay.io
             repository: containers/kubernetes_mcp_server
