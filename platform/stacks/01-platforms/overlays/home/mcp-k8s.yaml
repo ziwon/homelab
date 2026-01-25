@@ -65,6 +65,13 @@ apps:
                 roleRef:
                   name: view
                   external: true
+            extraRules:
+              - apiGroups: [""]
+                resources: ["nodes"]
+                verbs: ["get", "list", "watch"]
+              - apiGroups: ["metrics.k8s.io"]
+                resources: ["nodes", "pods"]
+                verbs: ["get", "list"]
           image:
             registry: quay.io
             repository: containers/kubernetes_mcp_server
