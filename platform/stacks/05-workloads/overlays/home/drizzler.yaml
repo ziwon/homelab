@@ -28,9 +28,9 @@ apps:
                 authentication:
                   universalAuth:
                     secretsScope:
-                      projectSlug: drizzler
+                      projectSlug: home-lab
                       envSlug: "home"
-                      secretsPath: /
+                      secretsPath: /drizzler
                     credentialsRef:
                       secretName: infisical-secrets
                       secretNamespace: infisical
