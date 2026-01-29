@@ -1,0 +1,119 @@
+apps:
+  # -----------------------------------------------------------
+  # Component A: Prerequisites (HTTPRoute, Secrets)
+  # SyncWave: 0
+  # -----------------------------------------------------------
+  - name: drizzler-raw
+    namespace: drizzler
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: drizzler-raw
+        values: |
+          resources:
+            # -----------------------------------------------------------
+            # Drizzler Secrets (Infisical)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-drizzler-secrets
+                namespace: drizzler
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: drizzler
+                      envSlug: "home"
+                      secretsPath: /
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-drizzler-secrets
+                    secretNamespace: drizzler
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # HTTPRoute for Cilium Gateway
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: drizzler
+                namespace: drizzler
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - drizzler.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: drizzler
+                        port: 8000
+
+  # -----------------------------------------------------------
+  # Component B: Drizzler Helm Chart
+  # SyncWave: 5
+  # -----------------------------------------------------------
+  - name: drizzler
+    namespace: drizzler
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - drizzler-raw
+    source:
+      repoURL: oci://ghcr.io/ziwon/drizzler
+      chart: .
+      targetRevision: 0.1.0
+      helm:
+        releaseName: drizzler
+        values: |
+          replicaCount: 1
+
+          image:
+            repository: ghcr.io/ziwon/drizzler
+            pullPolicy: Always
+            tag: "latest"
+
+          imagePullSecrets:
+            - name: ghcr-secret
+
+          service:
+            type: ClusterIP
+            port: 8000
+
+          # Ingress disabled - using HTTPRoute instead
+          ingress:
+            enabled: false
+
+          persistence:
+            enabled: true
+            storageClass: longhorn
+            size: 20Gi
+
+          config:
+            httpRequestTimeoutS: "10"
+            llmModel: "gemini-2.5-flash-preview-05-20"
+
+          # Reference existing secret from Infisical
+          existingSecret: "managed-drizzler-secrets"
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
