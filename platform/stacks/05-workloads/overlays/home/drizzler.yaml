@@ -118,7 +118,7 @@ apps:
     source:
       repoURL: oci://ghcr.io/ziwon/drizzler
       chart: .
-      targetRevision: 0.1.0
+      targetRevision: 0.2.0
       helm:
         releaseName: drizzler
         values: |
