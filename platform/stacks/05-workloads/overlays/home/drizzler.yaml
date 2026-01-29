@@ -40,6 +40,48 @@ apps:
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
+            # Drizzler PV for Downloads
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: PersistentVolume
+              metadata:
+                name: pv-drizzler-downloads
+              spec:
+                capacity:
+                  storage: 30Gi
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: drizzler-local
+                persistentVolumeReclaimPolicy: Retain
+                volumeMode: Filesystem
+                local:
+                  path: /data/drizzler/downloads
+                nodeAffinity:
+                  required:
+                    nodeSelectorTerms:
+                      - matchExpressions:
+                          - key: kubernetes.io/hostname
+                            operator: In
+                            values:
+                              - aaron-lgt
+
+            # -----------------------------------------------------------
+            # Drizzler PVC for Downloads
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: PersistentVolumeClaim
+              metadata:
+                name: drizzler-downloads
+                namespace: drizzler
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: drizzler-local
+                resources:
+                  requests:
+                    storage: 30Gi
+
+            # -----------------------------------------------------------
             # HTTPRoute for Cilium Gateway
             # -----------------------------------------------------------
             - apiVersion: gateway.networking.k8s.io/v1
@@ -100,12 +142,11 @@ apps:
 
           persistence:
             enabled: true
-            storageClass: longhorn
-            size: 20Gi
+            existingClaim: drizzler-downloads
 
           config:
             httpRequestTimeoutS: "10"
-            llmModel: "gemini-2.5-flash-preview-05-20"
+            llmModel: "gemini-3-flash-preview"
 
           # Reference existing secret from Infisical
           existingSecret: "managed-drizzler-secrets"
