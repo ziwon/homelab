@@ -29,7 +29,7 @@ apps:
                   universalAuth:
                     secretsScope:
                       projectSlug: home-lab
-                      envSlug: "home"
+                      envSlug: "hme"
                       secretsPath: /drizzler
                     credentialsRef:
                       secretName: infisical-secrets
