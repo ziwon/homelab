@@ -82,7 +82,7 @@ apps:
                     storage: 30Gi
 
             # -----------------------------------------------------------
-            # HTTPRoute for Cilium Gateway
+            # HTTPRoute for Cilium Gateway (Internal)
             # -----------------------------------------------------------
             - apiVersion: gateway.networking.k8s.io/v1
               kind: HTTPRoute
@@ -104,6 +104,61 @@ apps:
                     backendRefs:
                       - name: drizzler
                         port: 8000
+
+            # -----------------------------------------------------------
+            # Cloudflared Tunnel (External - with Zero Trust Access)
+            # -----------------------------------------------------------
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: cloudflared
+                namespace: drizzler
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: cloudflared
+                template:
+                  metadata:
+                    labels:
+                      app: cloudflared
+                  spec:
+                    containers:
+                      - name: cloudflared
+                        image: cloudflare/cloudflared:2025.1.0
+                        args:
+                          - tunnel
+                          - --no-autoupdate
+                          - --metrics
+                          - 0.0.0.0:2000
+                          - --protocol
+                          - http2
+                          - run
+                        env:
+                          - name: TUNNEL_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-drizzler-secrets
+                                key: CLOUDFLARE_TUNNEL_TOKEN
+                        resources:
+                          requests:
+                            cpu: 10m
+                            memory: 64Mi
+                          limits:
+                            cpu: 100m
+                            memory: 128Mi
+                        livenessProbe:
+                          httpGet:
+                            path: /ready
+                            port: 2000
+                          initialDelaySeconds: 10
+                          periodSeconds: 10
+                        readinessProbe:
+                          httpGet:
+                            path: /ready
+                            port: 2000
+                          initialDelaySeconds: 5
+                          periodSeconds: 5
 
   # -----------------------------------------------------------
   # Component B: Drizzler Helm Chart
@@ -128,9 +183,6 @@ apps:
             repository: ghcr.io/ziwon/drizzler
             pullPolicy: Always
             tag: "latest"
-
-          imagePullSecrets:
-            - name: ghcr-secret
 
           service:
             type: ClusterIP
