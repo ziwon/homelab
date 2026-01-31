@@ -35,6 +35,42 @@ apps:
           resources:
 
             # -----------------------------------------------------------
+            # Redpanda StorageClass (local, XFS on /data)
+            # -----------------------------------------------------------
+            - apiVersion: storage.k8s.io/v1
+              kind: StorageClass
+              metadata:
+                name: redpanda-local
+              provisioner: kubernetes.io/no-provisioner
+              volumeBindingMode: WaitForFirstConsumer
+
+            # -----------------------------------------------------------
+            # Redpanda PV for Data (/data/redpanda on XFS)
+            # -----------------------------------------------------------
+            - apiVersion: v1
+              kind: PersistentVolume
+              metadata:
+                name: pv-redpanda-data
+              spec:
+                capacity:
+                  storage: 20Gi
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: redpanda-local
+                persistentVolumeReclaimPolicy: Retain
+                volumeMode: Filesystem
+                local:
+                  path: /data/redpanda
+                nodeAffinity:
+                  required:
+                    nodeSelectorTerms:
+                      - matchExpressions:
+                          - key: kubernetes.io/hostname
+                            operator: In
+                            values:
+                              - aaron-lgt
+
+            # -----------------------------------------------------------
             # Redpanda Managed Secrets
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
@@ -90,7 +126,7 @@ apps:
                     persistentVolume:
                       enabled: true
                       size: 20Gi
-                      storageClass: local-path
+                      storageClass: redpanda-local
 
                   console:
                     enabled: false
