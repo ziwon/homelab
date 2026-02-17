@@ -22,7 +22,7 @@ services:
       "
     restart: always
     healthcheck:
-      test: [ "CMD", "test", "-e", "/mps/pipe/control" ]
+      test: ["CMD", "test", "-e", "/mps/pipe/control"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -32,7 +32,7 @@ services:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [ gpu ]
+              capabilities: [gpu]
 
   # ---------------------------------------------------------------------------
   # CPU/GPU Orchestration with Ray
@@ -57,7 +57,7 @@ services:
       - /cache/nvidia-mps/log:/mps/log
       - /cache/ray:/tmp/ray
       - /data/ray/storage:/ray/storage
-    entrypoint: [ "bash", "/usr/local/bin/entrypoint.sh" ]
+    entrypoint: ["bash", "/usr/local/bin/entrypoint.sh"]
     ports:
       - "8265:8265"
       - "6379:6379"
@@ -120,7 +120,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -182,7 +182,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -234,7 +234,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -294,7 +294,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
 
   # ---------------------------------------------------------------------------
   # llama.cpp - Trading/FX  (llama3-ko-8b-trading-expert)
@@ -347,7 +347,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
@@ -364,7 +364,7 @@ services:
     runtime: nvidia
     restart: unless-stopped
     profiles:
-      - qwen3
+      - code
     depends_on:
       nvidia-mps:
         condition: service_healthy
@@ -379,17 +379,15 @@ services:
       - /cache/llama-cpp/qwen3-coder:/cache
     command:
       - --model
-      - /models/Qwen3-Coder-30B-A3B-Instruct-GGUF/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
+      - /models/Qwen3-Coder-Next-GGUF/Qwen3-Coder-Next-Q4_K_M.gguf
       - --host
       - "0.0.0.0"
       - --port
       - "8003"
       - --n-gpu-layers
-      #- "30"
-      - "33"
+      - "-1"
       - --ctx-size
-      #- "32768"
-      - "24576"
+      - "8192"
       - --parallel
       - "1"
       - --cache-type-k
@@ -402,7 +400,7 @@ services:
       - --flash-attn
       - auto
       - --alias
-      - qwen3-coder:30b
+      - qwen3-coder-next:80b
       - --slot-save-path
       - /cache
     cpuset: "0-7"
@@ -414,7 +412,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
       interval: 30s
@@ -477,7 +475,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [ gpu ]
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
       interval: 30s
@@ -493,12 +491,14 @@ services:
     container_name: open-webui
     restart: unless-stopped
     environment:
-      - OPENAI_API_BASE_URL=http://vllm:8000/v1;http://llama-cpp-main:8001/v1;http://llama-cpp-code:8003/v1;http://llama-cpp-oss20b:8004/v1
       - OPENAI_API_KEY=not-needed
+      - OPENAI_API_BASE_URL=http://llama-cpp-code:8003/v1
+      - RAG_EMBEDDING_OPENAI_API_BASE_URL=http://llama-cpp-embed:8080/v1
+      - RAG_EMBEDDING_OPENAI_API_KEY=dummy
 
       - WEBUI_AUTH=false
       - WEBUI_NAME=DeepFX AI
-      - DEFAULT_MODELS=qwen3-coder
+      - DEFAULT_MODELS=qwen3-coder-next:80b
 
       - OLLAMA_BASE_URL=
       - ENABLE_OLLAMA_API=false
