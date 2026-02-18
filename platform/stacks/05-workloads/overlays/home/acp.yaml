@@ -1,0 +1,110 @@
+apps:
+  - name: acp-raw
+    namespace: acp
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: acp-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: acp
+
+  - name: acp-market-data-service
+    namespace: acp
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - acp-raw
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: acp-market-data-service
+        values: |
+          resources:
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: acp-market-data-service
+                namespace: acp
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: acp-market-data-service
+                template:
+                  metadata:
+                    labels:
+                      app: acp-market-data-service
+                  spec:
+                    imagePullSecrets:
+                      - name: harbor-secret
+                    containers:
+                      - name: app
+                        image: harbor.home.lab/restack/acp-market-data-service:latest
+                        imagePullPolicy: Always
+                        ports:
+                          - containerPort: 8080
+                            name: http
+                        readinessProbe:
+                          httpGet:
+                            path: /healthz
+                            port: 8080
+                          initialDelaySeconds: 5
+                          periodSeconds: 10
+                        livenessProbe:
+                          httpGet:
+                            path: /healthz
+                            port: 8080
+                          initialDelaySeconds: 10
+                          periodSeconds: 20
+                        resources:
+                          requests:
+                            cpu: 50m
+                            memory: 128Mi
+                          limits:
+                            cpu: 300m
+                            memory: 256Mi
+
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: acp-market-data-service
+                namespace: acp
+              spec:
+                selector:
+                  app: acp-market-data-service
+                ports:
+                  - name: http
+                    port: 80
+                    targetPort: 8080
+                    protocol: TCP
+
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: acp-market-data-service
+                namespace: acp
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - acp-market-data.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: acp-market-data-service
+                        port: 80
