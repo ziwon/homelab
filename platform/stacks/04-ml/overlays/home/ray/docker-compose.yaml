@@ -387,7 +387,7 @@ services:
       - --n-gpu-layers
       - "-1"
       - --ctx-size
-      - "8192"
+      - "65536"
       - --parallel
       - "1"
       - --cache-type-k
