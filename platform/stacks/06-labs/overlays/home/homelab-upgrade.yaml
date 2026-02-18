@@ -1,0 +1,33 @@
+apps:
+  - name: homelab-upgrade
+    namespace: homelab
+    project: dev
+    syncWave: "10"
+    source:
+      repoURL: https://charts.example.io
+      chart: homelab-upgrade-info
+      targetRevision: "1.0.0"
+      helm:
+        releaseName: homelab-upgrade
+        values: |
+          replicaCount: 1
+          image:
+            repository: nginx
+            tag: stable
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          service:
+            type: ClusterIP
+            port: 80
+          ingress:
+            enabled: true
+            className: nginx
+            hosts:
+              - host: homelab-upgrade.local
+                paths:
+                  - path: /
+                    pathType: Prefix
+          podAnnotations:
+            argocd.argoproj.io/sync-wave: "10"
