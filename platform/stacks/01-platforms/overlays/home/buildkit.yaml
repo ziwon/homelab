@@ -143,7 +143,7 @@ apps:
 
                     containers:
                       - name: buildkitd
-                        image: moby/buildkit:v0.26.2
+                        image: moby/buildkit:v0.29.0
                         imagePullPolicy: IfNotPresent
                         args:
                           - --addr=tcp://0.0.0.0:1234

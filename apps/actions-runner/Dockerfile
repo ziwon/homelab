@@ -2,7 +2,7 @@ FROM docker:29-cli AS docker-cli
 
 FROM ghcr.io/actions/actions-runner:2.333.1
 
-ARG BUILDKIT_VERSION=0.26.2
+ARG BUILDKIT_VERSION=0.29.0
 ARG BUILDX_VERSION=0.33.0
 
 USER root
