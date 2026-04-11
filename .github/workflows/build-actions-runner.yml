@@ -1,0 +1,68 @@
+name: Build Actions Runner Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/actions-runner/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: harbor.home.lab
+  BUILDKIT_HOST: tcp://buildkitd.buildkit.svc.cluster.local:1234
+  REPO: restack
+
+jobs:
+  build:
+    runs-on: homelab-ziwon
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up build metadata
+        id: meta
+        run: |
+          VERSION="$(grep -oP 'actions-runner:\K[0-9.]+' apps/actions-runner/Dockerfile)"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+          IMAGE_BASE="${{ env.REGISTRY }}/${{ env.REPO }}/actions-runner"
+          echo "image_base=${IMAGE_BASE}" >> $GITHUB_OUTPUT
+
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${IMAGE_BASE}:${VERSION}" >> $GITHUB_OUTPUT
+          echo "${IMAGE_BASE}:latest" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx with remote BuildKit
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: remote
+          endpoint: ${{ env.BUILDKIT_HOST }}
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: '${{ secrets.HARBOR_USERNAME }}'
+          password: '${{ secrets.HARBOR_PASSWORD }}'
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/actions-runner
+          file: apps/actions-runner/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}/actions-runner:cache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}/actions-runner:cache,mode=max
+
+      - name: Image summary
+        run: |
+          echo "### Actions Runner Image Built :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Runner version:** ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          while IFS= read -r tag; do
+            echo "- \`${tag}\`" >> $GITHUB_STEP_SUMMARY
+          done <<< "${{ steps.meta.outputs.tags }}"
