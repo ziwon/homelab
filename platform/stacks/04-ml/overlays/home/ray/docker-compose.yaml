@@ -422,13 +422,13 @@ services:
       retries: 5
       start_period: 60s
 
-  llama-cpp-qwen3.5:
+  llama-cpp-qwen3.6:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: llama-cpp-qwen3.5
+    container_name: llama-cpp-qwen3.6
     runtime: nvidia
     restart: unless-stopped
     profiles:
-      - qwen3.5
+      - qwen3.6
     depends_on:
       nvidia-mps:
         condition: service_healthy
@@ -440,12 +440,12 @@ services:
     volumes:
       - /data/LLM/models/lmstudio-community:/models:ro
       - /cache/nvidia-mps/pipe:/mps/pipe:ro
-      - /cache/llama-cpp/qwen3.5:/cache
+      - /cache/llama-cpp/qwen3.6:/cache
     command:
       - --model
-      - /models/Qwen3.5-35B-A3B-GGUF/Qwen3.5-35B-A3B-Q4_K_M.gguf
-#      - --mmproj
-#      - /models/Qwen3.5-35B-A3B-GGUF/mmproj-Qwen3.5-35B-A3B-BF16.gguf
+      - /models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-Q4_K_M.gguf
+      #      - --mmproj
+      #      - /models/Qwen3.6-35B-A3B-GGUF/mmproj-Qwen3.6-35B-A3B-BF16.gguf
       - --host
       - "0.0.0.0"
       - --port
@@ -466,7 +466,9 @@ services:
       - --flash-attn
       - auto
       - --alias
-      - qwen3.5-35B-A3B
+      - qwen3.6-35B-A3B
+      - --chat-template-kwargs
+      - '{"preserve_thinking": true}'
     #      - --slot-save-path
     #      - /cache
     cpuset: "0-7"
@@ -507,11 +509,11 @@ services:
       - /cache/llama-cpp/gemma-4:/cache
     command:
       - --model
-#      - /models/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf
+      #      - /models/gemma-4-26B-A4B-it-GGUF/gemma-4-26B-A4B-it-Q4_K_M.gguf
       - /models/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf
-#      - --mmproj
-#      - /models/gemma-4-26B-A4B-it-GGUF/mmproj-gemma-4-26B-A4B-it-BF16.gguf
-#      - /models/gemma-4-31B-it-GGUF/mmproj-gemma-4-31B-it-BF16.gguf
+      #      - --mmproj
+      #      - /models/gemma-4-26B-A4B-it-GGUF/mmproj-gemma-4-26B-A4B-it-BF16.gguf
+      #      - /models/gemma-4-31B-it-GGUF/mmproj-gemma-4-31B-it-BF16.gguf
       - --host
       - "0.0.0.0"
       - --port
@@ -623,13 +625,13 @@ services:
     restart: unless-stopped
     environment:
       - OPENAI_API_KEY=not-needed
-      - OPENAI_API_BASE_URL=http://llama-cpp-qwen3.5:8004/v1
+      - OPENAI_API_BASE_URL=http://llama-cpp-qwen3.6:8004/v1
       - RAG_EMBEDDING_OPENAI_API_BASE_URL=http://llama-cpp-embed:8080/v1
       - RAG_EMBEDDING_OPENAI_API_KEY=dummy
 
       - WEBUI_AUTH=false
       - WEBUI_NAME=DeepFX AI
-      - DEFAULT_MODELS=qwen3.5-35B-A3B
+      - DEFAULT_MODELS=qwen3.6-35B-A3B
 
       - OLLAMA_BASE_URL=
       - ENABLE_OLLAMA_API=false
