@@ -570,7 +570,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/account-api
-              tag: main-6c15072
+              tag: main-51dcc9c
             mt5:
               host: deepfx-mt5-bridge
 
