@@ -604,7 +604,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-guardian
-              tag: main-d113572
+              tag: main-db0565c
             mode: "shadow"
             logLevel: "DEBUG"
             guardianInstanceId: "strategy-guardian"
