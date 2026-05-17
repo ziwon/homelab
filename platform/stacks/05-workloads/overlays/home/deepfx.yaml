@@ -1024,7 +1024,7 @@ apps:
                               type: DirectoryOrCreate
                         initContainers:
                           - name: load-clickhouse-secret
-                            image: bitnami/kubectl:1.33
+                            image: rancher/kubectl:v1.33.5
                             imagePullPolicy: IfNotPresent
                             command:
                               - /bin/bash
