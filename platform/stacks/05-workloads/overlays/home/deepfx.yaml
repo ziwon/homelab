@@ -1024,16 +1024,29 @@ apps:
                               type: DirectoryOrCreate
                         initContainers:
                           - name: load-clickhouse-secret
-                            image: rancher/kubectl:v1.33.5
+                            image: harbor.home.lab/restack/deepfx/strategy-010102-kronos:main-02acbc1
                             imagePullPolicy: IfNotPresent
                             command:
-                              - /bin/sh
-                              - -lc
+                              - python
+                              - -c
                               - |
-                                set -euo pipefail
-                                kubectl get secret -n clickhouse clickhouse-managed-secrets \
-                                  -o jsonpath='{.data.DEEPFX_PASSWORD_PLAIN}' \
-                                  | base64 -d > /var/run/kronos-secrets/clickhouse-password
+                                import base64
+                                import json
+                                import ssl
+                                import urllib.request
+
+                                token = open('/var/run/secrets/kubernetes.io/serviceaccount/token').read().strip()
+                                ca = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+                                req = urllib.request.Request(
+                                    'https://kubernetes.default.svc/api/v1/namespaces/clickhouse/secrets/clickhouse-managed-secrets',
+                                    headers={'Authorization': f'Bearer {token}'},
+                                )
+                                ctx = ssl.create_default_context(cafile=ca)
+                                with urllib.request.urlopen(req, context=ctx, timeout=30) as res:
+                                    secret = json.load(res)
+                                password = base64.b64decode(secret['data']['DEEPFX_PASSWORD_PLAIN'])
+                                with open('/var/run/kronos-secrets/clickhouse-password', 'wb') as f:
+                                    f.write(password)
                             volumeMounts:
                               - name: kronos-runtime-secrets
                                 mountPath: /var/run/kronos-secrets
