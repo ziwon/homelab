@@ -929,6 +929,52 @@ apps:
         releaseName: deepfx-kronos-shadow-signal
         values: |
           resources:
+            - apiVersion: v1
+              kind: ServiceAccount
+              metadata:
+                name: strategy-010102-kronos-shadow-signal
+                namespace: deepfx
+                labels:
+                  app.kubernetes.io/name: strategy-010102-kronos-shadow-signal
+                  app.kubernetes.io/component: shadow-signal
+                  app.kubernetes.io/part-of: deepfx
+                  app.kubernetes.io/managed-by: argocd
+
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: Role
+              metadata:
+                name: strategy-010102-kronos-clickhouse-secret-reader
+                namespace: clickhouse
+                labels:
+                  app.kubernetes.io/name: strategy-010102-kronos-shadow-signal
+                  app.kubernetes.io/component: shadow-signal
+                  app.kubernetes.io/part-of: deepfx
+                  app.kubernetes.io/managed-by: argocd
+              rules:
+                - apiGroups: [""]
+                  resources: ["secrets"]
+                  resourceNames: ["clickhouse-managed-secrets"]
+                  verbs: ["get"]
+
+            - apiVersion: rbac.authorization.k8s.io/v1
+              kind: RoleBinding
+              metadata:
+                name: strategy-010102-kronos-clickhouse-secret-reader
+                namespace: clickhouse
+                labels:
+                  app.kubernetes.io/name: strategy-010102-kronos-shadow-signal
+                  app.kubernetes.io/component: shadow-signal
+                  app.kubernetes.io/part-of: deepfx
+                  app.kubernetes.io/managed-by: argocd
+              subjects:
+                - kind: ServiceAccount
+                  name: strategy-010102-kronos-shadow-signal
+                  namespace: deepfx
+              roleRef:
+                apiGroup: rbac.authorization.k8s.io
+                kind: Role
+                name: strategy-010102-kronos-clickhouse-secret-reader
+
             - apiVersion: batch/v1
               kind: CronJob
               metadata:
@@ -956,10 +1002,14 @@ apps:
                           app.kubernetes.io/component: shadow-signal
                           app.kubernetes.io/part-of: deepfx
                       spec:
+                        serviceAccountName: strategy-010102-kronos-shadow-signal
                         restartPolicy: Never
                         imagePullSecrets:
                           - name: harbor-secret
                         volumes:
+                          - name: kronos-runtime-secrets
+                            emptyDir:
+                              medium: Memory
                           - name: kronos-model-cache
                             hostPath:
                               path: /data/LLM/models
@@ -972,6 +1022,21 @@ apps:
                             hostPath:
                               path: /cache/nvidia-mps/log
                               type: DirectoryOrCreate
+                        initContainers:
+                          - name: load-clickhouse-secret
+                            image: bitnami/kubectl:1.33
+                            imagePullPolicy: IfNotPresent
+                            command:
+                              - /bin/bash
+                              - -lc
+                              - |
+                                set -euo pipefail
+                                kubectl get secret -n clickhouse clickhouse-managed-secrets \
+                                  -o jsonpath='{.data.DEEPFX_PASSWORD_PLAIN}' \
+                                  | base64 -d > /var/run/kronos-secrets/clickhouse-password
+                            volumeMounts:
+                              - name: kronos-runtime-secrets
+                                mountPath: /var/run/kronos-secrets
                         containers:
                           - name: kronos-shadow-signal
                             image: harbor.home.lab/restack/deepfx/strategy-010102-kronos:main-02acbc1
@@ -993,12 +1058,7 @@ apps:
                               - name: CH_URL
                                 value: http://clickhouse.clickhouse.svc:8123
                               - name: CH_USER
-                                value: feast
-                              - name: CH_PASS
-                                valueFrom:
-                                  secretKeyRef:
-                                    name: managed-feast-secrets
-                                    key: clickhouse-password
+                                value: deepfx
                               - name: PG_DSN
                                 valueFrom:
                                   secretKeyRef:
@@ -1009,6 +1069,7 @@ apps:
                               - -lc
                               - |
                                 set -euo pipefail
+                                export CH_PASS="$(cat /var/run/kronos-secrets/clickhouse-password)"
                                 mkdir -p /tmp/kronos
 
                                 python research/strategy-010102/scripts/export_clickhouse_ohlcv.py \
@@ -1059,6 +1120,9 @@ apps:
                                 python research/strategy-010102/scripts/kronos_decision_event.py \
                                   --input /tmp/kronos/kronos_latest_metals_signals.csv
                             volumeMounts:
+                              - name: kronos-runtime-secrets
+                                mountPath: /var/run/kronos-secrets
+                                readOnly: true
                               - name: kronos-model-cache
                                 mountPath: /models
                               - name: mps-pipe
