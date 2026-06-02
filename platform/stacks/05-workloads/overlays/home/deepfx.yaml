@@ -907,10 +907,10 @@ apps:
             resources:
               limits:
                 cpu: 2000m
-                memory: 256Mi
+                memory: 1Gi
               requests:
                 cpu: 100m
-                memory: 128Mi
+                memory: 256Mi
 
   # -----------------------------------------------------------
   # Strategy 010102 Kronos Shadow Signal CronJob
