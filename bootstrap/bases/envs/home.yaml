@@ -4,7 +4,7 @@ cilium:
 
 authentik:
   installed: true
-  chart_version: 2025.8.4
+  chart_version: 2026.5.2
 
 cilium-post-setup:
   installed: true

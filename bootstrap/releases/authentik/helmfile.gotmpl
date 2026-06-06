@@ -29,31 +29,100 @@ releases:
           - |
             set -euo pipefail
 
-            # namespace
             NS="authentik"
+            NEED_RESTART=false
 
-            # pod name (StatefulSet pod 0 for Bitnami PostgreSQL)
-            PG_POD="$(kubectl get pod -n $NS -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}')"
+            echo "Aligning authentik PostgreSQL credentials if the bundled database is present..."
+            PG_POD="$(kubectl get pod -n $NS -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+            if [ -n "$PG_POD" ] && kubectl get secret -n $NS authentik-postgresql >/dev/null 2>&1; then
+              OLD_PW="$(kubectl get secret -n $NS authentik-postgresql -o jsonpath='{.data.postgres-password}' | base64 -d)"
+              NEW_PW="${AUTHENTIK_POSTGRES_PASSWORD:?AUTHENTIK_POSTGRES_PASSWORD is required}"
 
-            # old password (current postgres superuser password from Secret)
-            OLD_PW="$(kubectl get secret -n $NS authentik-postgresql -o jsonpath='{.data.postgres-password}' | base64 -d)"
+              echo "Using PostgreSQL pod: $PG_POD"
+              if kubectl exec -n $NS "$PG_POD" -- \
+                env PGPASSWORD="$OLD_PW" \
+                psql -U postgres -h authentik-postgresql.authentik.svc.cluster.local -c "ALTER USER authentik WITH PASSWORD '${NEW_PW}';"; then
+                NEED_RESTART=true
+              else
+                echo "PostgreSQL password alignment failed; continuing with authentik flow configuration."
+              fi
+            else
+              echo "No authentik PostgreSQL pod found; skipping DB password alignment."
+            fi
 
-            # new password = the one authentik should use (we assume it's in env or helmfile vars)
-            NEW_PW="{{ requiredEnv "AUTHENTIK_POSTGRES_PASSWORD" }}"
+            if [ "$NEED_RESTART" = true ]; then
+              echo "Restarting authentik deployments so they pick up DB credentials..."
+              kubectl rollout restart deploy/authentik-server -n $NS || true
+              kubectl rollout restart deploy/authentik-worker -n $NS || true
+            fi
 
-            echo "Using pod: $PG_POD"
-            echo "Altering authentik user's password in Postgres..."
+            kubectl rollout status deploy/authentik-server -n $NS --timeout=180s || true
 
-            kubectl exec -n $NS "$PG_POD" -- \
-              env PGPASSWORD="$OLD_PW" \
-              psql -U postgres -h authentik-postgresql.authentik.svc.cluster.local -c "ALTER USER authentik WITH PASSWORD '${NEW_PW}';"
+            echo "Ensuring default authentik login flow uses GitHub-only authentication..."
+            kubectl exec -i -n $NS deploy/authentik-server -- ak shell <<'PY'
+            from authentik.flows.models import Flow
+            from authentik.core.models import User
+            from authentik.sources.oauth.models import OAuthSource
+            from authentik.stages.identification.models import IdentificationStage
+            from authentik.stages.user_write.models import UserWriteStage
 
-            # (optional) also align postgres superuser password if you *really* want:
-            # kubectl exec -n $NS "$PG_POD" -- \
-            #   env PGPASSWORD="$OLD_PW" \
-            #   psql -U postgres -h 127.0.0.1 -c "ALTER USER postgres WITH PASSWORD '${NEW_PW}';"
+            enrollment_flow = Flow.objects.get(slug='default-source-enrollment')
+            github_source = OAuthSource.objects.get(slug='github')
+            identification_stage = IdentificationStage.objects.get(name='default-authentication-identification')
+            enrollment_write_stage = UserWriteStage.objects.get(name='default-source-enrollment-write')
 
-            echo "Restarting authentik deployments so they pick up the working DB creds..."
-            kubectl rollout restart deploy/authentik-server -n $NS || true
-            kubectl rollout restart deploy/authentik-worker -n $NS || true
+            changed = False
+            if identification_stage.user_fields != []:
+                identification_stage.user_fields = []
+                changed = True
 
+            if identification_stage.password_stage_id is not None:
+                identification_stage.password_stage = None
+                changed = True
+
+            if identification_stage.enrollment_flow_id != enrollment_flow.pk:
+                identification_stage.enrollment_flow = enrollment_flow
+                changed = True
+
+            if identification_stage.passwordless_flow_id is not None:
+                identification_stage.passwordless_flow = None
+                changed = True
+
+            if identification_stage.show_source_labels is not True:
+                identification_stage.show_source_labels = True
+                changed = True
+
+            if changed:
+                identification_stage.save()
+
+            if not identification_stage.sources.filter(pk=github_source.pk).exists():
+                identification_stage.sources.add(github_source)
+                changed = True
+
+            if github_source.user_path_template != 'users':
+                github_source.user_path_template = 'users'
+                github_source.save()
+                changed = True
+
+            if enrollment_write_stage.user_type != 'internal' or enrollment_write_stage.user_path_template != 'users':
+                enrollment_write_stage.user_type = 'internal'
+                enrollment_write_stage.user_path_template = 'users'
+                enrollment_write_stage.save()
+                changed = True
+
+            try:
+                github_user = User.objects.get(username='ziwon')
+            except User.DoesNotExist:
+                github_user = None
+
+            if github_user and (github_user.type != 'internal' or github_user.path != 'users'):
+                github_user.type = 'internal'
+                github_user.path = 'users'
+                github_user.save()
+                changed = True
+
+            if changed:
+                print('updated default-authentication-identification login settings')
+            else:
+                print('default-authentication-identification login settings already correct')
+            PY

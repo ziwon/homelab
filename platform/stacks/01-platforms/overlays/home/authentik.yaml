@@ -17,6 +17,9 @@ apps:
           
           redis:
             enabled: true
+            # Bootstrap Helm release owns this NetworkPolicy.
+            networkPolicy:
+              enabled: false
 
           authentik:
             enabled : false
