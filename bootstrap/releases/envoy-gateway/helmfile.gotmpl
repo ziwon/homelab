@@ -1,0 +1,35 @@
+---
+bases:
+  - ../../bases/helmDefaults.yaml
+  - ../../bases/envs.yaml.gotmpl
+
+---
+releases:
+  - name: envoy-gateway
+    chart: oci://docker.io/envoyproxy/gateway-helm
+    version: {{ .Values | get "envoy-gateway.chart_version" "v1.8.0" }}
+    installed: {{ .Values | get "envoy-gateway.installed" false }}
+    namespace: envoy-gateway-system
+    createNamespace: true
+    labels:
+      layer: network
+    hooks:
+      - events: ["prepare"]
+        command: "bash"
+        showlogs: true
+        args:
+          - "-c"
+          - |
+            set -euo pipefail
+            kubectl delete validatingadmissionpolicy safe-upgrades.gateway.networking.k8s.io --ignore-not-found
+            kubectl delete validatingadmissionpolicybinding safe-upgrades.gateway.networking.k8s.io --ignore-not-found
+            helm template eg-crds oci://docker.io/envoyproxy/gateway-crds-helm \
+              --version {{ .Values | get "envoy-gateway.chart_version" "v1.8.0" }} \
+              --set crds.gatewayAPI.enabled=true \
+              --set crds.gatewayAPI.channel=experimental \
+              --set crds.gatewayAPI.safeUpgradePolicy.enabled=false \
+              --set crds.envoyGateway.enabled=true \
+              | kubectl apply --server-side --force-conflicts -f -
+    values:
+      - values/default.yaml
+      - values/{{ .Environment.Name }}.yaml.gotmpl

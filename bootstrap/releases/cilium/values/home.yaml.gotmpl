@@ -1,7 +1,7 @@
 # =========================
 # Cilium Helm Values (for K3s)
 # =========================
-# Version: v1.18.2
+# Version: v1.18.10
 # Compatible with K3s + kube-proxy replacement + eBPF
 
 k8sServiceHost: "127.0.0.1"        # K3s API server host
@@ -20,8 +20,9 @@ ipam:
       - {{ requiredEnv "CLUSTER_CIDR" }}
     clusterPoolIPv4MaskSize: 24
 
-routingMode: tunnel
-tunnelProtocol: vxlan
+routingMode: native
+ipv4NativeRoutingCIDR: {{ requiredEnv "CLUSTER_CIDR" }}
+autoDirectNodeRoutes: true
 
 # =========================
 # Layer 2 / External IP Support
@@ -40,10 +41,14 @@ loadBalancer:
 # Gateway API / Envoy Integration
 # =========================
 gatewayAPI:
-  enabled: true
+  enabled: false
+  gatewayClass:
+    create: "false"
+  hostNetwork:
+    enabled: false
 
 envoy:
-  enabled: true
+  enabled: false
 
 # =========================
 # Hubble Observability
@@ -88,6 +93,11 @@ cni:
 # eBPF Settings
 bpf:
   mapLockingEnabled: false
+  enableTCX: false
+  # Required for L7 Gateway API (Envoy) to reach backend pods when using
+  # proxy-use-original-source-address + tunnel mode. Prevents cx_connect_fail
+  # from host netns (cilium-envoy) to pod CIDRs for external client source IPs.
+  hostLegacyRouting: true
 
 # =========================
 # Security Contexts

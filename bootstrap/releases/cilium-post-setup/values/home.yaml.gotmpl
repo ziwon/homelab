@@ -11,7 +11,8 @@ resources:
       - cidr: "{{ requiredEnv "L2_ANNOUNCEMENT_CIDR_GW" }}"
     serviceSelector:
       matchLabels:
-        gateway.networking.k8s.io/gateway-name: cilium
+        gateway.envoyproxy.io/owning-gateway-name: cilium
+        gateway.envoyproxy.io/owning-gateway-namespace: infra
 
 - apiVersion: "cilium.io/v2alpha1"
   kind: CiliumLoadBalancerIPPool
@@ -55,9 +56,12 @@ resources:
   spec:
     serviceSelector:
       matchExpressions:
-        - key: gateway.networking.k8s.io/gateway-name
+        - key: gateway.envoyproxy.io/owning-gateway-name
           operator: In
           values: ["cilium"]
+        - key: gateway.envoyproxy.io/owning-gateway-namespace
+          operator: In
+          values: ["infra"]
     interfaces:
       - {{ requiredEnv "L2_BRIDGE_INTERFACE" }}
     externalIPs: true
@@ -71,7 +75,7 @@ resources:
   metadata:
     name: cilium
   spec:
-    controllerName: io.cilium/gateway-controller
+    controllerName: gateway.envoyproxy.io/gatewayclass-controller
 
 - apiVersion: gateway.networking.k8s.io/v1
   kind: Gateway
@@ -298,3 +302,27 @@ resources:
       minio-console   IN  A {{ requiredEnv "IP_ADDR_GW"   }}
       pg              IN  A {{ requiredEnv "IP_ADDR_DB"   }}
       dns             IN  A {{ requiredEnv "IP_ADDR_DNS"  }}
+      harbor          IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      wf              IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      redpanda-console IN A {{ requiredEnv "IP_ADDR_GW"   }}
+      http.redpanda   IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      schema.redpanda IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      logs            IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      grafana         IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      vm              IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      tempo           IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      alloy           IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      pyroscope       IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      feast           IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      feast-ui        IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      feast-offline   IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      ch              IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      ch-ui           IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      mt5             IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      deepfx          IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      drizzler        IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      acp-market-data IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      k8s-mcp         IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      mlflow          IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      n8n             IN  A {{ requiredEnv "IP_ADDR_GW"   }}
+      qdrant          IN  A {{ requiredEnv "IP_ADDR_GW"   }}

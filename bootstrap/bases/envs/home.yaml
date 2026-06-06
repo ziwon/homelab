@@ -1,6 +1,6 @@
 cilium:
   installed: true
-  chart_version: 1.18.2
+  chart_version: 1.18.10
 
 authentik:
   installed: true
@@ -9,9 +9,13 @@ authentik:
 cilium-post-setup:
   installed: true
 
+envoy-gateway:
+  installed: true
+  chart_version: v1.8.0
+
 argocd:
   installed: true
-  chart_version: 9.0.3 
+  chart_version: 9.0.3
 
 gpu-operator:
   installed: true

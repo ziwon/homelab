@@ -40,12 +40,17 @@ hooks:
           echo "Kubernetes TLS secret '${SECRET_NAME}' already exists, skipping creation."
         fi
 
-        sudo cp secrets/${DOMAIN}.crt /usr/local/share/ca-certificates/${DOMAIN}.crt
-        sudo update-ca-certificates
+        if sudo -n true 2>/dev/null; then
+          sudo cp secrets/${DOMAIN}.crt /usr/local/share/ca-certificates/${DOMAIN}.crt
+          sudo update-ca-certificates
+        else
+          echo "Skipping local CA trust update; sudo requires an interactive password."
+        fi
         popd >/dev/null
 
 releases:
   - name: cilium-post-setup
+    namespace: default
     chart: ../../charts/raw
     installed: {{ .Values | getOrNil "cilium-post-setup.installed" | default false }}
     labels:
@@ -66,6 +71,25 @@ releases:
             kubectl get namespace infra --context="$KUBE_CONTEXT" >/dev/null 2>&1 || \
               kubectl create namespace infra --context="$KUBE_CONTEXT"
 
+            # GatewayClass controllerName is immutable; recreate when moving
+            # between Cilium Gateway and Envoy Gateway.
+            DESIRED_CONTROLLER="gateway.envoyproxy.io/gatewayclass-controller"
+            CURRENT_CONTROLLER="$(kubectl get gatewayclass cilium \
+              --context="$KUBE_CONTEXT" \
+              -o jsonpath='{.spec.controllerName}' 2>/dev/null || true)"
+            if [ -n "$CURRENT_CONTROLLER" ] && [ "$CURRENT_CONTROLLER" != "$DESIRED_CONTROLLER" ]; then
+              kubectl delete gatewayclass cilium --context="$KUBE_CONTEXT"
+            fi
+
+            kubectl delete service cilium-gateway-cilium \
+              --namespace=infra \
+              --context="$KUBE_CONTEXT" \
+              --ignore-not-found
+            kubectl delete ciliumenvoyconfig cilium-gateway-cilium \
+              --namespace=infra \
+              --context="$KUBE_CONTEXT" \
+              --ignore-not-found
+
             # Create TLS secret idempotently
             kubectl create secret tls "$SECRET_NAME" \
               --namespace=infra \
@@ -81,9 +105,11 @@ releases:
           - |
             set -e
             KUBE_CONTEXT="{{`{{.Environment.KubeContext}}`}}"
-            echo "Restarting Cilium pods to apply Gateway API changes..."
-            kubectl rollout restart deployment/cilium-operator -n kube-system --context="$KUBE_CONTEXT"
-            kubectl rollout restart ds/cilium -n kube-system --context="$KUBE_CONTEXT"
+            echo "Waiting for Envoy Gateway controller..."
+            kubectl rollout status deployment/envoy-gateway \
+              --namespace=envoy-gateway-system \
+              --context="$KUBE_CONTEXT" \
+              --timeout=120s
       
     values:
       - values/{{ .Environment.Name }}.yaml.gotmpl

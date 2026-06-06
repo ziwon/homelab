@@ -18,6 +18,7 @@ up:
         --disable-network-policy \
         --disable-kube-proxy \
         --disable=traefik \
+        --disable=servicelb \
         --tls-san $K8S_TLS_SANS \
         --cluster-cidr=$CLUSTER_CIDR \
         --service-cidr=$SERVICE_CIDR

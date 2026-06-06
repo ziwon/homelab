@@ -12,16 +12,18 @@ releases:
   - name: cilium
     chart: cilium/cilium  
     installed: {{ .Values | get "cilium.installed" true }} 
-    version: {{ .Values | get "cilium.chart_version" "1.18.2" }}
+    version: {{ .Values | get "cilium.chart_version" "1.18.10" }}
     namespace: kube-system
     createNamespace: true
     labels:
       layer: network
+{{- if not (.Values | get "envoy-gateway.installed" false) }}
     hooks:
       - events: ["presync"]
         command: "../../hacks/install-gateway-api-crds.sh"
         args: ["{{ requiredEnv "K8S_GATEWAY_API_VERSION" }}"]
         showlogs: true
+{{- end }}
     values:
       - values/default.yaml
       - values/{{ .Environment.Name }}.yaml.gotmpl
