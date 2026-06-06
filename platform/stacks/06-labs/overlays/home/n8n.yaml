@@ -79,7 +79,7 @@ apps:
                   spec:
                     containers:
                       - name: cloudflared
-                        image: cloudflare/cloudflared:2025.11.1
+                        image: cloudflare/cloudflared:2026.5.2
                         args:
                           - tunnel
                           - --no-autoupdate
@@ -139,7 +139,7 @@ apps:
               enabled: true
               type: ClusterIP
               port: 80
-            
+
             resources:
               requests:
                 cpu: 100m
@@ -177,7 +177,7 @@ apps:
                 valueFrom:
                   secretKeyRef:
                     name: n8n-managed-secrets
-                    key: N8N_ADMIN_PASSWORD 
+                    key: N8N_ADMIN_PASSWORD
 
               # External URL (for webhooks)
               - name: N8N_HOST
@@ -232,7 +232,7 @@ apps:
 
           worker:
             enabled: true
-            replicaCount: 2 
+            replicaCount: 2
             resources:
               requests:
                 cpu: 100m
