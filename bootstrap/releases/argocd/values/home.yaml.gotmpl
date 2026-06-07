@@ -2,28 +2,6 @@ global:
   domain: {{ requiredEnv "ARGOCD_HOSTNAME" }}
 
 configs:
-  tls:
-    certificates:
-      harbor.home.lab: |
-        -----BEGIN CERTIFICATE-----
-        MIIDKDCCAhCgAwIBAgIUVB7hIr7HEcWhopDYhSXNh1vv9RUwDQYJKoZIhvcNAQEL
-        BQAwEzERMA8GA1UEAwwIaG9tZS5sYWIwHhcNMjUxMDIxMTY0OTI3WhcNMjYxMDIx
-        MTY0OTI3WjATMREwDwYDVQQDDAhob21lLmxhYjCCASIwDQYJKoZIhvcNAQEBBQAD
-        ggEPADCCAQoCggEBAMDd4c6ktJN//Z1OZLMplmr51NON44Y/SJ53wH+TbNdAwZlG
-        8hlP5oK3VZM5EvDsErv5TQkUyafHDMhKAk9C1lcKdoFl5guLq037Je6/e+s3/XyX
-        ehAaeSmWbzgHidzbKCbC9G5Q+mPgrOiZ41L239CFw9d1imr1pI/LiYN0AFGXwnSx
-        GWeP2FBlAlIdRIL8eb/rEtHziYyjWAuNQ7lFUjIN+oq1aXa4JZuNV76ejkqWdw0C
-        WTRSBEW/xG3/bJrSCrODy5oK06vrTX6T7sC2RsF19nA9gyvoiZlld/q2+hhnltz7
-        nKoLea/S8zIAV7w2z30J5IMAVVuTBY6bjVXIFwMCAwEAAaN0MHIwHQYDVR0OBBYE
-        FL8HN9WSD4t+uF21gH8VAdHkv5G9MB8GA1UdIwQYMBaAFL8HN9WSD4t+uF21gH8V
-        AdHkv5G9MA8GA1UdEwEB/wQFMAMBAf8wHwYDVR0RBBgwFoIIaG9tZS5sYWKCCiou
-        aG9tZS5sYWIwDQYJKoZIhvcNAQELBQADggEBAJhl7613ThHi2xFU24oem0PNGIOb
-        bR0H91TOEWcsxfUaE7qlWHyrr3WHZhLiWM+i/c/Vfh8geAEAbcygyJ/e+KwMp8pV
-        3hk5PyInJ9FA13qxEmzxxzPA7sV6ApWlLYoC3cMqJ7m8KQDn7QA3Hi4BPQsst4+B
-        /ltNTbGoTHVWYjUJzTwZi64dBWktkUcv90Clj0Y/Hc2nTeYLXXV+SDjhxhYVgNuq
-        PcmHMciDzYtt9MU9tog+2HXXCfl1pzvPs9DGnNVtqwqWbkgC0z8lqMAq6/N/FEZK
-        t4PxABEyg3SzzrUwGdRSb5WJnUHsxDTo6VSeOrfQRczKqaA41aHAG5PTtSM=
-        -----END CERTIFICATE-----
   params:
     server.insecure: "true"  
   rbac:
@@ -80,11 +58,33 @@ repoServer:
       readOnly: true
   volumes:
     - name: harbor-ca
-      configMap:
-        name: argocd-tls-certs-cm
+      secret:
+        secretName: argocd-harbor-ca
         items:
-          - key: harbor.home.lab
+          - key: HARBOR_HOME_LAB_CA_CRT
             path: harbor-ca.crt
+
+extraObjects:
+  - apiVersion: secrets.infisical.com/v1alpha1
+    kind: InfisicalSecret
+    metadata:
+      name: argocd-harbor-ca
+      namespace: argocd
+    spec:
+      hostAPI: https://app.infisical.com/api
+      authentication:
+        universalAuth:
+          secretsScope:
+            projectSlug: home-lab
+            envSlug: "hme"
+            secretsPath: /argocd
+          credentialsRef:
+            secretName: infisical-secrets
+            secretNamespace: infisical
+      managedKubeSecretReferences:
+        - secretName: argocd-harbor-ca
+          secretNamespace: argocd
+          creationPolicy: Owner
 
 notifications:
   secret:
