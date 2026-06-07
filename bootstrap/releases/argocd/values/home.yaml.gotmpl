@@ -70,6 +70,11 @@ extraObjects:
     metadata:
       name: argocd-harbor-ca
       namespace: argocd
+      labels:
+        app.kubernetes.io/managed-by: Helm
+      annotations:
+        meta.helm.sh/release-name: argocd
+        meta.helm.sh/release-namespace: argocd
     spec:
       hostAPI: https://app.infisical.com/api
       authentication:
