@@ -11,42 +11,7 @@ hooks:
       - "-c"
       - |
         set -e
-        pushd ../../ >/dev/null 2>&1
-        mkdir -p secrets
-        DOMAIN="${DOMAIN_PRIVATE:-}"
-        if [ -z "$DOMAIN" ]; then
-          echo "Error: DOMAIN_PRIVATE environment variable is required" >&2
-          exit 1
-        fi
-        if [ ! -f "secrets/${DOMAIN}.crt" ] || [ ! -f "secrets/${DOMAIN}.key" ]; then
-          echo "Generating self-signed certificate for ${DOMAIN}..."
-          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-            -keyout "secrets/${DOMAIN}.key" \
-            -out "secrets/${DOMAIN}.crt" \
-            -subj "/CN=${DOMAIN}" \
-            -addext "subjectAltName=DNS:${DOMAIN},DNS:*.${DOMAIN}"
-        else
-          echo "Certificate already exists, skipping generation."
-        fi
-
-        # Install secrtes in the infra namespace
-        SECRET_NAME="tls-${DOMAIN_PRIVATE_SLUG:-${DOMAIN}}"
-        if ! kubectl -n infra get secret "${SECRET_NAME}" >/dev/null 2>&1; then
-          echo "Creating Kubernetes TLS secret '${SECRET_NAME}' in namespace 'infra'..."
-          kubectl -n infra create secret tls "${SECRET_NAME}" \
-          --cert="secrets/${DOMAIN}.crt" \
-          --key="secrets/${DOMAIN}.key"
-        else
-          echo "Kubernetes TLS secret '${SECRET_NAME}' already exists, skipping creation."
-        fi
-
-        if sudo -n true 2>/dev/null; then
-          sudo cp secrets/${DOMAIN}.crt /usr/local/share/ca-certificates/${DOMAIN}.crt
-          sudo update-ca-certificates
-        else
-          echo "Skipping local CA trust update; sudo requires an interactive password."
-        fi
-        popd >/dev/null
+        echo "Private Gateway TLS is managed by cert-manager Certificate/https-private."
 
 releases:
   - name: cilium-post-setup
@@ -63,11 +28,9 @@ releases:
           - "-c"
           - |
             set -e
-            DOMAIN="${DOMAIN_PRIVATE}"
-            SECRET_NAME="${TLS_SECRET_NAME_FOR_DOMAIN_PRIVATE}"
             KUBE_CONTEXT="{{`{{.Environment.KubeContext}}`}}"
 
-            # Ensure namespace exists
+            # Ensure namespace exists; cert-manager owns the private Gateway TLS secret.
             kubectl get namespace infra --context="$KUBE_CONTEXT" >/dev/null 2>&1 || \
               kubectl create namespace infra --context="$KUBE_CONTEXT"
 
@@ -89,14 +52,6 @@ releases:
               --namespace=infra \
               --context="$KUBE_CONTEXT" \
               --ignore-not-found
-
-            # Create TLS secret idempotently
-            kubectl create secret tls "$SECRET_NAME" \
-              --namespace=infra \
-              --cert="../../secrets/${DOMAIN}.crt" \
-              --key="../../secrets/${DOMAIN}.key" \
-              --context="$KUBE_CONTEXT" \
-              --dry-run=client -o yaml | kubectl apply -f -
       - events: ["postsync"]
         command: "bash"
         showlogs: true
