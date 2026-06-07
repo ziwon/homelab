@@ -188,6 +188,8 @@ apps:
                 value: https
               - name: WEBHOOK_URL
                 value: https://n8n.restack.tech
+              - name: N8N_PROXY_HOPS
+                value: "1"
 
               # PostgreSQL
               - name: DB_TYPE
@@ -250,6 +252,8 @@ apps:
                 value: https
               - name: WEBHOOK_URL
                 value: https://n8n.restack.tech
+              - name: N8N_PROXY_HOPS
+                value: "1"
               - name: N8N_ENCRYPTION_KEY
                 valueFrom:
                   secretKeyRef:
