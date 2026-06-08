@@ -653,6 +653,49 @@ apps:
             existingSecret: "managed-deepfx-strategy-010101-secrets"
 
           # -----------------------------------------------------------
+          # DeepFX Strategy Engine - 010102 (Double-B v2 live)
+          # -----------------------------------------------------------
+          strategy-010102:
+            enabled: true
+            replicaCount: 1
+            imagePullSecrets:
+              - name: harbor-secret
+            image:
+              repository: harbor.home.lab/restack/deepfx/strategy-engine
+              tag: main-3b0c7ff
+            mode: "live"
+            logLevel: "INFO"
+            strategyInstanceId: "strategy-010102"
+            strategyVersion: "v2"
+
+            dashboard:
+              url: "http://deepfx-live-dashboard:8080"
+
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+              timeoutMs: 15000
+
+            accountApi:
+              url: "http://deepfx-account-api:8000"
+
+            slack:
+              enabled: false
+              notifyEnters: false
+              notifyExits: false
+              notifySkips: true
+              notifyUpdates: false
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+
+          # -----------------------------------------------------------
           # DeepFX Strategy Engine - 020101
           # -----------------------------------------------------------
           strategy-020101:
