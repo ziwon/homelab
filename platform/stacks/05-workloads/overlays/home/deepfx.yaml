@@ -680,6 +680,13 @@ apps:
             accountApi:
               url: "http://deepfx-account-api:8000"
 
+            strategy:
+              symbols:
+                - "XAUUSD"
+                - "XAGUSD"
+                - "NAS100"
+                - "US30"
+
             slack:
               enabled: false
               notifyEnters: false
