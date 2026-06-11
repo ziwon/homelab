@@ -113,6 +113,30 @@ apps:
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
+            # Strategy Secrets: 010102 (double-b v2)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-010102-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: "home"
+                      secretsPath: /strategies/010102
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-010102-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
             # Strategy Secrets: 020101
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
@@ -680,13 +704,6 @@ apps:
             accountApi:
               url: "http://deepfx-account-api:8000"
 
-            strategy:
-              symbols:
-                - "XAUUSD"
-                - "XAGUSD"
-                - "NAS100"
-                - "US30"
-
             slack:
               enabled: false
               notifyEnters: false
@@ -701,6 +718,11 @@ apps:
               requests:
                 cpu: 100m
                 memory: 128Mi
+
+            # Strategy config (symbols, gates, budgets) comes from Infisical:
+            # /strategies/010102 → DEEPFX_STRATEGY_CONFIG / DEEPFX_DOUBLE_B_CONFIG
+            sharedSecret: "managed-deepfx-strategy-shared-secrets"
+            existingSecret: "managed-deepfx-strategy-010102-secrets"
 
           # -----------------------------------------------------------
           # DeepFX Strategy Engine - 020101
