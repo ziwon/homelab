@@ -647,8 +647,8 @@ apps:
           # DeepFX Strategy Engine - 010101
           # -----------------------------------------------------------
           strategy-010101:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
