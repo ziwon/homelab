@@ -686,7 +686,7 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-cdfb1df
+              tag: main-54cbc4a
             mode: "live"
             logLevel: "INFO"
             strategyInstanceId: "strategy-010102"
