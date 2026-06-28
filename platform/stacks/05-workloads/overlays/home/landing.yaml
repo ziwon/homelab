@@ -30,7 +30,7 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: landing
-                        image: harbor.home.lab/restack/www:main-fdc5021
+                        image: harbor.home.lab/restack/www:main-4d9f02a
                         imagePullPolicy: Always
                         ports:
                           - containerPort: 80
