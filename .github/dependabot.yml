@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /apps/actions-runner
+    schedule:
+      interval: daily
+      time: "09:00"
+      timezone: Asia/Seoul
+    labels:
+      - dependencies
+      - actions-runner
+    commit-message:
+      prefix: fix
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope
