@@ -103,7 +103,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.llm.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
