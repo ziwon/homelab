@@ -123,6 +123,7 @@ apps:
     syncWave: "10"
     dependencies:
       - n8n-raw
+      - redis-primary-proxy
     source:
       repoURL: oci://8gears.container-registry.com/library/n8n
       chart: n8n
@@ -221,7 +222,7 @@ apps:
               - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
                 value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis-0.redis-headless.redis.svc
+                value: redis-primary.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
                 value: "6379"
               - name: QUEUE_BULL_REDIS_DB
@@ -290,7 +291,7 @@ apps:
               - name: N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS
                 value: "true"
               - name: QUEUE_BULL_REDIS_HOST
-                value: redis-0.redis-headless.redis.svc
+                value: redis-primary.redis.svc
               - name: QUEUE_BULL_REDIS_PORT
                 value: "6379"
               - name: QUEUE_BULL_REDIS_DB

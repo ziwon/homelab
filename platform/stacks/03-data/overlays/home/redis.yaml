@@ -76,3 +76,136 @@ apps:
                   - secretName: redis-managed-secrets
                     secretNamespace: redis
                     creationPolicy: Owner
+
+  - name: redis-primary-proxy
+    namespace: redis
+    project: dev
+    syncWave: "15"
+    dependencies:
+      - redis
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: redis-primary-proxy
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: redis-primary
+                namespace: redis
+                labels:
+                  app.kubernetes.io/name: redis-primary-proxy
+                  app.kubernetes.io/instance: redis-primary-proxy
+                  app.kubernetes.io/managed-by: argocd
+              spec:
+                type: ClusterIP
+                ports:
+                  - name: redis
+                    port: 6379
+                    targetPort: redis
+                    protocol: TCP
+                selector:
+                  app.kubernetes.io/name: redis-primary-proxy
+                  app.kubernetes.io/instance: redis-primary-proxy
+
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: redis-primary-proxy
+                namespace: redis
+                labels:
+                  app.kubernetes.io/name: redis-primary-proxy
+                  app.kubernetes.io/instance: redis-primary-proxy
+                  app.kubernetes.io/managed-by: argocd
+              spec:
+                replicas: 2
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: redis-primary-proxy
+                    app.kubernetes.io/instance: redis-primary-proxy
+                template:
+                  metadata:
+                    labels:
+                      app.kubernetes.io/name: redis-primary-proxy
+                      app.kubernetes.io/instance: redis-primary-proxy
+                  spec:
+                    containers:
+                      - name: haproxy
+                        image: haproxy:2.9-alpine
+                        command:
+                          - /bin/sh
+                          - -ec
+                          - |
+                            sed 's/^ *//' > /tmp/haproxy.cfg <<EOF
+                            global
+                              log stdout format raw local0
+
+                            defaults
+                              mode tcp
+                              log global
+                              timeout connect 3s
+                              timeout client 1m
+                              timeout server 1m
+
+                            frontend redis
+                              bind *:6379
+                              default_backend redis_master
+
+                            backend redis_master
+                              option tcp-check
+                              tcp-check connect
+                              tcp-check send AUTH\ ${REDIS_PASSWORD}\r\n
+                              tcp-check expect string +OK
+                              tcp-check send INFO\ replication\r\n
+                              tcp-check expect string role:master
+                              tcp-check send QUIT\r\n
+                              tcp-check expect string +OK
+                              server redis-0 redis-0.redis-headless.redis.svc.cluster.local:6379 check inter 1s fall 2 rise 1
+                              server redis-1 redis-1.redis-headless.redis.svc.cluster.local:6379 check inter 1s fall 2 rise 1
+                              server redis-2 redis-2.redis-headless.redis.svc.cluster.local:6379 check inter 1s fall 2 rise 1
+                            EOF
+                            haproxy -c -f /tmp/haproxy.cfg
+                            exec haproxy -f /tmp/haproxy.cfg
+                        env:
+                          - name: REDIS_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: redis-managed-secrets
+                                key: password
+                        ports:
+                          - name: redis
+                            containerPort: 6379
+                        resources:
+                          requests:
+                            cpu: 25m
+                            memory: 64Mi
+                          limits:
+                            cpu: 200m
+                            memory: 128Mi
+                        readinessProbe:
+                          tcpSocket:
+                            port: redis
+                          initialDelaySeconds: 3
+                          periodSeconds: 5
+                        livenessProbe:
+                          tcpSocket:
+                            port: redis
+                          initialDelaySeconds: 10
+                          periodSeconds: 10
+                        securityContext:
+                          runAsNonRoot: true
+                          runAsUser: 99
+                          readOnlyRootFilesystem: true
+                          allowPrivilegeEscalation: false
+                          capabilities:
+                            drop:
+                              - ALL
+                        volumeMounts:
+                          - name: tmp
+                            mountPath: /tmp
+                    volumes:
+                      - name: tmp
+                        emptyDir: {}
