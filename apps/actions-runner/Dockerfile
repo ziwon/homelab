@@ -1,6 +1,6 @@
 FROM docker:29-cli AS docker-cli
 
-FROM ghcr.io/actions/actions-runner:2.333.1
+FROM ghcr.io/actions/actions-runner:2.335.1
 
 ARG BUILDKIT_VERSION=0.29.0
 ARG BUILDX_VERSION=0.33.0
