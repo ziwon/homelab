@@ -40,7 +40,7 @@ jobs:
           endpoint: ${{ env.BUILDKIT_HOST }}
 
       - name: Login to Harbor
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: '${{ secrets.HARBOR_USERNAME }}'
