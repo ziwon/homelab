@@ -513,7 +513,7 @@ jobs:
 
       - name: Add label to created PR
         if: steps.llm.outputs.skip != 'true' && steps.restack.outputs.pr_url != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const prUrl = '${{ steps.restack.outputs.pr_url }}';
