@@ -495,7 +495,7 @@ jobs:
 
       - name: Upload LLM response artifact
         if: always() && steps.llm.outputs.skip != 'true' && env.DEBUG_LLM_RESPONSE == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: llm-response
           path: /tmp/llm_response.txt
