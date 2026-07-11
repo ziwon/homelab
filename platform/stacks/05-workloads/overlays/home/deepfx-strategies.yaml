@@ -15,7 +15,7 @@ apps:
         values: |
           image:
             repository: harbor.home.lab/restack/deepfx-strategies/strategy-050101
-            tag: main-9a25266
+            tag: main-482efdb
             pullPolicy: IfNotPresent
 
           strategy:
