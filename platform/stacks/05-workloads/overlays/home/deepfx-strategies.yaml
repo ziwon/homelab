@@ -1,0 +1,47 @@
+apps:
+  # Experimental strategies are isolated from the DeepFX core and legacy runtimes.
+  - name: deepfx-strategies-lab
+    namespace: deepfx-strategies-lab
+    project: dev
+    syncWave: "15"
+    dependencies:
+      - deepfx
+    source:
+      repoURL: oci://harbor.home.lab/restack/deepfx-strategies/strategy-lab
+      chart: .
+      targetRevision: 0.1.0
+      helm:
+        releaseName: deepfx-strategies-lab
+        values: |
+          image:
+            repository: harbor.home.lab/restack/deepfx-strategies/strategy-050101
+            tag: main-3c69a5f
+            pullPolicy: IfNotPresent
+
+          strategy:
+            instanceId: strategy-050101-lab
+            version: volatility-structure-v0
+            mode: shadow
+            executionEnabled: false
+            symbols: XAUUSD,XAGUSD,NAS100,US30
+            timeframe: M15
+            historyBars: 240
+            loopIntervalSeconds: 60
+
+          clickhouse:
+            url: http://clickhouse.clickhouse.svc:8123
+            username: deepfx
+            secretNamespace: clickhouse
+            secretName: clickhouse-managed-secrets
+            secretKey: DEEPFX_PASSWORD_PLAIN
+
+          dashboard:
+            url: http://deepfx-live-dashboard.deepfx.svc.cluster.local:8080
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
