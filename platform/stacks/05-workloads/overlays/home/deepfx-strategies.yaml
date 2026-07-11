@@ -9,13 +9,13 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx-strategies/strategy-lab
       chart: .
-      targetRevision: 0.1.2
+      targetRevision: 0.1.3
       helm:
         releaseName: deepfx-strategies-lab
         values: |
           image:
             repository: harbor.home.lab/restack/deepfx-strategies/strategy-050101
-            tag: main-4d6ca51
+            tag: main-9a25266
             pullPolicy: IfNotPresent
 
           strategy:
