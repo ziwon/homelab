@@ -1,0 +1,287 @@
+apps:
+  # -----------------------------------------------------------
+  # Atlantis Bootstrap (Infisical + HTTPRoute + Cloudflared)
+  # Secrets live in Infisical project `home-lab`, env `hme`, path /atlantis:
+  #   GH_APP_KEY              GitHub App private key (PEM)
+  #   GH_WEBHOOK_SECRET       GitHub App webhook secret
+  #   CLOUDFLARE_TUNNEL_TOKEN cloudflared tunnel token (atlantis.restack.tech)
+  #   CLOUDFLARE_API_TOKEN    Cloudflare provider auth for tf-infra stacks
+  #   AWS_ACCESS_KEY_ID       OCI Customer Secret Key (S3-compat state backend)
+  #   AWS_SECRET_ACCESS_KEY   OCI Customer Secret Key (S3-compat state backend)
+  #   GOOGLE_CREDENTIALS      GCP SA key JSON contents (google provider)
+  #   OCI_CONFIG              ~/.oci/config contents (key_file=/home/atlantis/.oci/key.pem)
+  #   OCI_PRIVATE_KEY         OCI API signing key (PEM)
+  # -----------------------------------------------------------
+  - name: atlantis-raw
+    namespace: atlantis
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: atlantis-raw
+        values: |
+          resources:
+
+            # -----------------------------------------------------------
+            # Env secrets — every key becomes an env var via loadEnvFromSecrets
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: atlantis-env
+                namespace: atlantis
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /atlantis
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: atlantis-env
+                    secretNamespace: atlantis
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # VCS secret — key names required by the atlantis chart
+            # (vcsSecretName expects `key.pem` + `github_secret`)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: atlantis-vcs
+                namespace: atlantis
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /atlantis
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: atlantis-vcs
+                    secretNamespace: atlantis
+                    creationPolicy: Owner
+                    template:
+                      includeAllSecrets: false
+                      data:
+                        key.pem: "{{ .GH_APP_KEY.Value }}"
+                        github_secret: "{{ .GH_WEBHOOK_SECRET.Value }}"
+
+            # -----------------------------------------------------------
+            # OCI SDK config — mounted at /home/atlantis/.oci
+            # (oci provider + OCI CLI both read the DEFAULT profile)
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: atlantis-oci
+                namespace: atlantis
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: home-lab
+                      envSlug: "hme"
+                      secretsPath: /atlantis
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: atlantis-oci
+                    secretNamespace: atlantis
+                    creationPolicy: Owner
+                    template:
+                      includeAllSecrets: false
+                      data:
+                        config: "{{ .OCI_CONFIG.Value }}"
+                        key.pem: "{{ .OCI_PRIVATE_KEY.Value }}"
+
+            # -----------------------------------------------------------
+            # HTTPRoute for Atlantis UI (Internal - Gateway API / Cilium)
+            # -----------------------------------------------------------
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: atlantis
+                namespace: atlantis
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - atlantis.home.lab
+                rules:
+                  - backendRefs:
+                      - name: atlantis
+                        port: 80
+
+            # -----------------------------------------------------------
+            # Cloudflared Tunnel (External - GitHub webhooks only)
+            # Public hostname atlantis.restack.tech -> http://atlantis.atlantis.svc:80
+            # /events is protected by the webhook secret; UI stays on home.lab
+            # -----------------------------------------------------------
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: cloudflared
+                namespace: atlantis
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: cloudflared
+                template:
+                  metadata:
+                    labels:
+                      app: cloudflared
+                  spec:
+                    containers:
+                      - name: cloudflared
+                        image: cloudflare/cloudflared:2026.5.2
+                        args:
+                          - tunnel
+                          - --no-autoupdate
+                          - --metrics
+                          - 0.0.0.0:2000
+                          - --protocol
+                          - http2
+                          - run
+                        env:
+                          - name: TUNNEL_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: atlantis-env
+                                key: CLOUDFLARE_TUNNEL_TOKEN
+                        resources:
+                          requests:
+                            cpu: 10m
+                            memory: 64Mi
+                          limits:
+                            cpu: 100m
+                            memory: 128Mi
+                        livenessProbe:
+                          httpGet:
+                            path: /ready
+                            port: 2000
+                          initialDelaySeconds: 10
+                          periodSeconds: 10
+                        readinessProbe:
+                          httpGet:
+                            path: /ready
+                            port: 2000
+                          initialDelaySeconds: 5
+                          periodSeconds: 5
+
+  # -----------------------------------------------------------
+  # Atlantis Installation (official Helm chart, StatefulSet + PVC)
+  # -----------------------------------------------------------
+  - name: atlantis
+    namespace: atlantis
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - atlantis-raw
+    source:
+      repoURL: https://runatlantis.github.io/helm-charts
+      chart: atlantis
+      targetRevision: 6.9.3
+      helm:
+        releaseName: atlantis
+        values: |
+          atlantisUrl: https://atlantis.restack.tech
+          orgAllowlist: github.com/ziwon/tf-infra
+
+          # TODO: fill in after creating the GitHub App (id/slug are not secrets)
+          githubApp:
+            id: 0            # <- GitHub App ID
+            slug: REPLACE_ME # <- GitHub App slug
+          # private key + webhook secret come from Infisical (atlantis-raw)
+          vcsSecretName: atlantis-vcs
+
+          service:
+            type: ClusterIP
+            port: 80
+            targetPort: 4141
+
+          # plan files survive restarts (k3s local-path PVC)
+          volumeClaim:
+            enabled: true
+            dataStorage: 8Gi
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+          environment:
+            ATLANTIS_DEFAULT_TF_DISTRIBUTION: opentofu
+            ATLANTIS_WRITE_GIT_CREDS: "true"
+            ATLANTIS_HIDE_PREV_PLAN_COMMENTS: "true"
+
+          # CLOUDFLARE_API_TOKEN, AWS_* (OCI state), GOOGLE_CREDENTIALS ...
+          loadEnvFromSecrets:
+            - atlantis-env
+
+          # OCI SDK config for the oci provider (~/.oci/config, DEFAULT profile)
+          extraVolumes:
+            - name: oci-config
+              secret:
+                secretName: atlantis-oci
+          extraVolumeMounts:
+            - name: oci-config
+              mountPath: /home/atlantis/.oci
+              readOnly: true
+
+          # Server-side repo config: projects + when_modified live in
+          # tf-infra/atlantis.yaml (generated); only the workflow is defined here.
+          repoConfig: |
+            ---
+            repos:
+              - id: github.com/ziwon/tf-infra
+                branch: /main/
+                apply_requirements: []
+                allowed_overrides:
+                  - workflow
+                  - apply_requirements
+                allow_custom_workflows: false
+                workflow: default
+            workflows:
+              default:
+                plan:
+                  steps:
+                    - run: |
+                        REPO_ROOT=$(git rev-parse --show-toplevel)
+                        LIVE_DIR="${REPO_REL_DIR/stacks/live}"
+                        cd "$REPO_ROOT"
+                        tofu -chdir="$REPO_REL_DIR" init -input=false \
+                          -backend-config="$REPO_ROOT/$LIVE_DIR/backend.hcl"
+                    - run: |
+                        REPO_ROOT=$(git rev-parse --show-toplevel)
+                        LIVE_DIR="${REPO_REL_DIR/stacks/live}"
+                        cd "$REPO_ROOT"
+                        tofu -chdir="$REPO_REL_DIR" plan -input=false \
+                          -out="$PLANFILE" \
+                          -var-file="$REPO_ROOT/$LIVE_DIR/terraform.tfvars"
+                apply:
+                  steps:
+                    - run: |
+                        REPO_ROOT=$(git rev-parse --show-toplevel)
+                        cd "$REPO_ROOT"
+                        tofu -chdir="$REPO_REL_DIR" apply "$PLANFILE"
