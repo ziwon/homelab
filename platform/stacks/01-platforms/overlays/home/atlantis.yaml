@@ -217,6 +217,10 @@ apps:
             port: 80
             targetPort: 4141
 
+          # ingress is chart-default-on; this cluster uses HTTPRoute + cloudflared
+          ingress:
+            enabled: false
+
           # plan files survive restarts (k3s local-path PVC)
           volumeClaim:
             enabled: true
@@ -230,10 +234,10 @@ apps:
               cpu: "1"
               memory: 1Gi
 
-          environment:
-            ATLANTIS_DEFAULT_TF_DISTRIBUTION: opentofu
-            ATLANTIS_WRITE_GIT_CREDS: "true"
-            ATLANTIS_HIDE_PREV_PLAN_COMMENTS: "true"
+          # chart-native env wiring (ATLANTIS_WRITE_GIT_CREDS is auto-set
+          # by the chart whenever githubApp is configured)
+          defaultTFDistribution: opentofu
+          hidePrevPlanComments: true
 
           # CLOUDFLARE_API_TOKEN, AWS_* (OCI state), GOOGLE_CREDENTIALS ...
           loadEnvFromSecrets:
