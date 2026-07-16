@@ -206,8 +206,9 @@ apps:
           orgAllowlist: github.com/ziwon/tf-infra
 
           # GitHub App: ziwon-atlantis (https://github.com/apps/ziwon-atlantis)
+          # id must be a string: helm renders large ints in scientific notation
           githubApp:
-            id: 4315838
+            id: "4315838"
             slug: ziwon-atlantis
           # private key + webhook secret come from Infisical (atlantis-raw)
           vcsSecretName: atlantis-vcs
