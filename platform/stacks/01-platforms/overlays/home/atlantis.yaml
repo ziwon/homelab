@@ -205,10 +205,10 @@ apps:
           atlantisUrl: https://atlantis.restack.tech
           orgAllowlist: github.com/ziwon/tf-infra
 
-          # TODO: fill in after creating the GitHub App (id/slug are not secrets)
+          # GitHub App: ziwon-atlantis (https://github.com/apps/ziwon-atlantis)
           githubApp:
-            id: 0            # <- GitHub App ID
-            slug: REPLACE_ME # <- GitHub App slug
+            id: 4315838
+            slug: ziwon-atlantis
           # private key + webhook secret come from Infisical (atlantis-raw)
           vcsSecretName: atlantis-vcs
 
