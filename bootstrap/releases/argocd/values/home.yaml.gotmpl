@@ -51,11 +51,42 @@ repoServer:
     requests:
       cpu: 100m
       memory: 128Mi
+  env:
+    - name: HELM_REGISTRY_CONFIG
+      value: /home/argocd/.config/helm/registry/config.json
+  initContainers:
+    - name: helm-registry-login
+      image: quay.io/argoproj/argocd:v3.1.9
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          umask 077
+          mkdir -p /home/argocd/.config/helm/registry
+          auth="$(printf '%s:%s' "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')"
+          printf '{"auths":{"harbor.home.lab":{"auth":"%s"}}}\n' "$auth" > /home/argocd/.config/helm/registry/config.json
+      env:
+        - name: HARBOR_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: harbor-oci-restack
+              key: username
+        - name: HARBOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: harbor-oci-restack
+              key: password
+      volumeMounts:
+        - name: helm-registry-config
+          mountPath: /home/argocd/.config/helm/registry
   volumeMounts:
     - name: harbor-ca
       mountPath: /etc/ssl/certs/harbor-ca.crt
       subPath: harbor-ca.crt
       readOnly: true
+    - name: helm-registry-config
+      mountPath: /home/argocd/.config/helm/registry
   volumes:
     - name: harbor-ca
       secret:
@@ -63,6 +94,8 @@ repoServer:
         items:
           - key: HARBOR_HOME_LAB_CA_CRT
             path: harbor-ca.crt
+    - name: helm-registry-config
+      emptyDir: {}
 
 extraObjects:
   - apiVersion: secrets.infisical.com/v1alpha1
