@@ -1058,6 +1058,8 @@ apps:
                   app.kubernetes.io/part-of: deepfx
                   app.kubernetes.io/managed-by: argocd
               spec:
+                # Disabled: Kronos shadow signals did not add enough decision value to justify the GPU/runtime cost.
+                suspend: true
                 schedule: "*/15 * * * *"
                 timeZone: "Asia/Seoul"
                 concurrencyPolicy: Forbid
