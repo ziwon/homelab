@@ -13,7 +13,7 @@ apps:
         jsonPointers:
           - /metadata/annotations
     source:
-      repoURL: https://github.com/ziwon/homelab.git
+      repoURL: git@github.com:ziwon/homelab.git
       targetRevision: main
       path: platform/stacks/kustomize/clickhouse-operator
       kustomize: {}
