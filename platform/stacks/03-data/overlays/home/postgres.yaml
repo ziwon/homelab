@@ -136,7 +136,8 @@ apps:
                         - ReadWriteOnce
                       resources:
                         requests:
-                          storage: 10Gi
+                          # repo1 currently stores ~25 GiB of local pgBackRest data.
+                          storage: 50Gi
 
                 - name: repo2
                   s3:
