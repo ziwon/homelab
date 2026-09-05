@@ -503,7 +503,7 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: recovery-20260905-timezone
+              tag: recovery-20260905-preserve-prefix
 
             imagePullSecrets:
               - name: harbor-secret
