@@ -486,7 +486,7 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.3.6-recovery.20260905
+      targetRevision: 0.3.7-recovery.20260905
       helm:
         releaseName: deepfx
         values: |
@@ -503,7 +503,7 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: recovery-20260905-preserve-prefix
+              tag: activation-20260905-risk-guard-v1
 
             imagePullSecrets:
               - name: harbor-secret
@@ -527,10 +527,12 @@ apps:
             config:
               marketTimeZone: America/New_York
               marketTimeShiftHours: 7
+              requiredRiskMagics: "31010"
               logLevel: "INFO"
               mt5Path: "C:\\MT5\\terminal64.exe"
 
             existingSecret: "managed-deepfx-secrets"
+            riskPolicySecret: "managed-deepfx-strategy-030101-secrets"
 
           # -----------------------------------------------------------
           # DeepFX Data Collector
@@ -769,7 +771,8 @@ apps:
               - name: harbor-secret
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-bc562fd
+              tag: activation-20260905-risk-guard-v1
+            strategyVersion: "mr-guard-risk-gated-preflight"
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
