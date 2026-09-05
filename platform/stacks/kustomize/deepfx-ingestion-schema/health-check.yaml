@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: deepfx-ingestion-check
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 90
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          containers:
+            - name: check
+              image: altinity/clickhouse-server:25.3.8.10041.altinitystable
+              command: ["clickhouse-client"]
+              args:
+                - --host=clickhouse.clickhouse.svc
+                - --user=default
+                - --readonly=1
+                - --max_execution_time=30
+                - --max_memory_usage=1000000000
+                - --query
+                - >-
+                  SELECT throwIf(count() != 3 OR min(last_poll_time) < now() - INTERVAL 5 MINUTE
+                  OR countIf(arrayExists(t -> t > now() - INTERVAL 5 MINUTE, exceptions.time)) > 0,
+                  'DeepFX Kafka consumers missing or not polling')
+                  FROM system.kafka_consumers WHERE database = 'deepfx'
+                  AND table IN ('ohlcv_queue', 'ticks_queue', 'market_features_queue')
+              env:
+                - name: CLICKHOUSE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: clickhouse-managed-secrets
+                      key: DEFAULT_PASSWORD_PLAIN
+              securityContext:
+                runAsUser: 101
+                runAsGroup: 101
+                runAsNonRoot: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

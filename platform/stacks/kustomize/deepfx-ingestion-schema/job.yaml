@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: deepfx-clickhouse-schema
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  activeDeadlineSeconds: 180
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: schema
+          image: altinity/clickhouse-server:25.3.8.10041.altinitystable
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              clickhouse-client --host clickhouse.clickhouse.svc --user default
+              --max_execution_time 30 --max_memory_usage 1000000000
+              --multiquery < /schema/schema.sql
+          env:
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse-managed-secrets
+                  key: DEFAULT_PASSWORD_PLAIN
+          volumeMounts:
+            - name: schema
+              mountPath: /schema
+              readOnly: true
+          securityContext:
+            runAsUser: 101
+            runAsGroup: 101
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: schema
+          configMap:
+            name: deepfx-clickhouse-schema

@@ -6,7 +6,7 @@ apps:
     dependencies:
       - clickhouse-raw
     source:
-      repoURL: https://github.com/restack/deepfx.git
-      targetRevision: 9fcb3fb56dd01f04c309a0fcd9d07c65e81caa62
-      path: deploy/clickhouse/bootstrap
+      repoURL: git@github.com:ziwon/homelab.git
+      targetRevision: main
+      path: platform/stacks/kustomize/deepfx-ingestion-schema
       kustomize: {}
