@@ -21,7 +21,7 @@ spec:
               image: altinity/clickhouse-server:25.3.8.10041.altinitystable
               command: ["clickhouse-client"]
               args:
-                - --host=clickhouse.clickhouse.svc
+                - --host=clickhouse-homelab.clickhouse.svc
                 - --user=default
                 - --readonly=1
                 - --max_execution_time=30

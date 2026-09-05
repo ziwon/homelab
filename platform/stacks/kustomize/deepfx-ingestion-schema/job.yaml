@@ -18,7 +18,7 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - >-
-              clickhouse-client --host clickhouse.clickhouse.svc --user default
+              clickhouse-client --host clickhouse-homelab.clickhouse.svc --user default
               --max_execution_time 30 --max_memory_usage 1000000000
               --multiquery < /schema/schema.sql
           env:
