@@ -1,0 +1,12 @@
+apps:
+  - name: deepfx-ingestion-schema
+    namespace: clickhouse
+    project: dev
+    syncWave: "15"
+    dependencies:
+      - clickhouse-raw
+    source:
+      repoURL: https://github.com/restack/deepfx.git
+      targetRevision: 9fcb3fb56dd01f04c309a0fcd9d07c65e81caa62
+      path: deploy/clickhouse/bootstrap
+      kustomize: {}
