@@ -537,7 +537,7 @@ apps:
           # -----------------------------------------------------------
           data-collector:
             enabled: true
-            replicaCount: 0
+            replicaCount: 1
 
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
