@@ -486,7 +486,7 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.3.5
+      targetRevision: 0.3.6-recovery.20260905
       helm:
         releaseName: deepfx
         values: |
@@ -503,7 +503,7 @@ apps:
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
               pullPolicy: Always
-              tag: main-51dcc9c
+              tag: recovery-20260905-timezone
 
             imagePullSecrets:
               - name: harbor-secret
@@ -525,6 +525,8 @@ apps:
               size: 10Gi
 
             config:
+              marketTimeZone: America/New_York
+              marketTimeShiftHours: 7
               logLevel: "INFO"
               mt5Path: "C:\\MT5\\terminal64.exe"
 
@@ -539,7 +541,7 @@ apps:
 
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
-              tag: "main-51dcc9c"
+              tag: recovery-20260905-candles
               pullPolicy: IfNotPresent
 
             imagePullSecrets:
@@ -572,7 +574,7 @@ apps:
             collector:
               symbols: "NAS100,US30,XAUUSD,XAGUSD,USDCHF,CADCHF,EURUSD,GBPUSD,USDJPY,AUDUSD,N\
                 ZDUSD,EURGBP,EURJPY,BTCUSD"
-              timeframes: "M1,M5,M15,H1,H4,D1"
+              timeframes: "M1,M5,M15,H1,H4,D1,W1"
               ohlcvInterval: 60
               logLevel: "INFO"
 
