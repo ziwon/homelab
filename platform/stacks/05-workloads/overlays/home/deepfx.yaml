@@ -41,7 +41,31 @@ apps:
                     creationPolicy: Owner
 
             # -----------------------------------------------------------
-            # Shared screts for strategies
+            # H4 writer authentication stays separate from broker credentials.
+            # -----------------------------------------------------------
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-h4-writer
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: home
+                      secretsPath: /h4-writer
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-h4-writer
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            # -----------------------------------------------------------
+            # Shared secrets for legacy strategies
             # -----------------------------------------------------------
             - apiVersion: secrets.infisical.com/v1alpha1
               kind: InfisicalSecret
@@ -1254,6 +1278,7 @@ apps:
                 name: nightly-dream
                 namespace: deepfx
               spec:
+                suspend: true
                 schedule: "0 06 * * *"
                 timezone: "Asia/Seoul"
                 concurrencyPolicy: Forbid
