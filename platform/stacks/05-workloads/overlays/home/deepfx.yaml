@@ -421,6 +421,472 @@ apps:
                 name: argo-harbor-secret-reader
 
   # ------------------------------------------------------------------
+  # H4 additive database and Kafka preparation (secrets provisioned first)
+  # ------------------------------------------------------------------
+  - name: deepfx-h4-database-prep
+    namespace: deepfx
+    project: dev
+    syncWave: "2"
+    dependencies:
+      - deepfx-raw
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: "2.0.2"
+      helm:
+        releaseName: deepfx-h4-database-prep
+        values: |
+          resources:
+            - apiVersion: cluster.redpanda.com/v1alpha2
+              kind: Topic
+              metadata:
+                name: deepfx.market.h4.closed
+                namespace: redpanda
+                annotations:
+                  argocd.argoproj.io/sync-wave: "-30"
+                  argocd.argoproj.io/sync-options: Prune=false,Delete=false
+              spec:
+                partitions: 3
+                replicationFactor: 1
+                interval: 1h
+                additionalConfig:
+                  cleanup.policy: delete
+                  # Keep the new delivery log until a separate retention policy is reviewed.
+                  retention.ms: "-1"
+                  retention.bytes: "-1"
+                  segment.bytes: "67108864"
+                  segment.ms: "3600000"
+                kafkaApiSpec:
+                  brokers:
+                    - redpanda-0.redpanda.redpanda.svc.cluster.local:9093
+                  sasl:
+                    mechanism: SCRAM-SHA-256
+                    username: admin
+                    passwordSecretRef:
+                      name: redpanda-managed-secrets
+                      key: superuser-password
+                  tls:
+                    caCertSecretRef:
+                      name: redpanda-default-cert
+                      key: ca.crt
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: deepfx-h4-kafka-acl-v1
+                namespace: redpanda
+                annotations:
+                  argocd.argoproj.io/sync-wave: "-20"
+                  argocd.argoproj.io/sync-options: Prune=false,Delete=false
+              spec:
+                backoffLimit: 0
+                activeDeadlineSeconds: 300
+                template:
+                  metadata:
+                    labels:
+                      app.kubernetes.io/name: deepfx-h4-kafka-acl
+                      app.kubernetes.io/component: migration
+                  spec:
+                    automountServiceAccountToken: false
+                    restartPolicy: Never
+                    securityContext:
+                      runAsNonRoot: true
+                      runAsUser: 101
+                      runAsGroup: 101
+                      fsGroup: 101
+                      seccompProfile:
+                        type: RuntimeDefault
+                    containers:
+                      - name: h4-acl
+                        image: docker.redpanda.com/redpandadata/redpanda@sha256:840030ecf6194070bf5b5824331518faffa1c9af5765c378606f5f462efad994
+                        imagePullPolicy: IfNotPresent
+                        securityContext:
+                          allowPrivilegeEscalation: false
+                          readOnlyRootFilesystem: true
+                          capabilities:
+                            drop: [ALL]
+                        env:
+                          - name: RPK_USER
+                            value: admin
+                          - name: RPK_PASS
+                            valueFrom:
+                              secretKeyRef:
+                                name: redpanda-managed-secrets
+                                key: superuser-password
+                          - name: RPK_SASL_MECHANISM
+                            value: SCRAM-SHA-256
+                          - name: XDG_CONFIG_HOME
+                            value: /tmp/rpk-config
+                        command: [/bin/sh, -c]
+                        args:
+                          - |
+                            set -eu
+                            rpk_h4() {
+                              rpk -X brokers=redpanda-0.redpanda.redpanda.svc.cluster.local:9093 \
+                                -X tls.enabled=true -X tls.ca=/etc/redpanda-ca/ca.crt "$@"
+                            }
+                            # Credentials stay in the environment, never command arguments or output.
+                            until rpk_h4 topic describe deepfx.market.h4.closed >/dev/null 2>&1; do
+                              sleep 3
+                            done
+                            rpk_h4 security acl create --allow-principal User:deepfx \
+                              --operation read,describe --topic deepfx.market.h4.closed \
+                              --resource-pattern-type literal
+                            rpk_h4 security acl create --allow-principal User:deepfx \
+                              --operation read --group ch.homelab.deepfx.h4.closed.v1 \
+                              --resource-pattern-type literal
+                            rpk_h4 security acl list --allow-principal User:deepfx \
+                              --topic deepfx.market.h4.closed --resource-pattern-type literal
+                            rpk_h4 security acl list --allow-principal User:deepfx \
+                              --group ch.homelab.deepfx.h4.closed.v1 --resource-pattern-type literal
+                        resources:
+                          requests: {cpu: 50m, memory: 64Mi}
+                          limits: {cpu: 250m, memory: 128Mi}
+                        volumeMounts:
+                          - name: ca
+                            mountPath: /etc/redpanda-ca
+                            readOnly: true
+                          - name: temporary
+                            mountPath: /tmp
+                    volumes:
+                      - name: ca
+                        secret:
+                          secretName: redpanda-default-cert
+                          items:
+                            - key: ca.crt
+                              path: ca.crt
+                      - name: temporary
+                        emptyDir: {}
+            - apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: deepfx-h4-database-migration-v1
+                namespace: deepfx
+                annotations:
+                  argocd.argoproj.io/sync-wave: "-10"
+                  argocd.argoproj.io/sync-options: Prune=false,Delete=false
+                  deepfx.io/postgres-sql-sha256: b8a0469fe3b2b4e5411858f755678157adfafc1690c4f79b9955b65b8dc62d7e
+                  deepfx.io/clickhouse-sql-sha256: f581e3ab3a15ad732f876f379d34636d171354d4485cd38975702965d4ff2fb0
+              immutable: true
+              data:
+                010_h4_runtime.sql: |
+                  -- Apply explicitly before starting the H4 runtime. Preserve this ledger on rollback.
+                  BEGIN;
+                  CREATE TABLE IF NOT EXISTS h4_runtime (
+                      account_id text PRIMARY KEY,
+                      strategy_id text NOT NULL,
+                      writer_id text NOT NULL DEFAULT '',
+                      writer_epoch bigint NOT NULL DEFAULT 0 CHECK (writer_epoch >= 0),
+                      lease_until timestamptz NOT NULL DEFAULT '-infinity',
+                      payload jsonb NOT NULL CHECK (jsonb_typeof(payload) = 'object'),
+                      updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
+                  );
+                  COMMENT ON COLUMN h4_runtime.payload IS
+                      'Atomic symbols/setup/bar/cooldown, intent reservations, positions/fills/stops and UTC loss state';
+                  CREATE TABLE IF NOT EXISTS h4_outbox (
+                      id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                      account_id text NOT NULL REFERENCES h4_runtime(account_id),
+                      writer_epoch bigint NOT NULL,
+                      event jsonb NOT NULL,
+                      created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+                      delivered_at timestamptz
+                  );
+                  CREATE INDEX IF NOT EXISTS h4_outbox_pending ON h4_outbox(id) WHERE delivered_at IS NULL;
+                  COMMIT;
+                009_h4_closed_bars.sql: |
+                  -- Apply explicitly with a migration account; never rewrite legacy OHLCV history.
+                  -- Kafka authentication remains in the existing server configuration, not this file.
+                  CREATE TABLE IF NOT EXISTS deepfx.ohlcv_revisions
+                  (
+                      symbol LowCardinality(String),
+                      timeframe LowCardinality(String),
+                      open_time DateTime64(6, 'UTC'),
+                      close_time DateTime64(6, 'UTC'),
+                      available_at DateTime64(6, 'UTC'),
+                      ingested_at DateTime64(6, 'UTC') DEFAULT now64(6),
+                      revision UInt64,
+                      source_id String,
+                      calendar_id String,
+                      content_hash String,
+                      payload String
+                  )
+                  ENGINE = MergeTree
+                  PARTITION BY toYYYYMM(open_time)
+                  ORDER BY (source_id, calendar_id, symbol, open_time, revision);
+
+                  ALTER TABLE deepfx.ohlcv_revisions
+                  ADD COLUMN IF NOT EXISTS ingested_at DateTime64(6, 'UTC') DEFAULT now64(6);
+
+                  CREATE TABLE IF NOT EXISTS deepfx.ohlcv_closed
+                  AS deepfx.ohlcv_revisions
+                  ENGINE = ReplacingMergeTree(revision)
+                  PARTITION BY toYYYYMM(open_time)
+                  ORDER BY (source_id, calendar_id, symbol, open_time);
+
+                  ALTER TABLE deepfx.ohlcv_closed
+                  ADD COLUMN IF NOT EXISTS ingested_at DateTime64(6, 'UTC') DEFAULT now64(6);
+
+                  CREATE MATERIALIZED VIEW IF NOT EXISTS deepfx.ohlcv_closed_mv
+                  TO deepfx.ohlcv_closed AS SELECT * FROM deepfx.ohlcv_revisions;
+
+                  CREATE TABLE IF NOT EXISTS deepfx.h4_closed_queue
+                  (
+                      symbol String,
+                      timeframe String,
+                      open_time String,
+                      close_time String,
+                      available_at String,
+                      revision UInt64,
+                      source_id String,
+                      calendar_id String,
+                      content_hash String,
+                      payload String
+                  )
+                  ENGINE = Kafka
+                  SETTINGS
+                      kafka_broker_list = 'SASL_SSL://redpanda.redpanda.svc:9093',
+                      kafka_topic_list = 'deepfx.market.h4.closed',
+                      kafka_group_name = 'ch.homelab.deepfx.h4.closed.v1',
+                      kafka_format = 'JSONEachRow',
+                      kafka_num_consumers = 1,
+                      kafka_skip_broken_messages = 0;
+
+                  CREATE MATERIALIZED VIEW IF NOT EXISTS deepfx.h4_closed_queue_mv
+                  TO deepfx.ohlcv_revisions AS
+                  SELECT symbol, timeframe,
+                         parseDateTime64BestEffort(open_time, 6, 'UTC') AS open_time,
+                         parseDateTime64BestEffort(close_time, 6, 'UTC') AS close_time,
+                         parseDateTime64BestEffort(available_at, 6, 'UTC') AS available_at,
+                         revision, source_id, calendar_id, content_hash, payload
+                  FROM deepfx.h4_closed_queue
+                  WHERE timeframe = 'H4';
+                migrate.py: |
+                  """Apply only the reviewed additive H4 SQL; never submit broker operations."""
+                  import hashlib
+                  import json
+                  import os
+                  import re
+                  import sys
+                  import urllib.parse
+                  import urllib.request
+                  from pathlib import Path
+
+                  import psycopg
+                  from psycopg import sql
+
+                  EXPECTED_HASHES = {
+                      "010_h4_runtime.sql": "b8a0469fe3b2b4e5411858f755678157adfafc1690c4f79b9955b65b8dc62d7e",
+                      "009_h4_closed_bars.sql": "f581e3ab3a15ad732f876f379d34636d171354d4485cd38975702965d4ff2fb0",
+                  }
+                  REVISION = "pg010-b8a0469fe3b2-ch009-f581e3ab3a15"
+                  PG_COLUMNS = {
+                      "h4_runtime": [
+                          ("account_id", "text", True), ("strategy_id", "text", True),
+                          ("writer_id", "text", True), ("writer_epoch", "bigint", True),
+                          ("lease_until", "timestamp with time zone", True),
+                          ("payload", "jsonb", True), ("updated_at", "timestamp with time zone", True),
+                      ],
+                      "h4_outbox": [
+                          ("id", "bigint", True), ("account_id", "text", True),
+                          ("writer_epoch", "bigint", True), ("event", "jsonb", True),
+                          ("created_at", "timestamp with time zone", True),
+                          ("delivered_at", "timestamp with time zone", False),
+                      ],
+                  }
+                  CH_ENGINES = {
+                      "ohlcv_revisions": "MergeTree", "ohlcv_closed": "ReplacingMergeTree",
+                      "ohlcv_closed_mv": "MaterializedView", "h4_closed_queue": "Kafka",
+                      "h4_closed_queue_mv": "MaterializedView",
+                  }
+                  CH_COLUMNS = {
+                      "symbol": "LowCardinality(String)", "timeframe": "LowCardinality(String)",
+                      "open_time": "DateTime64(6, 'UTC')", "close_time": "DateTime64(6, 'UTC')",
+                      "available_at": "DateTime64(6, 'UTC')", "ingested_at": "DateTime64(6, 'UTC')",
+                      "revision": "UInt64", "source_id": "String", "calendar_id": "String",
+                      "content_hash": "String", "payload": "String",
+                  }
+
+                  class MigrationCheckError(RuntimeError):
+                      pass
+
+                  def require(condition, message):
+                      if not condition:
+                          raise MigrationCheckError(message)
+
+                  def load_sql(name):
+                      raw = (Path("/migration") / name).read_bytes()
+                      require(hashlib.sha256(raw).hexdigest() == EXPECTED_HASHES[name], "SQL checksum mismatch")
+                      return raw.decode()
+
+                  def ch_query(query):
+                      endpoint = os.environ["CH_URL"]
+                      parsed = urllib.parse.urlsplit(endpoint)
+                      require(parsed.scheme in {"http", "https"} and parsed.hostname, "Invalid CH endpoint")
+                      require(not parsed.username and not parsed.password and not parsed.query
+                              and not parsed.fragment and parsed.path in {"", "/"}, "Invalid CH endpoint")
+                      request = urllib.request.Request(
+                          endpoint, data=query.encode(), method="POST",
+                          headers={"X-ClickHouse-User": os.environ["CH_USER"],
+                                   "X-ClickHouse-Key": os.environ["CH_PASS"]},
+                      )
+                      with urllib.request.urlopen(request, timeout=45) as response:
+                          return response.read().decode()
+
+                  def check_pg(connection, schema, *, complete):
+                      for table, expected in PG_COLUMNS.items():
+                          columns = connection.execute(
+                              "SELECT a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull "
+                              "FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid "
+                              "JOIN pg_namespace n ON n.oid=c.relnamespace "
+                              "WHERE n.nspname=%s AND c.relname=%s AND a.attnum>0 "
+                              "AND NOT a.attisdropped ORDER BY a.attnum", (schema, table),
+                          ).fetchall()
+                          require(columns or not complete, "Required H4 PostgreSQL table is missing")
+                          if columns:
+                              require(columns == expected, "Existing H4 PostgreSQL columns differ")
+                              primary = connection.execute(
+                                  "SELECT con.conkey FROM pg_constraint con "
+                                  "JOIN pg_class c ON c.oid=con.conrelid "
+                                  "JOIN pg_namespace n ON n.oid=c.relnamespace "
+                                  "WHERE n.nspname=%s AND c.relname=%s AND con.contype='p'", (schema, table),
+                              ).fetchall()
+                              require(primary == [([1],)], "Existing H4 PostgreSQL primary key differs")
+                      exists = connection.execute("SELECT to_regclass('h4_runtime') IS NOT NULL").fetchone()[0]
+                      if exists:
+                          active = connection.execute(
+                              "SELECT count(*) FROM h4_runtime WHERE lease_until > clock_timestamp()"
+                          ).fetchone()[0]
+                          require(active == 0, "An H4 writer lease is active")
+
+                  def check_ch(*, complete):
+                      names = ",".join("'" + name + "'" for name in CH_ENGINES)
+                      rows = json.loads(ch_query(
+                          "SELECT name,engine FROM system.tables WHERE database='deepfx' "
+                          "AND name IN (" + names + ") FORMAT JSON"
+                      ))["data"]
+                      require(not complete or len(rows) == len(CH_ENGINES), "Required H4 ClickHouse object is missing")
+                      for row in rows:
+                          require(row["engine"] == CH_ENGINES[row["name"]], "Existing H4 ClickHouse engine differs")
+                          if row["name"] not in {"ohlcv_revisions", "ohlcv_closed", "h4_closed_queue"}:
+                              continue
+                          columns = json.loads(ch_query(
+                              "SELECT name,type FROM system.columns WHERE database='deepfx' "
+                              "AND table='" + row["name"] + "' FORMAT JSON"
+                          ))["data"]
+                          actual = {column["name"]: column["type"] for column in columns}
+                          expected = dict(CH_COLUMNS)
+                          if row["name"] == "h4_closed_queue":
+                              expected.pop("ingested_at")
+                              for column in ("symbol", "timeframe", "open_time", "close_time", "available_at"):
+                                  expected[column] = "String"
+                          elif not complete and "ingested_at" not in actual:
+                              expected.pop("ingested_at")
+                          require(actual == expected, "Existing H4 ClickHouse columns differ")
+
+                  def main():
+                      pg_sql = load_sql("010_h4_runtime.sql")
+                      ch_sql = load_sql("009_h4_closed_bars.sql")
+                      statements = [part.strip() for part in re.sub(r"--[^\n]*", "", ch_sql).split(";") if part.strip()]
+                      require(len(statements) == 7, "Unexpected ClickHouse statement set")
+                      schema = os.environ["PG_SCHEMA"]
+                      require(schema == "deepfx", "Only the reviewed PostgreSQL schema is allowed")
+                      with psycopg.connect(os.environ["PG_DSN"], autocommit=True, connect_timeout=10) as connection:
+                          database, resolved_schema = connection.execute("SELECT current_database(),current_schema()").fetchone()
+                          require(database == "deepfx" and resolved_schema == schema, "Runtime DSN resolves to a different database/schema")
+                          connection.execute(sql.SQL("SET search_path TO {}, pg_catalog").format(sql.Identifier(schema)))
+                          connection.execute("SET lock_timeout='10s'")
+                          connection.execute("SET statement_timeout='45s'")
+                          locked = connection.execute("SELECT pg_try_advisory_lock(1948054, 10009)").fetchone()[0]
+                          require(locked, "Another H4 migration holds the lock")
+                          check_pg(connection, schema, complete=False)
+                          check_ch(complete=False)
+                          # The PostgreSQL file has its own BEGIN/COMMIT; no account rows are inserted.
+                          connection.execute(pg_sql, prepare=False)
+                          check_pg(connection, schema, complete=True)
+                          # ClickHouse DDL is not atomic. Preserve partial results for a reviewed retry.
+                          for statement in statements:
+                              ch_query(statement)
+                          check_ch(complete=True)
+                          print(json.dumps({"schema_revision": REVISION, "postgres_schema": schema,
+                                            "sql_sha256": EXPECTED_HASHES, "schema_objects_verified": True,
+                                            "kafka_delivery_verified": False, "backup_restore_verified": False}))
+
+                  if __name__ == "__main__":
+                      try:
+                          main()
+                      except Exception as error:
+                          # Driver messages may contain DSNs, query text or authentication details.
+                          failure = {"migration_failed": True, "error_type": type(error).__name__}
+                          if isinstance(error, MigrationCheckError):
+                              failure["reason"] = str(error)
+                          print(json.dumps(failure), file=sys.stderr)
+                          sys.exit(1)
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: deepfx-h4-database-migration-v1
+                namespace: deepfx
+                annotations:
+                  argocd.argoproj.io/sync-wave: "0"
+                  argocd.argoproj.io/sync-options: Prune=false,Delete=false
+                  deepfx.io/postgres-sql-sha256: b8a0469fe3b2b4e5411858f755678157adfafc1690c4f79b9955b65b8dc62d7e
+                  deepfx.io/clickhouse-sql-sha256: f581e3ab3a15ad732f876f379d34636d171354d4485cd38975702965d4ff2fb0
+                  deepfx.io/state-schema-revision: pg010-b8a0469fe3b2-ch009-f581e3ab3a15
+              spec:
+                backoffLimit: 0
+                activeDeadlineSeconds: 300
+                template:
+                  metadata:
+                    labels:
+                      app.kubernetes.io/name: deepfx-h4-database-migration
+                      app.kubernetes.io/component: migration
+                  spec:
+                    automountServiceAccountToken: false
+                    restartPolicy: Never
+                    imagePullSecrets: [{name: harbor-secret}]
+                    securityContext:
+                      runAsNonRoot: true
+                      runAsUser: 1000
+                      runAsGroup: 1000
+                      seccompProfile:
+                        type: RuntimeDefault
+                    containers:
+                      - name: schema
+                        image: harbor.home.lab/restack/deepfx/strategy-engine@sha256:4209783feb026191dd2f1785f01b188b4a612337c1d6e9295a2a1b62e5d3c089
+                        imagePullPolicy: IfNotPresent
+                        command: [python, /migration/migrate.py]
+                        securityContext:
+                          allowPrivilegeEscalation: false
+                          readOnlyRootFilesystem: true
+                          capabilities:
+                            drop: [ALL]
+                        env:
+                          - name: PG_SCHEMA
+                            value: deepfx
+                          - name: PG_DSN
+                            valueFrom:
+                              secretKeyRef: {name: managed-deepfx-h4-connections, key: PG_DSN}
+                          - name: CH_URL
+                            valueFrom:
+                              secretKeyRef: {name: managed-deepfx-h4-connections, key: CH_URL}
+                          - name: CH_USER
+                            valueFrom:
+                              secretKeyRef: {name: managed-deepfx-h4-connections, key: CH_USER}
+                          - name: CH_PASS
+                            valueFrom:
+                              secretKeyRef: {name: managed-deepfx-h4-connections, key: CH_PASS}
+                        resources:
+                          requests: {cpu: 100m, memory: 128Mi}
+                          limits: {cpu: 500m, memory: 256Mi}
+                        volumeMounts:
+                          - name: migration
+                            mountPath: /migration
+                            readOnly: true
+                    volumes:
+                      - name: migration
+                        configMap:
+                          name: deepfx-h4-database-migration-v1
+
+  # ------------------------------------------------------------------
   # Feast Registry Init Job
   # Uses feature-engine image which includes feast definitions
   # Run once to register feature views in Feast registry
