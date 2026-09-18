@@ -1030,31 +1030,57 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.3.7-recovery.20260905
+      targetRevision: 0.4.0-demo.20260918.1
       helm:
         releaseName: deepfx
         values: |
+          # DEMO H4 revision B values for chart 0.4.0-demo.20260918.1.
+          # Quiescence: homelab PR 74 / commit bcd5ab7dbb75a786aa293a2ff29adf5039efa652.
+          # Native DEMO only. Calendar is the bounded Jul 6-Sep 30 2026 artifact.
           global:
             namespace: deepfx
 
-          # -----------------------------------------------------------
-          # DeepFX MT5 Bridge
-          # -----------------------------------------------------------
           mt5-bridge:
             enabled: true
             replicaCount: 1
-
+            strategy:
+              type: Recreate
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
+              tag: h4-demo-20260918-r1
+              digest: sha256:02fa103f5e61fae06edd1ef9feae15d66a58aa9e7fee70010cd18fe6a233f8ad
               pullPolicy: Always
-              tag: activation-20260905-risk-guard-v2
-
             imagePullSecrets:
               - name: harbor-secret
-
+            existingSecret: managed-deepfx-secrets
+            secretKeys:
+              login: MT5_LOGIN
+              password: MT5_PASSWORD
+              server: MT5_SERVER
+            writerSecret: managed-deepfx-h4-writer
+            # The retained hostPath lives on this node; never schedule an empty replacement.
+            nodeSelector:
+              kubernetes.io/hostname: aaron-lgt
             service:
               type: ClusterIP
-
+              ports:
+                command: 5555
+                publish: 5556
+                health: 5557
+                vnc: 3000
+            config:
+              zmqCommandPort: "5555"
+              zmqPublishPort: "5556"
+              zmqHealthPort: "5557"
+              logLevel: INFO
+              # Preserve the exact current recovery value, including its escaping.
+              mt5Path: 'C:\\MT5\\terminal64.exe'
+              mt5Portable: "true"
+              mt5TimeoutMs: "180000"
+              # Preserved recovery policy; candidate checks cover only Jul 6-Sep 30.
+              # This is not approval of winter/DST transitions or a calendar extension.
+              marketTimeZone: America/New_York
+              marketTimeShiftHours: 7
             resources:
               requests:
                 cpu: 1000m
@@ -1062,476 +1088,130 @@ apps:
               limits:
                 cpu: 2000m
                 memory: 4Gi
-
             persistence:
               enabled: true
               storageClass: ""
+              accessMode: ReadWriteOnce
               size: 10Gi
+              # Keep rendering the existing PV/PVC so retention annotations are applied.
+              existingClaim: ""
+              static:
+                enabled: true
+                storageClass: manual
+                type: hostPath
+                path: /data/mt5-bridge
+                server: ""
+                nodeAffinity: {}
+            # Retired requiredRiskMagics/riskPolicySecret are not H4 authorization inputs.
 
-            config:
-              marketTimeZone: America/New_York
-              marketTimeShiftHours: 7
-              requiredRiskMagics: "31010"
-              logLevel: "INFO"
-              mt5Path: "C:\\MT5\\terminal64.exe"
+          account-api:
+            enabled: true
+            replicaCount: 1
+            image:
+              repository: harbor.home.lab/restack/deepfx/account-api
+              tag: h4-demo-20260918-r1
+              digest: sha256:947424718e00861d74fb1f9de0af87ebe901cdcd5c87c3afd22d6ac87c249854
+              pullPolicy: IfNotPresent
+            imagePullSecrets:
+              - name: harbor-secret
+            # The new API is read-only and needs no broker or writer credential.
+            server:
+              host: 0.0.0.0
+              port: 8000
+              workers: 1
+              logLevel: INFO
+            mt5:
+              host: deepfx-mt5-bridge
+              commandPort: 5555
+              subscribePort: 5556
+              timeout: 5000
+            service:
+              type: ClusterIP
+              port: 8000
+            resources:
+              requests: {cpu: 100m, memory: 128Mi}
+              limits: {cpu: 500m, memory: 256Mi}
 
-            existingSecret: "managed-deepfx-secrets"
-            riskPolicySecret: "managed-deepfx-strategy-030101-secrets"
-
-          # -----------------------------------------------------------
-          # DeepFX Data Collector
-          # -----------------------------------------------------------
           data-collector:
             enabled: true
             replicaCount: 1
-
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
-              tag: recovery-20260905-candles
+              tag: h4-demo-20260918-r1
+              digest: sha256:8e7b3dca3cbbc9ce85b81142611de8c4f2bb47f23b6a8cf565a38f1210e63662
               pullPolicy: IfNotPresent
-
             imagePullSecrets:
               - name: harbor-secret
-
+            calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
+            persistence:
+              # Creates retained deepfx-data-collector-h4-state; never replace/reset on rollback.
+              existingClaim: ""
+              storageClass: local-path
+              size: 256Mi
             mt5:
               host: deepfx-mt5-bridge
               commandPort: 5555
               subscribePort: 5556
-
             kafka:
-              brokers: "redpanda.redpanda.svc:9093"
-              securityProtocol: "SASL_SSL"
+              brokers: redpanda.redpanda.svc:9093
+              tickTopic: deepfx.market.tick
+              ohlcvTopic: deepfx.market.ohlcv
+              securityProtocol: SASL_SSL
               auth:
-                username: "deepfx"
-                passwordSecretName: "managed-deepfx-secrets"
-                passwordSecretKey: "redpanda-deepfx-password"
-                saslMechanism: "SCRAM-SHA-512"
+                username: deepfx
+                passwordSecretName: managed-deepfx-secrets
+                passwordSecretKey: redpanda-deepfx-password
+                saslMechanism: SCRAM-SHA-512
               tls:
-                caSecretName: "redpanda-ca"
-                caSecretKey: "ca.crt"
-                caFileName: "ca.crt"
-                caMountPath: "/etc/ssl/certs/redpanda"
-                caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
+                caSecretName: redpanda-ca
+                caSecretKey: ca.crt
+                caFileName: ca.crt
+                caMountPath: /etc/ssl/certs/redpanda
+                caFilePath: /etc/ssl/certs/redpanda/ca.crt
+                # Preserve the observed recovery override, not a TLS-security approval.
                 skipHostnameVerify: true
-
-              tickTopic: "deepfx.market.tick"
-              ohlcvTopic: "deepfx.market.ohlcv"
-
             collector:
-              symbols: "NAS100,US30,XAUUSD,XAGUSD,USDCHF,CADCHF,EURUSD,GBPUSD,USDJPY,AUDUSD,N\
-                ZDUSD,EURGBP,EURJPY,BTCUSD"
-              timeframes: "M1,M5,M15,H1,H4,D1,W1"
+              symbols: XAUUSD,XAGUSD,NAS100,US30
+              timeframes: M1,M5,M15,H1,H4,D1,W1
               ohlcvInterval: 60
-              logLevel: "INFO"
-
+              logLevel: INFO
             resources:
-              limits:
-                cpu: 500m
-                memory: 256Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
+              requests: {cpu: 100m, memory: 128Mi}
+              limits: {cpu: 500m, memory: 256Mi}
 
-          # -----------------------------------------------------------
-          # DeepFX Account API
-          # -----------------------------------------------------------
-          account-api:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/account-api
-              tag: main-51dcc9c
-            mt5:
-              host: deepfx-mt5-bridge
-
-            existingSecret: "managed-deepfx-secrets"
-
-          # -----------------------------------------------------------
-          # Slack Notification
-          # -----------------------------------------------------------
-          slackShared:
-            enabled: true
-            webhookUrlSecretName: "managed-deepfx-secrets"
-            webhookUrlSecretKey: "slack-webhook-url"
-            notifyEnters: true
-            notifyExits: true
-            notifySkips: false
-
-          # -----------------------------------------------------------
-          # Email Notification
-          # -----------------------------------------------------------
-          emailShared:
-            secretName: "managed-deepfx-secrets"
-            secretKey: "DEEPFX_EMAIL_NOTIFICATION"
-
-          # -----------------------------------------------------------
-          # DeepFX Strategy Guardian
-          # -----------------------------------------------------------
-          strategy-guardian:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/strategy-guardian
-              tag: main-db0565c
-            mode: "shadow"
-            logLevel: "DEBUG"
-            guardianInstanceId: "strategy-guardian"
-            existingSecret: "managed-deepfx-strategy-guardian-secrets"
-
-            dashboard:
-              url: "http://deepfx-live-dashboard:8080"
-
-            mt5:
-              host: deepfx-mt5-bridge
-              commandPort: 5555
-              subscribePort: 5556
-              timeoutMs: 15000
-
-          # -----------------------------------------------------------
-          # DeepFX Strategy Engine - 010101
-          # -----------------------------------------------------------
-          strategy-010101:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-bc562fd
-            mt5:
-              host: deepfx-mt5-bridge
-              commandPort: 5555
-              subscribePort: 5556
-
-            accountApi:
-              url: "http://deepfx-account-api:8000"
-
-            dashboard:
-              url: "http://deepfx-live-dashboard:8080"
-
-            resources:
-              limits:
-                cpu: 500m
-                memory: 256Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-
-            sharedSecret: "managed-deepfx-strategy-shared-secrets"
-            existingSecret: "managed-deepfx-strategy-010101-secrets"
-
-          # -----------------------------------------------------------
-          # DeepFX Strategy Engine - 010102 (Double-B v2 live)
-          # -----------------------------------------------------------
-          strategy-010102:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-bc562fd
-            mode: "live"
-            logLevel: "INFO"
-            strategyInstanceId: "strategy-010102"
-            strategyVersion: "v2"
-
-            dashboard:
-              url: "http://deepfx-live-dashboard:8080"
-
-            mt5:
-              host: deepfx-mt5-bridge
-              commandPort: 5555
-              subscribePort: 5556
-              timeoutMs: 15000
-
-            accountApi:
-              url: "http://deepfx-account-api:8000"
-
-            slack:
-              enabled: false
-              notifyEnters: false
-              notifyExits: false
-              notifySkips: true
-              notifyUpdates: false
-
-            resources:
-              limits:
-                cpu: 500m
-                memory: 256Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-
-            # Strategy config (symbols, gates, budgets) comes from Infisical:
-            # /strategies/010102 → DEEPFX_STRATEGY_CONFIG / DEEPFX_DOUBLE_B_CONFIG
-            sharedSecret: "managed-deepfx-strategy-shared-secrets"
-            existingSecret: "managed-deepfx-strategy-010102-secrets"
-
-          # -----------------------------------------------------------
-          # DeepFX Strategy Engine - 020101
-          # -----------------------------------------------------------
-          strategy-020101:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-bc562fd
-            mt5:
-              host: deepfx-mt5-bridge
-              commandPort: 5555
-              subscribePort: 5556
-
-            accountApi:
-              url: "http://deepfx-account-api:8000"
-
-            dashboard:
-              url: "http://deepfx-live-dashboard:8080"
-
-            resources:
-              limits:
-                cpu: 500m
-                memory: 256Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-
-            sharedSecret: "managed-deepfx-strategy-shared-secrets"
-            existingSecret: "managed-deepfx-strategy-020101-secrets"
-
-          # -----------------------------------------------------------
-          # DeepFX Strategy Engine - 030101
-          # -----------------------------------------------------------
-          strategy-030101:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: activation-20260905-risk-guard-v1
-            strategyVersion: "mr-guard-risk-gated-live"
-            mt5:
-              host: deepfx-mt5-bridge
-              commandPort: 5555
-              subscribePort: 5556
-
-            accountApi:
-              url: "http://deepfx-account-api:8000"
-
-            dashboard:
-              url: "http://deepfx-live-dashboard:8080"
-
-            resources:
-              limits:
-                cpu: 500m
-                memory: 256Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-
-            sharedSecret: "managed-deepfx-strategy-shared-secrets"
-            existingSecret: "managed-deepfx-strategy-030101-secrets"
-
-          # -----------------------------------------------------------
-          # DeepFX Strategy Engine - 040101
-          # -----------------------------------------------------------
-          strategy-040101:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: latest
-            mode: "live"
-            logLevel: "INFO"
-
-            strategyInstanceId: "strategy-040101"
-            strategyVersion: "zrevert-v1.0"
-
-            dashboard:
-              url: "http://deepfx-live-dashboard:8080"
-
-            sharedSecret: "managed-deepfx-strategy-shared-secrets"
-            existingSecret: "managed-deepfx-strategy-040101-secrets"
-
-            mt5:
-              host: deepfx-mt5-bridge
-              commandPort: 5555
-              subscribePort: 5556
-              timeoutMs: 15000
-
-            accountApi:
-              url: "http://deepfx-account-api:8000"
-
-            featureEngine:
-              enabled: true
-              redisUrl: "redis://redis-0.redis-headless.redis.svc:6379"
-              redisPasswordSecretName: "managed-feast-secrets"
-              redisPasswordSecretKey: "redis-password"
-              keyPrefix: "deepfx:feature:"
-
-            feast:
-              enabled: false
-              repoPath: "/app/feast"
-              secretName: "managed-feast-secrets"
-
-            resources:
-              limits:
-                cpu: 500m
-                memory: 256Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-
-          # -----------------------------------------------------------
-          # DeepFX Strategy Engine - 040102
-          # -----------------------------------------------------------
-          strategy-040102:
-            enabled: false
-            replicaCount: 0
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: latest
-            mode: "live"
-            logLevel: "INFO"
-
-            strategyInstanceId: "strategy-040102"
-            strategyVersion: "zrevert-v1.0"
-
-            dashboard:
-              url: "http://deepfx-live-dashboard:8080"
-
-            sharedSecret: "managed-deepfx-strategy-shared-secrets"
-            existingSecret: "managed-deepfx-strategy-040102-secrets"
-
-            mt5:
-              host: deepfx-mt5-bridge
-              commandPort: 5555
-              subscribePort: 5556
-              timeoutMs: 15000
-
-            accountApi:
-              url: "http://deepfx-account-api:8000"
-
-            featureEngine:
-              enabled: true
-              redisUrl: "redis://redis-0.redis-headless.redis.svc:6379"
-              redisPasswordSecretName: "managed-feast-secrets"
-              redisPasswordSecretKey: "redis-password"
-              keyPrefix: "deepfx:feature:"
-
-            feast:
-              enabled: false
-              repoPath: "/app/feast"
-              secretName: "managed-feast-secrets"
-
-            resources:
-              limits:
-                cpu: 500m
-                memory: 256Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-
-          # -----------------------------------------------------------
-          # DeepFX Live Dashboard
-          # -----------------------------------------------------------
           live-dashboard:
-            enabled: true
-            imagePullSecrets:
-              - name: harbor-secret
-            image:
-              repository: harbor.home.lab/restack/deepfx/live-dashboard
-              tag: main-e63d767
-            integrations:
-              accountApiUrl: "http://deepfx-account-api:8000"
-              mt5BridgeService: "deepfx-mt5-bridge:5555"
-            existingSecret: "managed-deepfx-dashboard-secrets"
-            service:
-              type: ClusterIP
-              port: 8080
-
-          # -----------------------------------------------------------
-          # DeepFX Feature Engine
-          # -----------------------------------------------------------
-          feature-engine:
             enabled: false
-            replicaCount: 0
 
+          strategy-h4:
+            enabled: true
+            replicaCount: 1
+            deploymentStrategy:
+              type: Recreate
+            desiredState: RUNNING
+            expectedConfigRevision: h4-demo-20260918-running-v1
+            existingSecret: managed-deepfx-strategy-h4-secrets
+            configSecretKey: strategy.yaml
+            connectionSecret: managed-deepfx-h4-connections
+            accountSecret: managed-deepfx-secrets
+            accountSecretKeys:
+              login: MT5_LOGIN
+              server: MT5_SERVER
+            writerSecret: managed-deepfx-h4-writer
+            calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
             image:
-              repository: harbor.home.lab/restack/deepfx/feature-engine
-              tag: "main-68710b4"
-
+              repository: harbor.home.lab/restack/deepfx/strategy-engine
+              tag: h4-demo-20260918-r3
+              digest: sha256:5755beb6ac263e65071b666708af87fcbbd41f58746551099ceaac5fb151d4e4
+              pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
-
-            kafka:
-              brokers: "redpanda.redpanda.svc:9093"
-              groupId: "deepfx.feature.engine"
-              tickTopic: "deepfx.market.tick"
-              ohlcvTopic: "deepfx.market.ohlcv"
-              featureTopic: "deepfx.market.feature.latest"
-              publishToKafka: true
-              securityProtocol: "SASL_SSL"
-              auth:
-                username: "deepfx"
-                passwordSecretName: "managed-deepfx-secrets"
-                passwordSecretKey: "redpanda-deepfx-password"
-                saslMechanism: "SCRAM-SHA-512"
-              tls:
-                caSecretName: "redpanda-ca"
-                caSecretKey: "ca.crt"
-                caFileName: "ca.crt"
-                caMountPath: "/etc/ssl/certs/redpanda"
-                caFilePath: "/etc/ssl/certs/redpanda/ca.crt"
-                skipHostnameVerify: true
-                sessionTimeoutMs: 60000
-                heartbeatIntervalMs: 20000
-                maxPollIntervalMs: 600000
-
-            feast:
-              enabled: true
-              repoPath: "/app/feast"
-              pushBatchSize: 50
-              pushIntervalMs: 100
-              secretName: "managed-feast-secrets"
-              env:
-                redisConnectionStringSecretKey: "redis-connection-string"
-                clickhousePasswordSecretKey: "clickhouse-password"
-                registryPathSecretKey: "registry-path"
-                clickhouseHost: "clickhouse.clickhouse.svc"
-                clickhouseUser: "feast"
-
-            redis:
-              url: "redis://redis-0.redis-headless.redis.svc:6379"
-              auth:
-                passwordSecretName: "managed-feast-secrets"
-                passwordSecretKey: "redis-password"
-              keyPrefix: "deepfx:feature:"
-              ttlSeconds: 120
-
-            engine:
-              tickWindowSeconds: 10
-              emitIntervalMs: 200
-              logLevel: "INFO"
-
             resources:
-              limits:
-                cpu: 2000m
-                memory: 1Gi
-              requests:
-                cpu: 100m
-                memory: 256Mi
+              requests: {cpu: 100m, memory: 128Mi}
+              limits: {cpu: 500m, memory: 256Mi}
+
+          # The final umbrella has no feature-engine, nightly, Guardian or legacy strategy.
+          # Separate Nightly/Kronos generators and external writers require independent
+          # retirement verification; these values cannot disable another Application.
 
   # -----------------------------------------------------------
   # Strategy 010102 Kronos Shadow Signal CronJob
