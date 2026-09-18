@@ -86,6 +86,28 @@ apps:
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
+            # H4 strategy.yaml is a non-credential config document stored in Infisical.
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-strategy-h4-secrets
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: home
+                      secretsPath: /strategies/h4
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-strategy-h4-secrets
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
             # -----------------------------------------------------------
             # Shared secrets for legacy strategies
             # -----------------------------------------------------------
@@ -423,6 +445,16 @@ apps:
   # ------------------------------------------------------------------
   # H4 additive database and Kafka preparation (secrets provisioned first)
   # ------------------------------------------------------------------
+  - name: deepfx-h4-calendar
+    namespace: deepfx
+    project: dev
+    syncWave: "1"
+    source:
+      repoURL: git@github.com:ziwon/homelab.git
+      targetRevision: main
+      path: platform/stacks/kustomize/deepfx-h4-calendar
+      kustomize: {}
+
   - name: deepfx-h4-database-prep
     namespace: deepfx
     project: dev
@@ -1104,8 +1136,8 @@ apps:
           # DeepFX Account API
           # -----------------------------------------------------------
           account-api:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
@@ -1138,8 +1170,8 @@ apps:
           # DeepFX Strategy Guardian
           # -----------------------------------------------------------
           strategy-guardian:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
@@ -1196,8 +1228,8 @@ apps:
           # DeepFX Strategy Engine - 010102 (Double-B v2 live)
           # -----------------------------------------------------------
           strategy-010102:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
@@ -1244,8 +1276,8 @@ apps:
           # DeepFX Strategy Engine - 020101
           # -----------------------------------------------------------
           strategy-020101:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
@@ -1277,8 +1309,8 @@ apps:
           # DeepFX Strategy Engine - 030101
           # -----------------------------------------------------------
           strategy-030101:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
@@ -1311,8 +1343,8 @@ apps:
           # DeepFX Strategy Engine - 040101
           # -----------------------------------------------------------
           strategy-040101:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
@@ -1363,8 +1395,8 @@ apps:
           # DeepFX Strategy Engine - 040102
           # -----------------------------------------------------------
           strategy-040102:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
             imagePullSecrets:
               - name: harbor-secret
             image:
@@ -1433,8 +1465,8 @@ apps:
           # DeepFX Feature Engine
           # -----------------------------------------------------------
           feature-engine:
-            enabled: true
-            replicaCount: 1
+            enabled: false
+            replicaCount: 0
 
             image:
               repository: harbor.home.lab/restack/deepfx/feature-engine
