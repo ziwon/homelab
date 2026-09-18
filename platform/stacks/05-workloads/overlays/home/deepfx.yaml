@@ -64,6 +64,28 @@ apps:
                     secretNamespace: deepfx
                     creationPolicy: Owner
 
+            # H4 connections use explicit keys without the legacy shared environment.
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-h4-connections
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: home
+                      secretsPath: /h4-connections
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-h4-connections
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
             # -----------------------------------------------------------
             # Shared secrets for legacy strategies
             # -----------------------------------------------------------
