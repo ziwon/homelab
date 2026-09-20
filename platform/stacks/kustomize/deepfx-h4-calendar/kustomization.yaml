@@ -6,6 +6,7 @@ configMapGenerator:
     files:
       - calendar.json
     options:
+      immutable: true
       disableNameSuffixHash: true
       annotations:
         argocd.argoproj.io/sync-options: Prune=false,Delete=false
