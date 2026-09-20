@@ -1187,7 +1187,8 @@ apps:
             replicaCount: 1
             deploymentStrategy:
               type: Recreate
-            desiredState: RUNNING
+            # Separate entry fence before migrating the flat H4 account to BASE v2.
+            desiredState: DRAINING
             expectedConfigRevision: h4-demo-20260918-running-v1
             existingSecret: managed-deepfx-strategy-h4-secrets
             configSecretKey: strategy.yaml
