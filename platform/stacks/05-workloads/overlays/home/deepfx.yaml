@@ -1030,12 +1030,12 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.4.0-demo.20260918.1
+      targetRevision: 0.4.1-demo.20260920.d08ba21
       helm:
         releaseName: deepfx
         values: |
-          # DEMO H4 revision B values for chart 0.4.0-demo.20260918.1.
-          # Quiescence: homelab PR 74 / commit bcd5ab7dbb75a786aa293a2ff29adf5039efa652.
+          # DEMO H4 BASE v2 with M15-sampled exits and persistent Slack notifications.
+          # Entry fence: PR 76 / commit 7abcdbcd1a8081563d87b658a5076db780214fb9.
           # Native DEMO only. Calendar is the bounded Jul 6-Sep 30 2026 artifact.
           global:
             namespace: deepfx
@@ -1187,11 +1187,11 @@ apps:
             replicaCount: 1
             deploymentStrategy:
               type: Recreate
-            # Separate entry fence before migrating the flat H4 account to BASE v2.
-            desiredState: DRAINING
-            expectedConfigRevision: h4-demo-20260918-running-v1
+            # DEMO-only; activate after the separate entry fence and flat-account proof.
+            desiredState: RUNNING
+            expectedConfigRevision: h4-base-m15-20260920-v2
             existingSecret: managed-deepfx-strategy-h4-secrets
-            configSecretKey: strategy.yaml
+            configSecretKey: strategy-base-v2.yaml
             connectionSecret: managed-deepfx-h4-connections
             accountSecret: managed-deepfx-secrets
             accountSecretKeys:
@@ -1201,11 +1201,17 @@ apps:
             calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: h4-demo-20260918-r3
-              digest: sha256:5755beb6ac263e65071b666708af87fcbbd41f58746551099ceaac5fb151d4e4
+              tag: h4-base-m15-1950ccc
+              digest: sha256:001afb1268a67dc51676829a5cd23083146613e21ef4728ceb098794c1885566
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
+            notifications:
+              enabled: true
+              webhookSecret: managed-deepfx-secrets
+              webhookKey: SLACK_WEBHOOK_URL
+              strategyId: double-b-h4
+              since: "2026-09-20T14:14:37Z"
             resources:
               requests: {cpu: 100m, memory: 128Mi}
               limits: {cpu: 500m, memory: 256Mi}
