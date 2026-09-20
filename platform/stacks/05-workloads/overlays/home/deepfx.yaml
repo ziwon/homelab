@@ -1030,7 +1030,7 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.4.1-demo.20260920.d08ba21
+      targetRevision: 0.4.1-demo.20260920.bbc4c95
       helm:
         releaseName: deepfx
         values: |
