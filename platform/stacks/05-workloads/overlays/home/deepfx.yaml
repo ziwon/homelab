@@ -1047,8 +1047,8 @@ apps:
               type: Recreate
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
-              tag: h4-demo-20260918-r1
-              digest: sha256:02fa103f5e61fae06edd1ef9feae15d66a58aa9e7fee70010cd18fe6a233f8ad
+              tag: h4-startup-aa15f10
+              digest: sha256:2cd1cc45c634619f9f3b5f3a895e49a74c8c3a7d260685120690bd795520ac80
               pullPolicy: Always
             imagePullSecrets:
               - name: harbor-secret
