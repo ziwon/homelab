@@ -1030,12 +1030,12 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.4.1-demo.20260920.bbc4c95
+      targetRevision: 0.4.2-demo.20260922.aa15f10
       helm:
         releaseName: deepfx
         values: |
-          # DEMO H4 BASE v2 with M15-sampled exits and persistent Slack notifications.
-          # Entry fence: PR 76 / commit 7abcdbcd1a8081563d87b658a5076db780214fb9.
+          # DEMO H4 BASE v2 with the gold-only +1R actual-M15 profit guard.
+          # Entry fence: PR 80 / commit 70c371e6b606e275504dcb4eb1b27c469289d68a.
           # Native DEMO only. Calendar is the bounded Jul 6-Sep 30 2026 artifact.
           global:
             namespace: deepfx
@@ -1188,10 +1188,10 @@ apps:
             deploymentStrategy:
               type: Recreate
             # DEMO-only; activate after the separate entry fence and flat-account proof.
-            desiredState: DRAINING
-            expectedConfigRevision: h4-base-m15-20260920-v2
+            desiredState: RUNNING
+            expectedConfigRevision: h4-gold-guard-20260922-v1
             existingSecret: managed-deepfx-strategy-h4-secrets
-            configSecretKey: strategy-base-v2.yaml
+            configSecretKey: strategy-gold-guard-v1.yaml
             connectionSecret: managed-deepfx-h4-connections
             accountSecret: managed-deepfx-secrets
             accountSecretKeys:
@@ -1201,8 +1201,8 @@ apps:
             calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: h4-base-m15-1950ccc
-              digest: sha256:001afb1268a67dc51676829a5cd23083146613e21ef4728ceb098794c1885566
+              tag: h4-gold-guard-aa15f10
+              digest: sha256:0c3558b507bff2bbbde7892a240997ffbd3ad597bee64cdfd2565e69ef3f5dd8
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
