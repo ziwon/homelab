@@ -1188,7 +1188,7 @@ apps:
             deploymentStrategy:
               type: Recreate
             # DEMO-only; activate after the separate entry fence and flat-account proof.
-            desiredState: RUNNING
+            desiredState: DRAINING
             expectedConfigRevision: h4-base-m15-20260920-v2
             existingSecret: managed-deepfx-strategy-h4-secrets
             configSecretKey: strategy-base-v2.yaml
