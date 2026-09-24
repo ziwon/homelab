@@ -1030,7 +1030,7 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.4.2-demo.20260922.aa15f10
+      targetRevision: 0.4.3-demo.20260924.69bd40f
       helm:
         releaseName: deepfx
         values: |
@@ -1188,10 +1188,10 @@ apps:
             deploymentStrategy:
               type: Recreate
             # DEMO-only; activate after the separate entry fence and flat-account proof.
-            desiredState: DRAINING
-            expectedConfigRevision: h4-gold-guard-20260922-v1
+            desiredState: RUNNING
+            expectedConfigRevision: h4-nas100-brk-20260922-v1
             existingSecret: managed-deepfx-strategy-h4-secrets
-            configSecretKey: strategy-gold-guard-v1.yaml
+            configSecretKey: strategy-nas100-brk-v1.yaml
             connectionSecret: managed-deepfx-h4-connections
             accountSecret: managed-deepfx-secrets
             accountSecretKeys:
@@ -1201,8 +1201,8 @@ apps:
             calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: h4-gold-guard-aa15f10
-              digest: sha256:0c3558b507bff2bbbde7892a240997ffbd3ad597bee64cdfd2565e69ef3f5dd8
+              tag: h4-nas100-brk-69bd40f
+              digest: sha256:44102df68f0e07f6868d9d705557a4a8e89a1c78921a028c6efa7aca3260a04f
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
