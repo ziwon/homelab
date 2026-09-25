@@ -1047,8 +1047,8 @@ apps:
               type: Recreate
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
-              tag: h4-startup-aa15f10
-              digest: sha256:2cd1cc45c634619f9f3b5f3a895e49a74c8c3a7d260685120690bd795520ac80
+              tag: h4-incident-fb301d1
+              digest: sha256:a1e28898409d10352e1e7f54bd5122af64eeeb6d1677fa25bba7f5297b483aa2
               pullPolicy: Always
             imagePullSecrets:
               - name: harbor-secret
@@ -1201,8 +1201,8 @@ apps:
             calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: h4-nas100-brk-69bd40f
-              digest: sha256:44102df68f0e07f6868d9d705557a4a8e89a1c78921a028c6efa7aca3260a04f
+              tag: h4-incident-fb301d1
+              digest: sha256:816b93cd6cce425c774b4d340f83a859eb6e3058c356c96ea71e770f101b692c
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
