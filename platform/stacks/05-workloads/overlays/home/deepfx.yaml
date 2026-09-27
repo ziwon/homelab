@@ -1030,7 +1030,7 @@ apps:
     source:
       repoURL: oci://harbor.home.lab/restack/deepfx/deepfx
       chart: .
-      targetRevision: 0.4.3-demo.20260924.69bd40f
+      targetRevision: 0.4.4-demo.20260928.0b9aebf
       helm:
         releaseName: deepfx
         values: |
@@ -1137,12 +1137,14 @@ apps:
             replicaCount: 1
             image:
               repository: harbor.home.lab/restack/deepfx/data-collector
-              tag: h4-demo-20260918-r1
-              digest: sha256:8e7b3dca3cbbc9ce85b81142611de8c4f2bb47f23b6a8cf565a38f1210e63662
+              tag: main-0b9aebf
+              digest: sha256:8f4e839c99aef9b2fd463737b6fcf2a7851a317f70d6f0e3a33abb090e1a0c2e
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
             calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
+            # Collector-first rolling-calendar migration (restack/deepfx#75); runner still reads the legacy ID.
+            mirrorCalendarConfigMap: deepfx-h4-calendar-8996744789c2
             persistence:
               # Creates retained deepfx-data-collector-h4-state; never replace/reset on rollback.
               existingClaim: ""
