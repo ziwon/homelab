@@ -1142,9 +1142,7 @@ apps:
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
-            calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
-            # Collector-first rolling-calendar migration (restack/deepfx#75); runner still reads the legacy ID.
-            mirrorCalendarConfigMap: deepfx-h4-calendar-8996744789c2
+            calendarConfigMap: deepfx-h4-calendar-8996744789c2
             persistence:
               # Creates retained deepfx-data-collector-h4-state; never replace/reset on rollback.
               existingClaim: ""
@@ -1190,7 +1188,7 @@ apps:
             deploymentStrategy:
               type: Recreate
             # DEMO-only; activate after the separate entry fence and flat-account proof.
-            desiredState: DRAINING
+            desiredState: RUNNING
             expectedConfigRevision: h4-nas100-brk-20260922-v1
             existingSecret: managed-deepfx-strategy-h4-secrets
             configSecretKey: strategy-nas100-brk-v1.yaml
@@ -1200,11 +1198,11 @@ apps:
               login: MT5_LOGIN
               server: MT5_SERVER
             writerSecret: managed-deepfx-h4-writer
-            calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
+            calendarConfigMap: deepfx-h4-calendar-8996744789c2
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-28a17ee
-              digest: sha256:bb0071590e81e6c81609176e2bd1fd78eac995ac37aef3b6ece72f8cd11a9916
+              tag: main-0b9aebf
+              digest: sha256:d2627ba88d52f4db6a907b2f02abd9ec31255b083ea9619c85d0cb4eff202e58
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
