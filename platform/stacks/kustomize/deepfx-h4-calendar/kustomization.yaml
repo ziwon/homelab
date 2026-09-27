@@ -11,3 +11,13 @@ configMapGenerator:
       annotations:
         argocd.argoproj.io/sync-options: Prune=false,Delete=false
         argocd.argoproj.io/sync-wave: "1"
+  # Rolling NY+7 rules descriptor (restack/deepfx#75, 0b9aebf); mounted as calendar.json.
+  - name: deepfx-h4-calendar-8996744789c2
+    files:
+      - calendar.json=infinox-ny7-v1.json
+    options:
+      immutable: true
+      disableNameSuffixHash: true
+      annotations:
+        argocd.argoproj.io/sync-options: Prune=false,Delete=false
+        argocd.argoproj.io/sync-wave: "1"
