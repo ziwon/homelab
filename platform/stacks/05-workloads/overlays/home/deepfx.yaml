@@ -1188,7 +1188,7 @@ apps:
             deploymentStrategy:
               type: Recreate
             # DEMO-only; activate after the separate entry fence and flat-account proof.
-            desiredState: DRAINING
+            desiredState: RUNNING
             expectedConfigRevision: h4-nas100-brk-20260922-v1
             existingSecret: managed-deepfx-strategy-h4-secrets
             configSecretKey: strategy-nas100-brk-v1.yaml
@@ -1201,8 +1201,8 @@ apps:
             calendarConfigMap: deepfx-h4-calendar-b599aaf3991c
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-58c31ae
-              digest: sha256:9122969046139a00d0002b17157900651a7b6d75aa906c344d9da167288b3082
+              tag: main-28a17ee
+              digest: sha256:bb0071590e81e6c81609176e2bd1fd78eac995ac37aef3b6ece72f8cd11a9916
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
