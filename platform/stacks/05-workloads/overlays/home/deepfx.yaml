@@ -1188,7 +1188,7 @@ apps:
             deploymentStrategy:
               type: Recreate
             # DEMO-only; activate after the separate entry fence and flat-account proof.
-            desiredState: RUNNING
+            desiredState: DRAINING
             expectedConfigRevision: h4-nas100-brk-20260922-v1
             existingSecret: managed-deepfx-strategy-h4-secrets
             configSecretKey: strategy-nas100-brk-v1.yaml
