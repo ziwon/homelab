@@ -1,0 +1,109 @@
+{
+  "schema_version": 2,
+  "approved": true,
+  "ruleset": "infinox-ny7/1",
+  "exceptions": [
+    {
+      "date": "2026-09-07",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "broker-confirmed",
+      "evidence": ["20260918-infinox-september-holidays.json"]
+    },
+    {
+      "date": "2026-11-26",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:2025-thanksgiving-h4-and-2026-labor-day"]
+    },
+    {
+      "date": "2026-11-27",
+      "close": {"XAUUSD": "20:45", "XAGUSD": "20:45", "NAS100": "20:15", "US30": "20:15"},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2025-christmas-eve-m5-short-session"]
+    },
+    {
+      "date": "2026-12-24",
+      "close": {"XAUUSD": "20:45", "XAGUSD": "20:45", "NAS100": "20:15", "US30": "20:15"},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:2025-christmas-eve-m5-short-session"]
+    },
+    {
+      "date": "2026-12-25",
+      "close": {"XAUUSD": null, "XAGUSD": null, "NAS100": null, "US30": null},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:2025-christmas-native-h4-closed"]
+    },
+    {
+      "date": "2027-01-01",
+      "close": {"XAUUSD": null, "XAGUSD": null, "NAS100": null, "US30": null},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:2026-new-year-native-h4-closed"]
+    },
+    {
+      "date": "2027-01-18",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2026-mlk-m5-short-session"]
+    },
+    {
+      "date": "2027-02-15",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2026-presidents-m5-short-session"]
+    },
+    {
+      "date": "2027-03-26",
+      "close": {"XAUUSD": null, "XAGUSD": null, "NAS100": null, "US30": null},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:2026-good-friday-metals-h4-closed;2027-exchange-all-products-closed"]
+    },
+    {
+      "date": "2027-05-31",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2026-labor-day-and-memorial-h4"]
+    },
+    {
+      "date": "2027-06-18",
+      "close": {"XAUUSD": "20:00", "XAGUSD": "20:00", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2026-juneteenth-h4-no-20-hour-bar"]
+    },
+    {
+      "date": "2027-07-05",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:weekday-us-holiday;2026-labor-day"]
+    },
+    {
+      "date": "2027-09-06",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:2026-labor-day-broker-confirmed"]
+    },
+    {
+      "date": "2027-11-25",
+      "close": {"XAUUSD": "21:30", "XAGUSD": "21:30", "NAS100": "20:00", "US30": "20:00"},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2025-thanksgiving-h4-and-2026-labor-day"]
+    },
+    {
+      "date": "2027-11-26",
+      "close": {"XAUUSD": "20:45", "XAGUSD": "20:45", "NAS100": "20:15", "US30": "20:15"},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2025-christmas-eve-m5-short-session"]
+    },
+    {
+      "date": "2027-12-23",
+      "close": {"XAUUSD": "20:45", "XAGUSD": "20:45", "NAS100": "20:15", "US30": "20:15"},
+      "status": "anticipated",
+      "evidence": ["https://www.cmegroup.com/trading-hours.html", "pattern:2025-christmas-eve-m5-short-session"]
+    },
+    {
+      "date": "2027-12-24",
+      "close": {"XAUUSD": null, "XAGUSD": null, "NAS100": null, "US30": null},
+      "status": "anticipated",
+      "evidence": ["https://www.nyse.com/trade/hours-calendars", "pattern:2025-christmas-native-h4-closed"]
+    }
+  ]
+}
