@@ -2,15 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: deepfx
 configMapGenerator:
-  - name: deepfx-h4-calendar-b599aaf3991c
-    files:
-      - calendar.json
-    options:
-      immutable: true
-      disableNameSuffixHash: true
-      annotations:
-        argocd.argoproj.io/sync-options: Prune=false,Delete=false
-        argocd.argoproj.io/sync-wave: "1"
   # Rolling NY+7 rules descriptor (restack/deepfx#75, 0b9aebf); mounted as calendar.json.
   - name: deepfx-h4-calendar-8996744789c2
     files:
