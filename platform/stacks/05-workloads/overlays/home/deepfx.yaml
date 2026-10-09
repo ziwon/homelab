@@ -1201,8 +1201,8 @@ apps:
             calendarConfigMap: deepfx-h4-calendar-8996744789c2
             image:
               repository: harbor.home.lab/restack/deepfx/strategy-engine
-              tag: main-ddfb286
-              digest: sha256:fbe91817213018d8547b6d181721967375cf9dbfccd95f6ed5ba825645a8fe66
+              tag: main-bf4bea5
+              digest: sha256:e6a8cf0d46c218a5bbc8f910833d1412dfc393aa8dd16ece32078e67a80859dc
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
