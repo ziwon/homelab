@@ -1468,6 +1468,253 @@ apps:
                         port: 3000
 
   # -----------------------------------------------------------
+  # Turtle Soup DEMO measurement: a third mt5-bridge on its own DEMO account.
+  # Runs the confirmed H1 Turtle Soup rule (docs/strategies/street-smarts on
+  # restack/deepfx main) with real orders to measure execution cost against the model.
+  # Same isolation as the AI desk: own account, writer secret, order journal, hostPath
+  # and magic; same bridge image. Orders are rejected unless native trade_mode is 0.
+  # Infisical path /ts-demo must hold MT5_LOGIN, MT5_PASSWORD, MT5_SERVER and a
+  # 32+ character H4_WRITER_SECRET before the pod can start.
+  # -----------------------------------------------------------
+  - name: deepfx-ts-demo
+    namespace: deepfx
+    project: dev
+    syncWave: "6"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: deepfx-ts-demo
+        values: |
+          resources:
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-deepfx-ts-demo
+                namespace: deepfx
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: deepfx
+                      envSlug: home
+                      secretsPath: /ts-demo
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: managed-deepfx-ts-demo
+                    secretNamespace: deepfx
+                    creationPolicy: Owner
+
+            - apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: deepfx-ts-demo-mt5-bridge-config
+                namespace: deepfx
+                labels:
+                  app.kubernetes.io/name: mt5-bridge-ts-demo
+                  app.kubernetes.io/instance: deepfx-ts-demo
+              data:
+                ZMQ_COMMAND_PORT: "5555"
+                ZMQ_PUBLISH_PORT: "5556"
+                ZMQ_HEALTH_PORT: "5557"
+                LOG_LEVEL: "INFO"
+                # Same escaping as the H4 bridge ConfigMap.
+                MT5_PATH: "C:\\\\MT5\\\\terminal64.exe"
+                MT5_PORTABLE: "true"
+                MT5_TIMEOUT_MS: "180000"
+                MT5_MARKET_TIME_ZONE: "America/New_York"
+                MT5_MARKET_TIME_SHIFT_HOURS: "7"
+
+            # The terminal, its account history and the order journal live here.
+            - apiVersion: v1
+              kind: PersistentVolume
+              metadata:
+                name: deepfx-ts-demo-mt5-bridge-pv
+                annotations:
+                  argocd.argoproj.io/sync-options: Prune=false,Delete=false
+                labels:
+                  app.kubernetes.io/name: mt5-bridge-ts-demo
+                  app.kubernetes.io/instance: deepfx-ts-demo
+              spec:
+                capacity:
+                  storage: 10Gi
+                volumeMode: Filesystem
+                accessModes:
+                  - ReadWriteOnce
+                persistentVolumeReclaimPolicy: Retain
+                storageClassName: manual
+                hostPath:
+                  path: /data/mt5-bridge-ts
+                  type: DirectoryOrCreate
+
+            - apiVersion: v1
+              kind: PersistentVolumeClaim
+              metadata:
+                name: deepfx-ts-demo-mt5-bridge-pvc
+                namespace: deepfx
+                annotations:
+                  argocd.argoproj.io/sync-options: Prune=false,Delete=false
+                labels:
+                  app.kubernetes.io/name: mt5-bridge-ts-demo
+                  app.kubernetes.io/instance: deepfx-ts-demo
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: manual
+                volumeName: deepfx-ts-demo-mt5-bridge-pv
+                resources:
+                  requests:
+                    storage: 10Gi
+
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: deepfx-ts-demo-mt5-bridge
+                namespace: deepfx
+                labels:
+                  app.kubernetes.io/name: mt5-bridge-ts-demo
+                  app.kubernetes.io/instance: deepfx-ts-demo
+              spec:
+                type: ClusterIP
+                ports:
+                  - {name: command, port: 5555, targetPort: command, protocol: TCP}
+                  - {name: publish, port: 5556, targetPort: publish, protocol: TCP}
+                  - {name: health, port: 5557, targetPort: health, protocol: TCP}
+                  - {name: vnc, port: 3000, targetPort: vnc, protocol: TCP}
+                selector:
+                  app.kubernetes.io/name: mt5-bridge-ts-demo
+                  app.kubernetes.io/instance: deepfx-ts-demo
+
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: deepfx-ts-demo-mt5-bridge
+                namespace: deepfx
+                labels:
+                  app.kubernetes.io/name: mt5-bridge-ts-demo
+                  app.kubernetes.io/instance: deepfx-ts-demo
+              spec:
+                # One writer per broker account: a single replica, never rolled in parallel.
+                replicas: 1
+                strategy:
+                  type: Recreate
+                selector:
+                  matchLabels:
+                    app.kubernetes.io/name: mt5-bridge-ts-demo
+                    app.kubernetes.io/instance: deepfx-ts-demo
+                template:
+                  metadata:
+                    labels:
+                      app.kubernetes.io/name: mt5-bridge-ts-demo
+                      app.kubernetes.io/instance: deepfx-ts-demo
+                  spec:
+                    imagePullSecrets:
+                      - name: harbor-secret
+                    containers:
+                      - name: mt5-bridge
+                        image: harbor.home.lab/restack/deepfx/mt5-bridge@sha256:6562ea0ef570bfe0943fde9683b6a64b26588703dc3fc642d448ec88176614f4
+                        imagePullPolicy: IfNotPresent
+                        envFrom:
+                          - configMapRef:
+                              name: deepfx-ts-demo-mt5-bridge-config
+                        env:
+                          - name: H4_ORDER_JOURNAL
+                            value: 'Z:/config/h4-orders.sqlite3'
+                          # Distinct from the H4 runner's 234103 and the AI desk's 234201.
+                          - name: H4_WRITER_MAGIC
+                            value: "234301"
+                          - name: H4_WRITER_SECRET
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-deepfx-ts-demo
+                                key: H4_WRITER_SECRET
+                          - name: MT5_LOGIN
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-deepfx-ts-demo
+                                key: MT5_LOGIN
+                          - name: MT5_PASSWORD
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-deepfx-ts-demo
+                                key: MT5_PASSWORD
+                          - name: MT5_SERVER
+                            valueFrom:
+                              secretKeyRef:
+                                name: managed-deepfx-ts-demo
+                                key: MT5_SERVER
+                        ports:
+                          - {name: command, containerPort: 5555, protocol: TCP}
+                          - {name: publish, containerPort: 5556, protocol: TCP}
+                          - {name: health, containerPort: 5557, protocol: TCP}
+                          - {name: vnc, containerPort: 3000, protocol: TCP}
+                        # The first start installs Wine, Python and the terminal into the
+                        # empty volume; allow an hour before the probe restarts it.
+                        startupProbe:
+                          exec:
+                            command:
+                              - /app/scripts/healthcheck.sh
+                          initialDelaySeconds: 60
+                          periodSeconds: 30
+                          timeoutSeconds: 10
+                          failureThreshold: 120
+                        livenessProbe:
+                          exec:
+                            command:
+                              - /app/scripts/healthcheck.sh
+                          initialDelaySeconds: 60
+                          periodSeconds: 30
+                          failureThreshold: 3
+                        readinessProbe:
+                          tcpSocket:
+                            port: 5555
+                          initialDelaySeconds: 30
+                          periodSeconds: 10
+                        resources:
+                          requests:
+                            cpu: 1000m
+                            memory: 2Gi
+                          limits:
+                            cpu: 2000m
+                            memory: 4Gi
+                        volumeMounts:
+                          - name: config-volume
+                            mountPath: /config
+                    volumes:
+                      - name: config-volume
+                        persistentVolumeClaim:
+                          claimName: deepfx-ts-demo-mt5-bridge-pvc
+                    # The retained hostPath lives on this node.
+                    nodeSelector:
+                      kubernetes.io/hostname: aaron-lgt
+
+            # Terminal screen for watching the measurement trades (private listener only).
+            - apiVersion: gateway.networking.k8s.io/v1
+              kind: HTTPRoute
+              metadata:
+                name: mt5-bridge-ts-demo
+                namespace: deepfx
+              spec:
+                parentRefs:
+                  - name: cilium
+                    namespace: infra
+                    sectionName: https-private
+                hostnames:
+                  - mt5-ts.home.lab
+                rules:
+                  - matches:
+                      - path:
+                          type: PathPrefix
+                          value: /
+                    backendRefs:
+                      - name: deepfx-ts-demo-mt5-bridge
+                        port: 3000
+
+  # -----------------------------------------------------------
   # Strategy 010102 Kronos Shadow Signal CronJob
   # -----------------------------------------------------------
   - name: deepfx-kronos-shadow-signal
