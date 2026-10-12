@@ -1369,7 +1369,8 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: mt5-bridge
-                        image: harbor.home.lab/restack/deepfx/mt5-bridge@sha256:6562ea0ef570bfe0943fde9683b6a64b26588703dc3fc642d448ec88176614f4
+                        image: harbor.home.lab/restack/deepfx/mt5-bridge@sha256:6548b90442ec1ebbcb2fa7151f5d4df20aabfb3d1deb3194e5731a73572e4d8a
+                        # main-ef94446 (restack/deepfx#114): native take-profit on entries and stop updates.
                         imagePullPolicy: IfNotPresent
                         envFrom:
                           - configMapRef:
