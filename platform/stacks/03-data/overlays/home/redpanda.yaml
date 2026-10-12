@@ -116,6 +116,15 @@ apps:
                       secretRef: redpanda-managed-secrets
                       users: [] # Use InfisicalSecret to set password
 
+                  # Shared single-node host: without this the broker runs --smp=1 pinned to
+                  # CPU 0 and busy-polls it at ~95%, so everything else scheduled on CPU 0
+                  # (desktop, kubelet, the MT5 bridges) waits behind it. Overprovisioned mode
+                  # stops the busy polling and the CPU pinning.
+                  resources:
+                    cpu:
+                      cores: 1
+                      overprovisioned: true
+
                   statefulset:
                     initContainers:
                       setDataDirOwnership:
