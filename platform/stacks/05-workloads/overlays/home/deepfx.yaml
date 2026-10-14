@@ -1109,8 +1109,8 @@ apps:
             replicaCount: 1
             image:
               repository: harbor.home.lab/restack/deepfx/account-api
-              tag: h4-demo-20260918-r1
-              digest: sha256:947424718e00861d74fb1f9de0af87ebe901cdcd5c87c3afd22d6ac87c249854
+              tag: main-a49ac22
+              digest: sha256:10b68a2a10e91bdd5d8c6a72fd04f476e3722f44fc83a5d10a73ee6466c5d610
               pullPolicy: IfNotPresent
             imagePullSecrets:
               - name: harbor-secret
@@ -1129,8 +1129,8 @@ apps:
               type: ClusterIP
               port: 8000
             resources:
-              requests: {cpu: 100m, memory: 128Mi}
-              limits: {cpu: 500m, memory: 256Mi}
+              requests: { cpu: 100m, memory: 128Mi }
+              limits: { cpu: 500m, memory: 256Mi }
 
           data-collector:
             enabled: true
@@ -1176,8 +1176,8 @@ apps:
               ohlcvInterval: 60
               logLevel: INFO
             resources:
-              requests: {cpu: 100m, memory: 128Mi}
-              limits: {cpu: 500m, memory: 256Mi}
+              requests: { cpu: 100m, memory: 128Mi }
+              limits: { cpu: 500m, memory: 256Mi }
 
           live-dashboard:
             enabled: false
@@ -1213,8 +1213,8 @@ apps:
               strategyId: double-b-h4
               since: "2026-09-20T14:14:37Z"
             resources:
-              requests: {cpu: 100m, memory: 128Mi}
-              limits: {cpu: 500m, memory: 256Mi}
+              requests: { cpu: 100m, memory: 128Mi }
+              limits: { cpu: 500m, memory: 256Mi }
 
           # The final umbrella has no feature-engine, nightly, Guardian or legacy strategy.
           # Separate Nightly/Kronos generators and external writers require independent
