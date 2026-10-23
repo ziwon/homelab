@@ -1047,8 +1047,8 @@ apps:
               type: Recreate
             image:
               repository: harbor.home.lab/restack/deepfx/mt5-bridge
-              tag: main-1dd783b
-              digest: sha256:b865dd939fe2b861b93168b209ca2d23600cd99445aa0002af96d8a01f50da4a
+              tag: main-ae2f408
+              digest: sha256:9244ff8fabec4a26896e99b39bc9553f9e9183cd44d8ec1548beabfc44b141d6
               pullPolicy: Always
             imagePullSecrets:
               - name: harbor-secret
@@ -1334,10 +1334,10 @@ apps:
               spec:
                 type: ClusterIP
                 ports:
-                  - {name: command, port: 5555, targetPort: command, protocol: TCP}
-                  - {name: publish, port: 5556, targetPort: publish, protocol: TCP}
-                  - {name: health, port: 5557, targetPort: health, protocol: TCP}
-                  - {name: vnc, port: 3000, targetPort: vnc, protocol: TCP}
+                  - { name: command, port: 5555, targetPort: command, protocol: TCP }
+                  - { name: publish, port: 5556, targetPort: publish, protocol: TCP }
+                  - { name: health, port: 5557, targetPort: health, protocol: TCP }
+                  - { name: vnc, port: 3000, targetPort: vnc, protocol: TCP }
                 selector:
                   app.kubernetes.io/name: mt5-bridge-ai-desk
                   app.kubernetes.io/instance: deepfx-ai-desk
@@ -1369,7 +1369,7 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: mt5-bridge
-                        image: harbor.home.lab/restack/deepfx/mt5-bridge@sha256:b865dd939fe2b861b93168b209ca2d23600cd99445aa0002af96d8a01f50da4a
+                        image: harbor.home.lab/restack/deepfx/mt5-bridge@sha256:9244ff8fabec4a26896e99b39bc9553f9e9183cd44d8ec1548beabfc44b141d6
                         # main-1dd783b: native take-profit (restack/deepfx#114) and request timing logs (#115).
                         imagePullPolicy: IfNotPresent
                         envFrom:
@@ -1402,10 +1402,10 @@ apps:
                                 name: managed-deepfx-ai-desk
                                 key: MT5_SERVER
                         ports:
-                          - {name: command, containerPort: 5555, protocol: TCP}
-                          - {name: publish, containerPort: 5556, protocol: TCP}
-                          - {name: health, containerPort: 5557, protocol: TCP}
-                          - {name: vnc, containerPort: 3000, protocol: TCP}
+                          - { name: command, containerPort: 5555, protocol: TCP }
+                          - { name: publish, containerPort: 5556, protocol: TCP }
+                          - { name: health, containerPort: 5557, protocol: TCP }
+                          - { name: vnc, containerPort: 3000, protocol: TCP }
                         # The first start installs Wine, Python and the terminal into the
                         # empty volume; allow an hour before the probe restarts it.
                         startupProbe:
@@ -1582,10 +1582,10 @@ apps:
               spec:
                 type: ClusterIP
                 ports:
-                  - {name: command, port: 5555, targetPort: command, protocol: TCP}
-                  - {name: publish, port: 5556, targetPort: publish, protocol: TCP}
-                  - {name: health, port: 5557, targetPort: health, protocol: TCP}
-                  - {name: vnc, port: 3000, targetPort: vnc, protocol: TCP}
+                  - { name: command, port: 5555, targetPort: command, protocol: TCP }
+                  - { name: publish, port: 5556, targetPort: publish, protocol: TCP }
+                  - { name: health, port: 5557, targetPort: health, protocol: TCP }
+                  - { name: vnc, port: 3000, targetPort: vnc, protocol: TCP }
                 selector:
                   app.kubernetes.io/name: mt5-bridge-ts-demo
                   app.kubernetes.io/instance: deepfx-ts-demo
@@ -1617,7 +1617,7 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: mt5-bridge
-                        image: harbor.home.lab/restack/deepfx/mt5-bridge@sha256:b865dd939fe2b861b93168b209ca2d23600cd99445aa0002af96d8a01f50da4a
+                        image: harbor.home.lab/restack/deepfx/mt5-bridge@sha256:9244ff8fabec4a26896e99b39bc9553f9e9183cd44d8ec1548beabfc44b141d6
                         # main-1dd783b: native take-profit (restack/deepfx#114) and request timing logs (#115).
                         imagePullPolicy: IfNotPresent
                         envFrom:
@@ -1650,10 +1650,10 @@ apps:
                                 name: managed-deepfx-ts-demo
                                 key: MT5_SERVER
                         ports:
-                          - {name: command, containerPort: 5555, protocol: TCP}
-                          - {name: publish, containerPort: 5556, protocol: TCP}
-                          - {name: health, containerPort: 5557, protocol: TCP}
-                          - {name: vnc, containerPort: 3000, protocol: TCP}
+                          - { name: command, containerPort: 5555, protocol: TCP }
+                          - { name: publish, containerPort: 5556, protocol: TCP }
+                          - { name: health, containerPort: 5557, protocol: TCP }
+                          - { name: vnc, containerPort: 3000, protocol: TCP }
                         # The first start installs Wine, Python and the terminal into the
                         # empty volume; allow an hour before the probe restarts it.
                         startupProbe:
