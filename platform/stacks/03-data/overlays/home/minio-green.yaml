@@ -14,6 +14,13 @@ apps:
           mode: standalone
           replicas: 1
 
+          # Same upstream release binary, SHA256-verified from official GitHub assets.
+          # Upstream Quay/Docker Hub pulls returned 401 during recovery.
+          image:
+            repository: harbor.home.lab/library/minio
+            tag: RELEASE.2024-12-18T13-15-44Z-recovery.1
+            pullPolicy: IfNotPresent
+
           resources:
             requests:
               memory: 1Gi
