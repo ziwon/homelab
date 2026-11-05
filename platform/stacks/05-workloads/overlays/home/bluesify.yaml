@@ -1,0 +1,115 @@
+apps:
+  # Namespace and the Harbor pull secret.
+  - name: bluesify-raw
+    namespace: bluesify
+    project: dev
+    syncWave: "0"
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: bluesify-raw
+        values: |
+          resources:
+            - apiVersion: v1
+              kind: Namespace
+              metadata:
+                name: bluesify
+
+            # Reuses the restack Harbor robot that fft-os already syncs.
+            - apiVersion: secrets.infisical.com/v1alpha1
+              kind: InfisicalSecret
+              metadata:
+                name: managed-bluesify-harbor-secret
+                namespace: bluesify
+              spec:
+                hostAPI: https://app.infisical.com/api
+                authentication:
+                  universalAuth:
+                    secretsScope:
+                      projectSlug: fft-os
+                      envSlug: "home"
+                      secretsPath: /harbor
+                    credentialsRef:
+                      secretName: infisical-secrets
+                      secretNamespace: infisical
+                managedKubeSecretReferences:
+                  - secretName: harbor-secret
+                    secretNamespace: bluesify
+                    secretType: kubernetes.io/dockerconfigjson
+                    creationPolicy: Owner
+
+  # Arrangement API. Public traffic arrives through the homelab-n8n tunnel as
+  # bluesify-api.restack.tech, proxied by the bluesify.pages.dev front end.
+  - name: bluesify
+    namespace: bluesify
+    project: dev
+    syncWave: "5"
+    dependencies:
+      - bluesify-raw
+    source:
+      repoURL: https://bedag.github.io/helm-charts
+      chart: raw
+      targetRevision: 2.0.2
+      helm:
+        releaseName: bluesify
+        values: |
+          resources:
+            - apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: bluesify
+                namespace: bluesify
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: bluesify
+                template:
+                  metadata:
+                    labels:
+                      app: bluesify
+                  spec:
+                    imagePullSecrets:
+                      - name: harbor-secret
+                    containers:
+                      - name: api
+                        image: harbor.home.lab/restack/bluesify:main-971e054
+                        imagePullPolicy: IfNotPresent
+                        ports:
+                          - containerPort: 8000
+                            name: http
+                        readinessProbe:
+                          httpGet:
+                            path: /api/health
+                            port: 8000
+                          initialDelaySeconds: 5
+                          periodSeconds: 10
+                        livenessProbe:
+                          httpGet:
+                            path: /api/health
+                            port: 8000
+                          initialDelaySeconds: 15
+                          periodSeconds: 20
+                        resources:
+                          requests:
+                            cpu: 100m
+                            memory: 256Mi
+                          limits:
+                            cpu: "1"
+                            memory: 1Gi
+
+            - apiVersion: v1
+              kind: Service
+              metadata:
+                name: bluesify
+                namespace: bluesify
+              spec:
+                selector:
+                  app: bluesify
+                ports:
+                  - name: http
+                    port: 80
+                    targetPort: 8000
+                    protocol: TCP
