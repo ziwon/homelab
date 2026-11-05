@@ -213,6 +213,9 @@ apps:
                                   type: json
                                   stored: true
                                   indexed: true
+                            retention:
+                              period: 7 days
+                              schedule: hourly
                             EOF
 
                             echo "Creating Kafka Source..."
@@ -229,7 +232,8 @@ apps:
                               client_params:
                                 bootstrap.servers: "redpanda.redpanda.svc.cluster.local:9093"
                                 group.id: "quickwit-group"
-                                auto.offset.reset: "earliest"
+                                # A fresh index starts at the live tail instead of replaying the topic.
+                                auto.offset.reset: "latest"
                                 security.protocol: "SASL_SSL"
                                 sasl.mechanism: "SCRAM-SHA-512"
                                 sasl.username: "${REDPANDA_USERNAME}"
@@ -250,3 +254,77 @@ apps:
                           items:
                             - key: ca.crt
                               path: ca.crt
+
+            # Keep k8s-logs under 10 GiB: mark the oldest published splits for
+            # deletion and let the janitor remove them. The 7-day retention
+            # above is only a backstop, since log volume swings 0.3-7 GB/day.
+            - apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: quickwit-log-cap
+                namespace: monitoring
+              data:
+                cap.py: |
+                  import json
+                  import urllib.request
+
+                  BASE = "http://quickwit-searcher.monitoring.svc:7280/api/v1/indexes/k8s-logs"
+                  CAP_BYTES = 10 * 1024**3
+
+                  with urllib.request.urlopen(f"{BASE}/splits?split_states=Published&limit=100000") as response:
+                      splits = json.load(response)["splits"]
+                  splits.sort(key=lambda split: (split.get("time_range") or {}).get("end", 0), reverse=True)
+
+                  kept, expired = 0, []
+                  for split in splits:
+                      size = split["footer_offsets"]["end"]
+                      if kept + size <= CAP_BYTES:
+                          kept += size
+                      else:
+                          expired.append(split["split_id"])
+
+                  print(f"kept {kept / 1024**3:.2f} GiB in {len(splits) - len(expired)} splits")
+                  if expired:
+                      request = urllib.request.Request(
+                          f"{BASE}/splits/mark-for-deletion",
+                          data=json.dumps({"split_ids": expired}).encode(),
+                          headers={"Content-Type": "application/json"},
+                          method="PUT",
+                      )
+                      urllib.request.urlopen(request).close()
+                      print(f"marked {len(expired)} splits for deletion")
+
+            - apiVersion: batch/v1
+              kind: CronJob
+              metadata:
+                name: quickwit-log-cap
+                namespace: monitoring
+              spec:
+                schedule: "17 * * * *"
+                concurrencyPolicy: Forbid
+                successfulJobsHistoryLimit: 1
+                failedJobsHistoryLimit: 3
+                jobTemplate:
+                  spec:
+                    backoffLimit: 1
+                    template:
+                      spec:
+                        restartPolicy: Never
+                        containers:
+                          - name: cap
+                            image: python:3.12-alpine
+                            command: ["python", "/scripts/cap.py"]
+                            resources:
+                              requests:
+                                cpu: 10m
+                                memory: 32Mi
+                              limits:
+                                cpu: 200m
+                                memory: 128Mi
+                            volumeMounts:
+                              - name: script
+                                mountPath: /scripts
+                        volumes:
+                          - name: script
+                            configMap:
+                              name: quickwit-log-cap
