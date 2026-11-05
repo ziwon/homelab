@@ -21,6 +21,14 @@ apps:
             tag: RELEASE.2024-12-18T13-15-44Z-recovery.1
             pullPolicy: IfNotPresent
 
+          # The post-install job needed quay.io/minio/mc, which now returns 401 too.
+          # Chainguard's image keeps the /usr/bin/mc and /bin/sh paths the chart's
+          # scripts call. Pinned by digest.
+          mcImage:
+            repository: cgr.dev/chainguard/minio-client
+            tag: latest-dev@sha256:d4367bd78c859a7629c48978cbdaa0f23a27d92ad3d59457738bc0c7f7128de2
+            pullPolicy: IfNotPresent
+
           resources:
             requests:
               memory: 1Gi
