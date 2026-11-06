@@ -75,7 +75,7 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: api
-                        image: harbor.home.lab/restack/bluesify:main-ab2ff12
+                        image: harbor.home.lab/restack/bluesify:main-e08db02
                         imagePullPolicy: IfNotPresent
                         ports:
                           - containerPort: 8000
