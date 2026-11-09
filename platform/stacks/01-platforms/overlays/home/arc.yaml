@@ -369,3 +369,49 @@ apps:
                     - name: harbor-ca
                       mountPath: /etc/docker/certs.d/harbor.home.lab
                       readOnly: true
+
+  # Runner scale set for ziwon/bluesify: Python tests only, so no Docker-in-Docker,
+  # no cluster RBAC, one runner at a time and bounded scratch space on the node disk.
+  - name: gha-runner-scale-set-bluesify
+    namespace: arc-runners
+    project: dev
+    syncWave: "10"
+    dependencies:
+      - gha-runner-scale-set-controller
+      - arc-runners-raw
+    source:
+      repoURL: ghcr.io/actions/actions-runner-controller-charts
+      chart: gha-runner-scale-set
+      targetRevision: 0.13.0
+      helm:
+        releaseName: bluesify
+        values: |
+          githubConfigUrl: https://github.com/ziwon/bluesify
+          githubConfigSecret: managed-github-auth-ziwon
+          runnerScaleSetName: "bluesify"
+
+          minRunners: 0
+          maxRunners: 1
+
+          controllerServiceAccount:
+            name: arc-gha-rs-controller
+            namespace: arc-systems
+
+          template:
+            spec:
+              imagePullSecrets:
+                - name: harbor-pull-secret
+
+              containers:
+                - name: runner
+                  image: harbor.home.lab/restack/actions-runner:latest
+                  imagePullPolicy: IfNotPresent
+                  command: ["/home/runner/run.sh"]
+                  resources:
+                    requests:
+                      cpu: "2"
+                      memory: 4Gi
+                      ephemeral-storage: 2Gi
+                    limits:
+                      memory: 8Gi
+                      ephemeral-storage: 6Gi
