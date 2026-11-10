@@ -52,8 +52,8 @@ apps:
                 authentication:
                   universalAuth:
                     secretsScope:
-                      projectSlug: fft-os
-                      envSlug: "home"
+                      projectSlug: home-lab
+                      envSlug: "hme"
                       secretsPath: /bluesify
                     credentialsRef:
                       secretName: infisical-secrets
