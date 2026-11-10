@@ -98,7 +98,7 @@ apps:
                       - name: harbor-secret
                     containers:
                       - name: api
-                        image: harbor.home.lab/restack/bluesify:main-bf7c0ef
+                        image: harbor.home.lab/restack/bluesify:main-30257e5
                         imagePullPolicy: IfNotPresent
                         # Optional: without it /api/scan answers 503 and everything else works.
                         envFrom:
