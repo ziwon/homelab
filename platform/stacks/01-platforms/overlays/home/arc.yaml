@@ -453,6 +453,26 @@ apps:
                 - name: docker-data
                   emptyDir:
                     sizeLimit: 8Gi
+                - name: dind-externals
+                  emptyDir:
+                    sizeLimit: 1Gi
+              initContainers:
+                - name: init-dind-externals
+                  image: harbor.home.lab/restack/actions-runner:latest
+                  imagePullPolicy: IfNotPresent
+                  command: ["cp", "-r", "/home/runner/externals/.", "/home/runner/tmpDir/"]
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                      ephemeral-storage: 512Mi
+                    limits:
+                      cpu: "1"
+                      memory: 512Mi
+                      ephemeral-storage: 2Gi
+                  volumeMounts:
+                    - name: dind-externals
+                      mountPath: /home/runner/tmpDir
               containers:
                 - name: runner
                   image: harbor.home.lab/restack/actions-runner:latest
@@ -515,3 +535,5 @@ apps:
                       mountPath: /var/run
                     - name: docker-data
                       mountPath: /var/lib/docker
+                    - name: dind-externals
+                      mountPath: /home/runner/externals
