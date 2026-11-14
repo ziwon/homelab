@@ -511,6 +511,8 @@ apps:
                     - dockerd
                     - --host=unix:///var/run/docker.sock
                     - --group=1001
+                    - --mtu=1280
+                    - --default-network-opt=bridge=com.docker.network.driver.mtu=1280
                   startupProbe:
                     exec:
                       command: ["docker", "info"]
